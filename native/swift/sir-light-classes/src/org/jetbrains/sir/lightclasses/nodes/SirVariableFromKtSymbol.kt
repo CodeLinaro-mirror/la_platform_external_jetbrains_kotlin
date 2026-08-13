@@ -16,10 +16,13 @@ import org.jetbrains.kotlin.sir.providers.impl.BridgeProvider.BridgeFunctionProx
 import org.jetbrains.kotlin.sir.providers.sirDeclarationName
 import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.kotlin.sir.providers.source.kaSymbolOrNull
+import org.jetbrains.kotlin.sir.providers.utils.allRequiredOptIns
 import org.jetbrains.kotlin.sir.providers.utils.throwsAnnotation
 import org.jetbrains.kotlin.sir.providers.withSessions
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
-import org.jetbrains.kotlin.utils.addToStdlib.ifFalse
+import org.jetbrains.kotlin.sir.util.isUnavailable
+import org.jetbrains.kotlin.sir.util.unavailableTypes
+import org.jetbrains.kotlin.sir.util.replaceOrAddPropagatedUnavailability
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.*
@@ -60,7 +63,11 @@ internal abstract class SirAbstractVariableFromKtSymbol(
         ktSymbol.sirDeclarationName()
     }
     override val type: SirType by lazy {
-        translateReturnType()
+        if (ktSymbol.isVal) {
+            translateReturnType()
+        } else {
+            translateInvariantType()
+        }
     }
     override val getter: SirGetter by lazy {
         ((ktSymbol as? KaPropertySymbol)?.let {
@@ -91,7 +98,13 @@ internal abstract class SirAbstractVariableFromKtSymbol(
         set(_) = Unit
 
     override val attributes: List<SirAttribute> by lazy {
-        this.translatedAttributes + listOfNotNull(SirAttribute.NonOverride.takeIf { overrideStatus is OverrideStatus.Conflicts })
+        buildList {
+            addAll(this@SirAbstractVariableFromKtSymbol.translatedAttributes)
+            if (overrideStatus is OverrideStatus.Conflicts) {
+                add(SirAttribute.NonOverride)
+            }
+            replaceOrAddPropagatedUnavailability { type.unavailableTypes }
+        }
     }
 
     override val isOverride: Boolean
@@ -131,21 +144,24 @@ internal abstract class SirAbstractGetter(
 
     private val bridgeProxy: BridgeFunctionProxy? by lazyWithSessions {
         val suffix = "_get"
-        val variable = variable ?: return@lazyWithSessions null
+        val variable = variable?.takeUnless { it.isUnavailable } ?: return@lazyWithSessions null
         val fqName = fqName ?: return@lazyWithSessions null
         val baseName = fqName.baseBridgeName + suffix
+        val getterSymbol = variable.kaSymbolOrNull<KaPropertySymbol>()?.getter ?: variable.kaSymbolOrNull<KaVariableSymbol>()
 
         generateFunctionBridge(
             baseBridgeName = baseName,
             explicitParameters = emptyList(),
             returnType = variable.type,
             kotlinFqName = fqName,
+            kotlinOptIns = getterSymbol?.allRequiredOptIns ?: emptyList(),
             selfParameter = (variable.parent !is SirModule && variable.isInstance).ifTrue {
-                SirParameter("", "self", selfType ?: error("Only a member can have a self parameter"))
+                SirParameter(null, "self", selfType ?: error("Only a member can have a self parameter"))
             },
+            contextParameters = emptyList(),
             extensionReceiverParameter = null,
             errorParameter = errorType.takeIf { it != SirType.never }?.let {
-                SirParameter("", "_out_error", it)
+                SirParameter(null, "_out_error", it)
             },
             isAsync = false,
         )
@@ -162,7 +178,7 @@ internal abstract class SirAbstractGetter(
 
     override var body: SirFunctionBody?
         set(value) {}
-        get() = bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody)
+        get() = with(sirSession) { bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody) }
 
     private inline fun <R> lazyWithSessions(crossinline block: context(KaSession, SirSession) () -> R): Lazy<R> = lazy {
         sirSession.withSessions(block)
@@ -198,21 +214,24 @@ internal abstract class SirAbstractSetter(
 
     private val bridgeProxy: BridgeFunctionProxy? by lazyWithSessions {
         val suffix = "_set"
-        val variable = variable ?: return@lazyWithSessions null
+        val variable = variable?.takeUnless { it.isUnavailable } ?: return@lazyWithSessions null
         val fqName = fqName ?: return@lazyWithSessions null
         val baseName = fqName.baseBridgeName + suffix
+        val setterSymbol = variable.kaSymbolOrNull<KaPropertySymbol>()?.setter ?: variable.kaSymbolOrNull<KaVariableSymbol>()
 
         generateFunctionBridge(
             baseBridgeName = baseName,
             explicitParameters = listOf(SirParameter(parameterName = parameterName, type = variable.type)),
             returnType = SirNominalType(SirSwiftModule.void),
             kotlinFqName = fqName,
+            kotlinOptIns = setterSymbol?.allRequiredOptIns ?: emptyList(),
             selfParameter = (parent !is SirModule && variable.isInstance).ifTrue {
-                SirParameter("", "self", selfType ?: error("Only a member can have a self parameter"))
+                SirParameter(null, "self", selfType ?: error("Only a member can have a self parameter"))
             },
+            contextParameters = emptyList(),
             extensionReceiverParameter = null,
             errorParameter = errorType.takeIf { it != SirType.never }?.let {
-                SirParameter("", "_out_error", it)
+                SirParameter(null, "_out_error", it)
             },
             isAsync = false,
         )
@@ -229,7 +248,7 @@ internal abstract class SirAbstractSetter(
 
     override var body: SirFunctionBody?
         set(value) {}
-        get() = bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody)
+        get() = with(sirSession) { bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody) }
 
     private inline fun <R> lazyWithSessions(crossinline block: context(KaSession, SirSession) () -> R): Lazy<R> = lazy {
         sirSession.withSessions(block)

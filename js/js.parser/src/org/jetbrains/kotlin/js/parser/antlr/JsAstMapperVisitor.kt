@@ -424,16 +424,7 @@ internal class JsAstMapperVisitor(
     }
 
     override fun visitClassDeclaration(ctx: JavaScriptParser.ClassDeclarationContext): JsClass {
-        val tail = ctx.classTail()
-        val name = visitNode<JsNameRef>(ctx.identifier()).name
-        val baseClass = tail.singleExpression()?.let { visitNode<JsExpression>(it) }
-        val (ctors, methods) = tail.classElement()
-            .mapNotNull { visitNode<JsFunction?>(it) }
-            .partition { it.name?.ident == "constructor" }
-        check(ctors.size <= 1, ctx.identifier().startPosition) { "A class may only have one constructor" }
-
-        return JsClass(name, baseClass, ctors.singleOrNull(), methods.toMutableList())
-            .applyLocation(ctx)
+        return createClassNode(ctx.identifier(), ctx.classTail(), ctx.Class())
     }
 
     override fun visitClassTail(ctx: JavaScriptParser.ClassTailContext): JsNode? {
@@ -926,7 +917,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.run {
-            val (operator, token) = when {
+            val [operator, token] = when {
                 Equals_() != null -> JsBinaryOperator.EQ to Equals_()
                 NotEquals() != null -> JsBinaryOperator.NEQ to NotEquals()
                 IdentityEquals() != null -> JsBinaryOperator.REF_EQ to IdentityEquals()
@@ -961,7 +952,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.run {
-            val (operator, token) = when {
+            val [operator, token] = when {
                 Multiply() != null -> JsBinaryOperator.MUL to Multiply()
                 Divide() != null -> JsBinaryOperator.DIV to Divide()
                 Modulus() != null -> JsBinaryOperator.MOD to Modulus()
@@ -976,7 +967,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.run {
-            val (operator, token) = when {
+            val [operator, token] = when {
                 RightShiftArithmetic() != null -> JsBinaryOperator.SHR to RightShiftArithmetic()
                 LeftShiftArithmetic() != null -> JsBinaryOperator.SHL to LeftShiftArithmetic()
                 RightShiftLogical() != null -> JsBinaryOperator.SHRU to RightShiftLogical()
@@ -995,7 +986,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.run {
-            val (operator, token) = when {
+            val [operator, token] = when {
                 Plus() != null -> JsBinaryOperator.ADD to Plus()
                 Minus() != null -> JsBinaryOperator.SUB to Minus()
                 else -> raiseParserException("Invalid binary operation: ${ctx.text}", ctx)
@@ -1009,7 +1000,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.run {
-            val (operator, token) = when {
+            val [operator, token] = when {
                 LessThan() != null -> JsBinaryOperator.LT to LessThan()
                 MoreThan() != null -> JsBinaryOperator.GT to MoreThan()
                 LessThanEquals() != null -> JsBinaryOperator.LTE to LessThanEquals()
@@ -1079,8 +1070,8 @@ internal class JsAstMapperVisitor(
         }
     }
 
-    override fun visitClassExpression(ctx: JavaScriptParser.ClassExpressionContext): JsNode? {
-        reportError("Classes are not supported yet", ctx)
+    override fun visitClassExpression(ctx: JavaScriptParser.ClassExpressionContext): JsClass {
+        return createClassNode(ctx.identifier(), ctx.classTail(), ctx.Class())
     }
 
     override fun visitMemberIndexExpression(ctx: JavaScriptParser.MemberIndexExpressionContext): JsArrayAccess {
@@ -1117,7 +1108,7 @@ internal class JsAstMapperVisitor(
         val right = visitNode<JsExpression>(ctx.singleExpressionImpl(1))
 
         return ctx.assignmentOperator().run {
-            val (jsOperator, token) = when {
+            val [jsOperator, token] = when {
                 MultiplyAssign() != null -> JsBinaryOperator.ASG_MUL to MultiplyAssign()
                 DivideAssign() != null -> JsBinaryOperator.ASG_DIV to DivideAssign()
                 ModulusAssign() != null -> JsBinaryOperator.ASG_MOD to ModulusAssign()
@@ -1396,6 +1387,22 @@ internal class JsAstMapperVisitor(
 
     override fun visitEos(ctx: JavaScriptParser.EosContext): JsNode? {
         return super.visit(ctx)
+    }
+
+    private fun createClassNode(
+        identifier: JavaScriptParser.IdentifierContext?,
+        tail: JavaScriptParser.ClassTailContext,
+        classKeyword: TerminalNode
+    ): JsClass {
+        val name = identifier?.let { visitNode<JsNameRef>(it).name }
+        val baseClass = tail.singleExpression()?.let { visitNode<JsExpression>(it) }
+        val [ctors, methods] = tail.classElement()
+            .mapNotNull { visitNode<JsFunction?>(it) }
+            .partition { it.name?.ident == "constructor" }
+        check(ctors.size <= 1, identifier?.startPosition ?: classKeyword.startPosition) { "A class may only have one constructor" }
+
+        return JsClass(name, baseClass, ctors.singleOrNull(), methods.toMutableList())
+            .applyLocation(classKeyword)
     }
 
     private fun mapBlock(statements: List<JsStatement?>): JsBlock {

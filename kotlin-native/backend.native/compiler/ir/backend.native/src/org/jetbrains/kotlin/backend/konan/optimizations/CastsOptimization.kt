@@ -38,6 +38,12 @@ import java.util.*
 
 internal val STATEMENT_ORIGIN_NO_CAST_NEEDED = IrStatementOriginImpl("NO_CAST_NEEDED")
 
+private fun IrSimpleFunction.isTrivialValGetter(context: Context) =
+        if (correspondingPropertySymbol?.owner?.isVar != false)
+            false
+        else
+            context.isTrivialGetter(this)
+
 private data class LeafIndexWithValue(val index: Int, val value: Boolean) {
     val bitIndex: Int get() = index * 2 + (if (value) 0 else 1)
 }
@@ -170,6 +176,7 @@ private object Predicates {
      * we know that x is A inside the else clause (the full predicate is (!foo(..) & (x is A))).
      * In this case the call to foo(..) can be optimized away after the full if/else clause have been handled.
      */
+    // TODO: When it is safe to do it? KT-85621
     fun optimizeAwayComplexTerms(predicate: Predicate, complexTermsMask: CustomBitSet): Predicate {
         val conjunction = predicate as? Conjunction ?: return predicate
         val terms = conjunction.terms.filterNot { disjunction -> disjunction.terms.intersects(complexTermsMask) }
@@ -518,7 +525,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                     }
 
             fun controlFlowMergePoint(cfmpInfo: ControlFlowMergePointInfo, result: VisitorResult) {
-                for ((variable, alias) in variableAliases) {
+                for ([variable, alias] in variableAliases) {
                     val accumulatedAlias = cfmpInfo.variableAliases[variable]
                     if (accumulatedAlias == null)
                         cfmpInfo.variableAliases[variable] = alias
@@ -540,14 +547,14 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
 
             fun finishControlFlowMerging(irElement: IrElement, cfmpInfo: ControlFlowMergePointInfo): VisitorResult {
                 variableAliases.clear()
-                for ((variable, alias) in cfmpInfo.variableAliases) {
+                for ([variable, alias] in cfmpInfo.variableAliases) {
                     variableAliases[variable] = if (alias != multipleValuesMarker)
                         alias
                     else
                         createPhantomVariable(variable, createPhantomValueAt(variable, irElement)) // This is basically a phi node.
                 }
                 return VisitorResult(
-                        Predicates.optimizeAwayComplexTerms(cfmpInfo.predicate, complexTermsMask),
+                        cfmpInfo.predicate,
                         cfmpInfo.phiNodeAlias.takeIf { it != multipleValuesMarker }
                 )
             }
@@ -649,7 +656,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                 }
                 val matchResultSafeCall = expression.matchSafeCall()
                 if (matchResultSafeCall != null) {
-                    val (safeReceiverInitializer, safeCallResult) = matchResultSafeCall
+                    val [safeReceiverInitializer, safeCallResult] = matchResultSafeCall
                     val safeReceiverPredicate = buildNullablePredicate(safeReceiverInitializer, result)
                     result.variable = null
                     return if (safeReceiverPredicate == null) {
@@ -727,7 +734,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
             }
 
             fun buildAndAnd(matchResult: Pair<IrExpression, IrExpression>): BooleanPredicate {
-                val (left, right) = matchResult
+                val [left, right] = matchResult
                 val leftBooleanPredicate = buildBooleanPredicate(left)
                 val rightBooleanPredicate = usingUpperLevelPredicate(leftBooleanPredicate.ifTrue) { buildBooleanPredicate(right) }
                 return BooleanPredicate(
@@ -740,7 +747,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
             }
 
             fun buildOrOr(matchResult: Pair<IrExpression, IrExpression>): BooleanPredicate {
-                val (left, right) = matchResult
+                val [left, right] = matchResult
                 val leftBooleanPredicate = buildBooleanPredicate(left)
                 val rightBooleanPredicate = usingUpperLevelPredicate(leftBooleanPredicate.ifFalse) { buildBooleanPredicate(right) }
                 return BooleanPredicate(
@@ -755,7 +762,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
             fun buildEqEq(expression: IrExpression, matchResult: Pair<IrExpression, IrExpression>): BooleanPredicate {
                 // if (x as? A != null) ...  =  if (x is A) ...
                 // if ((x as? A)?.y == ..)
-                val (left, right) = matchResult
+                val [left, right] = matchResult
                 val leftIsNullConst = left.isNullConst()
                 val rightIsNullConst = right.isNullConst()
                 return if ((leftIsNullConst || !left.type.isNullable()) && right.type.isNullable()) {
@@ -918,7 +925,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
 
                 fun forgetChangedVariables(irElement: IrElement) {
                     val changedVariables = mutableSetOf<IrVariable>()
-                    for ((variable, alias) in variableAliases) {
+                    for ([variable, alias] in variableAliases) {
                         val savedAlias = savedVariableAliases[variable]
                         if (savedAlias != null && savedAlias != alias)
                             changedVariables.add(variable)
@@ -927,7 +934,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                         savedVariableAliases[variable] = createPhantomVariable(variable, createPhantomValueAt(variable, irElement))
                     }
                     variableAliases.clear()
-                    for ((variable, alias) in savedVariableAliases) {
+                    for ([variable, alias] in savedVariableAliases) {
                         variableAliases[variable] = alias
                     }
                 }
@@ -973,7 +980,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                 context.logMultiple {
                     +"LOOP START ${loop.condition.render()}"
                     +"    ${data.format(leafTerms)}"
-                    variableAliasesAtLoopStart.forEach { (variable, alias) -> +"    ${variable.name} -> ${alias.name}" }
+                    variableAliasesAtLoopStart.forEach { [variable, alias] -> +"    ${variable.name} -> ${alias.name}" }
                 }
 
                 val breaksCFMPInfo = ControlFlowMergePointInfo(upperLevelPredicates.size)
@@ -1018,7 +1025,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
 
                     if (iter > 1) { // Merge starting with the second iteration since the first is always executed.
                         predicateAtLoopStart = Predicates.or(predicateAtLoopStart, prevPredicateAtLoopStart)
-                        for ((variable, prevAlias) in prevVariableAliasesAtLoopStart) {
+                        for ([variable, prevAlias] in prevVariableAliasesAtLoopStart) {
                             val alias = variableAliasesAtLoopStart[variable]
                             if (alias == null)
                                 variableAliasesAtLoopStart[variable] = prevAlias
@@ -1029,7 +1036,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
 
                     fun nothingChanged(): Boolean {
                         if (variableAliasesAtLoopStart.size != prevVariableAliasesAtLoopStart.size) return false
-                        for ((variable, alias) in variableAliasesAtLoopStart)
+                        for ([variable, alias] in variableAliasesAtLoopStart)
                             if (prevVariableAliasesAtLoopStart[variable] != alias) return false
 
                         return Predicates.and(
@@ -1044,7 +1051,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                             +"    ${Predicates.and(data, predicateAtLoopStart).format(leafTerms)}"
                             +"    ${Predicates.and(data, breaksCFMPInfo.predicate).format(leafTerms)}"
                             +"    ${Predicates.and(data, conditionPredicate.ifFalse).format(leafTerms)}"
-                            variableAliasesAtLoopStart.forEach { (variable, alias) -> +"    ${variable.name} -> ${alias.name}" }
+                            variableAliasesAtLoopStart.forEach { [variable, alias] -> +"    ${variable.name} -> ${alias.name}" }
                         }
 
                         val result = finishControlFlowMerging(loop, breaksCFMPInfo).predicate
@@ -1057,7 +1064,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                             +"LOOP ITER #$iter ${loop.condition.render()}"
                             +"    ${Predicates.and(data, predicateAtLoopStart).format(leafTerms)}"
                             +"    ${Predicates.and(data, breaksCFMPInfo.predicate).format(leafTerms)}"
-                            variableAliasesAtLoopStart.forEach { (variable, alias) -> +"    ${variable.name} -> ${alias.name}" }
+                            variableAliasesAtLoopStart.forEach { [variable, alias] -> +"    ${variable.name} -> ${alias.name}" }
                         }
                     }
                 } while (iter < MAX_LOOP_ITERATIONS)
@@ -1081,7 +1088,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                     controlFlowMergePoint(cfmpInfo, VisitorResult(loopPredicate))
                 }
                 variableAliases.clear()
-                for ((variable, alias) in savedVariableAliases)
+                for ([variable, alias] in savedVariableAliases)
                     variableAliases[variable] = alias
 
                 controlFlowMergePoint(cfmpInfo, VisitorResult(conditionBooleanPredicate.ifFalse, null))
@@ -1095,7 +1102,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                     VisitorResult(handleDoWhileLoop(loop, data))
 
             fun tryOptimizeTypeCheck(expression: IrTypeOperatorCall, variable: IrValueDeclaration, predicate: Predicate) {
-                val fullPredicate = getFullPredicate(predicate, true, 0)
+                val fullPredicate = getFullPredicate(predicate, false, 0)
                 context.logMultiple {
                     +"TYPE CHECK: ${expression.dump()}"
                     +"    ${fullPredicate.format(leafTerms)}"
@@ -1138,7 +1145,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                       TYPE_OP type=kotlin.Any origin=IMPLICIT_CAST typeOperand=kotlin.Any
                         GET_VAR 'x: kotlin.Any declared in <root>.foo' type=kotlin.Any origin=null
                  */
-                val (argumentPredicate, argumentVariable) = expression.argument.accept(this, data)
+                (val argumentPredicate = predicate, val argumentVariable = variable) = expression.argument.accept(this, data)
                 if (expression.isCast() || expression.isTypeCheck() || expression.operator == IrTypeOperator.SAFE_CAST) {
                     if (argumentVariable != null) {
                         tryOptimizeTypeCheck(expression, argumentVariable, argumentPredicate)
@@ -1176,7 +1183,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                             controlFlowMergePoint(cfmpInfo, branchResult)
                         }
                         variableAliases.clear()
-                        for ((variable, alias) in savedVariableAliases)
+                        for ([variable, alias] in savedVariableAliases)
                             variableAliases[variable] = alias
                         predicate = Predicates.and(predicate, conditionBooleanPredicate.ifFalse)
                     }
@@ -1233,7 +1240,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                         Predicates.and(predicate, Predicates.or(nullablePredicate.ifNull, nullablePredicate.ifNotNull))
                     }
                 } else {
-                    val (predicate, delegatedVariable) = value.accept(this, data)
+                    (val predicate, val delegatedVariable = variable) = value.accept(this, data)
                     val alias = delegatedVariable
                             ?: if (variable.isMutable) createPhantomVariable(variable, value) else variable
                     if (alias != variable)
@@ -1275,11 +1282,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                 val callee = expression.symbol.owner
                 val correspondingProperty = callee.correspondingPropertySymbol?.owner
                 val backingField = correspondingProperty?.backingField
-                return if (backingField != null
-                        && !correspondingProperty.isVar
-                        && callee == correspondingProperty.getter
-                        && callee.isTrivialGetter
-                ) {
+                return if (backingField != null && callee.isTrivialValGetter(context)) {
                     val receiverResult = expression.dispatchReceiver?.accept(this, data)
                     val phantomVariable = if (receiverResult == null) {
                         topLevelPropertyPhantomVariables.getOrPut(correspondingProperty) {

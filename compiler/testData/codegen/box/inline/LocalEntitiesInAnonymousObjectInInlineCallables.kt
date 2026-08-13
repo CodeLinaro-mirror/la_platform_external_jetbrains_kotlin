@@ -1,4 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
 // REASON: KT-25341
 
 // FILE: lib.kt

@@ -1,6 +1,3 @@
-// FIR_IDENTICAL
-// LANGUAGE: +SuspendConversion
-
 fun useSuspend(sfn: suspend () -> Unit) {}
 
 fun useSuspendExt(sfn: suspend Int.() -> Unit) {}

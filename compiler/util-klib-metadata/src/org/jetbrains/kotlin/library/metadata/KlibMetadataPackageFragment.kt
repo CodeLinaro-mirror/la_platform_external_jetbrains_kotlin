@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.library.metadata
 
+import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.builtins.BuiltInsPackageFragment
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.SourceElement
@@ -23,11 +24,11 @@ import org.jetbrains.kotlin.serialization.deserialization.getClassId
 import org.jetbrains.kotlin.storage.StorageManager
 import java.lang.ref.SoftReference
 
+@K1Deprecation
 open class KlibMetadataDeserializedPackageFragment(
     fqName: FqName,
     private val library: KotlinLibrary,
     private val metadata: KlibMetadataComponent,
-    private val packageAccessHandler: PackageAccessHandler?,
     private val customMetadataProtoLoader: CustomMetadataProtoLoader?,
     storageManager: StorageManager,
     module: ModuleDescriptor,
@@ -53,16 +54,15 @@ open class KlibMetadataDeserializedPackageFragment(
 
     override val proto: ProtoBuf.PackageFragment
         get() {
-            packageAccessHandler?.markNeededForLink(fqName.asString())
             return protoForNames
         }
 }
 
+@K1Deprecation
 class BuiltInKlibMetadataDeserializedPackageFragment(
     fqName: FqName,
     library: KotlinLibrary,
     metadata: KlibMetadataComponent,
-    packageAccessHandler: PackageAccessHandler?,
     customMetadataProtoLoader: CustomMetadataProtoLoader?,
     storageManager: StorageManager,
     module: ModuleDescriptor,
@@ -72,7 +72,6 @@ class BuiltInKlibMetadataDeserializedPackageFragment(
     fqName = fqName,
     library = library,
     metadata = metadata,
-    packageAccessHandler = packageAccessHandler,
     customMetadataProtoLoader = customMetadataProtoLoader,
     storageManager = storageManager,
     module = module,
@@ -84,6 +83,7 @@ class BuiltInKlibMetadataDeserializedPackageFragment(
         get() = false
 }
 
+@K1Deprecation
 class KlibMetadataCachedPackageFragment(
     byteArray: ByteArray,
     storageManager: StorageManager,
@@ -92,6 +92,7 @@ class KlibMetadataCachedPackageFragment(
     fqName: FqName = FqName(protoForNames.getExtension(KlibMetadataProtoBuf.fqName))
 ) : KlibMetadataPackageFragment(fqName, storageManager, module, containerSource = null)
 
+@K1Deprecation
 abstract class KlibMetadataPackageFragment(
     fqName: FqName,
     storageManager: StorageManager,

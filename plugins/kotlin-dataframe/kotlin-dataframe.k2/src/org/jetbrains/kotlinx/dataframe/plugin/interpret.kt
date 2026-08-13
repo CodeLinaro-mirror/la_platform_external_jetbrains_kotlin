@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.fir.declarations.findArgumentByName
 import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.declarations.getAnnotationWithResolvedArgumentsByClassId
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
-import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.references.*
@@ -35,8 +34,10 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlinx.dataframe.annotations.HasSchema
 import org.jetbrains.kotlinx.dataframe.columns.ColumnPath
+import org.jetbrains.kotlinx.dataframe.plugin.extensions.CallShapeData
 import org.jetbrains.kotlinx.dataframe.plugin.extensions.KotlinTypeFacade
 import org.jetbrains.kotlinx.dataframe.plugin.extensions.ColumnType
+import org.jetbrains.kotlinx.dataframe.plugin.extensions.callShapeData
 import org.jetbrains.kotlinx.dataframe.plugin.impl.*
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ColumnsResolver
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupBy
@@ -53,7 +54,7 @@ fun <T> KotlinTypeFacade.interpret(
 ): Interpreter.Success<T>? {
     val refinedArguments: RefinedArguments = functionCall.collectArgumentExpressions()
 
-    val defaultArguments = processor.expectedArguments.filter { it.defaultValue is Present }.map { it.name }.toSet() + THIS_CALL
+    val defaultArguments = processor.expectedArguments().filter { it.defaultValue is Present }.map { it.name }.toSet() + THIS_CALL
     val actualValueArguments = refinedArguments.associateBy { it.name.identifier }.toSortedMap()
     val conflictingKeys = additionalArguments.keys intersect actualValueArguments.keys
     if (conflictingKeys.isNotEmpty()) {
@@ -62,7 +63,7 @@ fun <T> KotlinTypeFacade.interpret(
         }
         return null
     }
-    val expectedArgsMap = processor.expectedArguments
+    val expectedArgsMap = processor.expectedArguments()
         .associateBy { it.name }.toSortedMap().minus(additionalArguments.keys)
 
     val typeArguments = buildMap {
@@ -100,8 +101,8 @@ fun <T> KotlinTypeFacade.interpret(
 
     val arguments = mutableMapOf<String, Interpreter.Success<Any?>>()
     arguments += additionalArguments
-    arguments += typeArguments
     arguments[THIS_CALL] = Interpreter.Success(functionCall)
+    arguments += typeArguments
     val interpretationResults = refinedArguments.refinedArguments.mapNotNull {
         val name = it.name.identifier
         val expectedArgument = expectedArgsMap[name] ?: error("$processor $name")
@@ -164,8 +165,21 @@ fun <T> KotlinTypeFacade.interpret(
                 }
                 // ok for ReducedGroupBy too
                 val resolvedType = it.expression.resolvedType.fullyExpandedType()
-                val keys = pluginDataFrameSchema(resolvedType.typeArguments[0])
-                val groups = pluginDataFrameSchema(resolvedType.typeArguments[1])
+
+                fun schemaArg(i: Int): PluginDataFrameSchema =
+                    resolvedType.typeArguments.getOrNull(i)
+                        ?.let { pluginDataFrameSchema(it) }
+                        ?: PluginDataFrameSchema.EMPTY
+
+                val [keys, groups] = when (resolvedType.classId) {
+                    Names.GROUP_BY_CLASS_ID, Names.REDUCED_GROUP_BY_CLASS_ID ->
+                        schemaArg(0) to schemaArg(1)
+
+                    Names.GROUPED_CLASS_ID -> PluginDataFrameSchema.EMPTY to schemaArg(0)
+
+                    else -> PluginDataFrameSchema.EMPTY to PluginDataFrameSchema.EMPTY
+                }
+
                 Interpreter.Success(GroupBy(keys, groups))
             }
 
@@ -235,7 +249,7 @@ private fun KotlinTypeFacade.extractValue(
     is FirPropertyAccessExpression -> {
         (expression.calleeReference as? FirResolvedNamedReference)?.let {
             val symbol = it.resolvedSymbol
-            val firPropertySymbol = symbol as? FirPropertySymbol
+            val firPropertySymbol = symbol as? FirLocalPropertySymbol
             val literalInitializer = firPropertySymbol?.resolvedInitializer
 
             if (symbol is FirEnumEntrySymbol) {
@@ -249,7 +263,8 @@ private fun KotlinTypeFacade.extractValue(
             } else if (literalInitializer != null) {
                 extractValue(literalInitializer, reporter)
             } else {
-                Interpreter.Success(columnWithPathApproximations(expression))
+                val columnPath = columnWithPathApproximations(expression)
+                columnPath?.let { Interpreter.Success(it) }
             }
         }
     }
@@ -319,16 +334,16 @@ fun pluginDataFrameSchema(schemaTypeArg: ConeTypeProjection): PluginDataFrameSch
 
 context(sessionHolder: SessionHolder)
 fun pluginDataFrameSchema(coneClassLikeType: ConeClassLikeType): PluginDataFrameSchema {
-    val symbol = coneClassLikeType.toSymbol() as? FirRegularClassSymbol ?: return PluginDataFrameSchema.EMPTY
-    val anyType = sessionHolder.session.builtinTypes.anyType.coneType
-    val declarationSymbols = if (symbol.isLocal && symbol.resolvedSuperTypes.firstOrNull() != anyType) {
-        val rootSchemaSymbol = symbol.resolvedSuperTypes.first().toSymbol() as? FirRegularClassSymbol
-        rootSchemaSymbol?.declaredMemberScope(sessionHolder.session, FirResolvePhase.DECLARATIONS)
+    val symbol = coneClassLikeType.toRegularClassSymbol() ?: return PluginDataFrameSchema.EMPTY
+    val callShapeData = symbol.callShapeData
+    val declarationSymbols = if (callShapeData is CallShapeData.RefinedType) {
+        val rootSchemaSymbol = callShapeData.schemaSymbol
+        rootSchemaSymbol.declaredMemberScope(sessionHolder.session, FirResolvePhase.DECLARATIONS)
     } else {
         symbol.unsubstitutedScope(sessionHolder.session, ScopeSession(), false, FirResolvePhase.DECLARATIONS)
     }.let { scope ->
-        val names = scope?.getCallableNames() ?: emptySet()
-        names.flatMap { scope?.getProperties(it) ?: emptyList() }
+        val names = scope.getCallableNames()
+        names.flatMap { scope.getProperties(it) }
     }
 
     val mapping = symbol.typeParameterSymbols
@@ -363,13 +378,13 @@ private fun List<FirPropertySymbol>.sortPropertiesByOrderAnnotation(): List<FirP
 }
 
 context(session: FirSession)
-private fun KotlinTypeFacade.columnWithPathApproximations(propertyAccess: FirPropertyAccessExpression): ColumnsResolver {
+private fun KotlinTypeFacade.columnWithPathApproximations(propertyAccess: FirPropertyAccessExpression): ColumnsResolver? {
     return propertyAccess.resolvedType.let {
         val column = when (it.classId) {
             Names.DATA_COLUMN_CLASS_ID -> {
                 val type = when (val arg = it.typeArguments.single()) {
                     is ConeStarProjection -> session.builtinTypes.nullableAnyType.coneType
-                    else -> arg as ConeClassLikeType
+                    is ConeKotlinTypeProjection -> arg.type
                 }
                 simpleColumnOf(propertyAccess.columnName(), type)
             }
@@ -378,18 +393,16 @@ private fun KotlinTypeFacade.columnWithPathApproximations(propertyAccess: FirPro
                 val name = propertyAccess.columnName()
                 SimpleColumnGroup(name, pluginDataFrameSchema(arg).columns())
             }
-            else -> return object : ColumnsResolver {
-                override fun resolve(df: PluginDataFrameSchema): List<ColumnWithPathApproximation> {
-                    return emptyList()
-                }
-            }
+            else -> null
         }
-        ResolvedDataColumn(
-            ColumnWithPathApproximation(
-                path = ColumnPath(path(propertyAccess)),
-                column
+        column?.let { column ->
+            ResolvedDataColumn(
+                ColumnWithPathApproximation(
+                    path = ColumnPath(path(propertyAccess)),
+                    column
+                )
             )
-        )
+        }
     }
 }
 
@@ -455,7 +468,7 @@ private fun isDataRow(it: FirPropertySymbol) =
 
 context(sessionHolder: SessionHolder)
 private fun shouldBeConvertedToFrameColumn(it: FirPropertySymbol) =
-    isDataFrame(it) ||
+    isDataFrame(it) && !it.resolvedReturnType.isMarkedNullable ||
             (it.resolvedReturnType.classId == Names.LIST &&
                     it.resolvedReturnType.typeArguments[0].type?.toRegularClassSymbol()
                         ?.hasAnnotation(Names.DATA_SCHEMA_CLASS_ID, sessionHolder.session) == true)
@@ -510,7 +523,7 @@ internal fun FirFunctionCall.collectArgumentExpressions(): RefinedArguments {
         refinedArgument += RefinedArgument(parameterName, it)
     }
 
-    (argumentList as FirResolvedArgumentList).mapping.forEach { (expression, parameter) ->
+    (argumentList as FirResolvedArgumentList).mapping.forEach { [expression, parameter] ->
         refinedArgument += RefinedArgument(parameter.name, expression)
     }
     return RefinedArguments(refinedArgument)
@@ -519,7 +532,7 @@ internal fun FirFunctionCall.collectArgumentExpressions(): RefinedArguments {
 context(sessionHolder: SessionHolder)
 internal fun ConeKotlinType.findSchemaArgument(isTest: Boolean): ObjectWithSchema? {
     return toSymbol()?.let {
-        val (typeRef: ConeKotlinType, symbol) = if (it is FirTypeAliasSymbol) {
+        val [typeRef: ConeKotlinType, symbol] = if (it is FirTypeAliasSymbol) {
             it.resolvedExpandedTypeRef.coneType to it.resolvedExpandedTypeRef.toClassLikeSymbol(sessionHolder.session)!!
         } else {
             this to it

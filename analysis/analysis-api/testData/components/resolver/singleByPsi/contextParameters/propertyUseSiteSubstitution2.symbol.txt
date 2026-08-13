@@ -1,2 +1,7 @@
 KtNameReferenceExpression(170,173): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val foo: kotlin.Boolean
+    ]

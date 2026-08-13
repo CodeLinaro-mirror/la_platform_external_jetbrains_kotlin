@@ -1,7 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-81625
 // LANGUAGE: +ContextParameters
-// FIR_IDENTICAL
 //  ^ K1 ignored
 // RENDER_DIAGNOSTIC_ARGUMENTS
 
@@ -17,9 +16,9 @@ val contextualFunctionalType: context(<!SYNTAX(": Type expected")!><!>, String) 
 fun useSite() {
     normalParams(42, "missed", 'a')
     normalParams(42, <!SYNTAX(": Expecting an argument")!><!>, 'a')
-    normalParams(first = 42, <!NAMED_PARAMETER_NOT_FOUND("<no name provided>")!>`<no name provided>`<!> = "str", <!NO_VALUE_FOR_PARAMETER("<no name provided>")!>third = 'c')<!>
+    <!NO_VALUE_FOR_PARAMETER("<no name provided>")!>normalParams<!>(first = 42, <!NAMED_PARAMETER_NOT_FOUND("<no name provided>")!>`<no name provided>`<!> = "str", third = 'c')
     functionalType("missed")
-    functionalType<!NO_VALUE_FOR_PARAMETER("p1")!>()<!>
+    <!NO_VALUE_FOR_PARAMETER("p1")!>functionalType<!>()
     functionalType(<!SYNTAX(": Expecting an argument")!><!>,)
 
     with("context") {

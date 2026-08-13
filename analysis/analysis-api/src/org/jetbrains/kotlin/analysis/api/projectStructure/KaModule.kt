@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,7 +23,7 @@ import java.nio.file.Path
  * such as [dangling files][KaDanglingFileModule].
  *
  * As an Analysis API user, you will mainly interact with [KaModule]s indirectly when providing a use-site module to an
- * [analyze][org.jetbrains.kotlin.analysis.api.analyze] call (usually derived from the use-site [KtElement][org.jetbrains.kotlin.psi.KtElement]
+ * [analyze][org.jetbrains.kotlin.analysis.api.session.analyze] call (usually derived from the use-site [KtElement][org.jetbrains.kotlin.psi.KtElement]
  * instead). However, it is possible to utilize the Analysis API's module support to explore the project structure and retrieve information
  * about individual modules when needed.
  *
@@ -124,8 +124,8 @@ public interface KaModule {
 }
 
 /**
- * Whether the given [KaModule] can be the use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.analyze] call. A module which
- * is not resolvable will be rejected by [analyze][org.jetbrains.kotlin.analysis.api.analyze] with an exception.
+ * Whether the given [KaModule] can be the use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.session.analyze] call. A module which
+ * is not resolvable will be rejected by [analyze][org.jetbrains.kotlin.analysis.api.session.analyze] with an exception.
  *
  * All modules returned by [KaModuleProvider.getModule] are guaranteed to be resolvable. By extension, all possible use-site [PsiElement][com.intellij.psi.PsiElement]s
  * are also part of resolvable modules. As such, module resolvability is normally not a concern of an Analysis API user.
@@ -286,7 +286,7 @@ public interface KaLibrarySourceModule : KaModule {
  * The fallback dependencies module's [baseContentScope] should be the scope of all libraries excluding [dependentLibrary]. It should have
  * the same [targetPlatform] as [dependentLibrary].
  *
- * [KaLibraryFallbackDependenciesModule] is not [resolvable][isResolvable] and thus cannot be a use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.analyze]
+ * [KaLibraryFallbackDependenciesModule] is not [resolvable][isResolvable] and thus cannot be a use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.session.analyze]
  * call. It should not be returned by [KaModuleProvider.getModule].
  *
  * The content of the fallback dependencies module is filtered by the target platform in exactly the same way as [KaLibraryModule]s. Please
@@ -417,10 +417,18 @@ public interface KaDanglingFileModule : KaModule {
 /**
  * Whether the dangling file module supports partial invalidation on PSI modifications. The sessions for such modules can be cached for a
  * longer time.
+ *
+ * For a dangling file module to be stable, its context module must also be stable. Otherwise, cache inconsistencies may occur.
+ *
+ * In more detail, caches for unstable dangling file modules are invalidated after any PSI modification, while stable dangling file modules
+ * react to modification events. A stable module with an unstable context risks cache inconsistencies, as the context module's invalidation
+ * scope is much broader.
  */
 @OptIn(KaPlatformInterface::class)
 public val KaDanglingFileModule.isStable: Boolean
-    get() = files.all { it.isPhysical && it.viewProvider.isEventSystemEnabled }
+    get() =
+        files.all { it.isPhysical && it.viewProvider.isEventSystemEnabled } &&
+                (contextModule as? KaDanglingFileModule)?.isStable != false
 
 /**
  * A module which represents a source file living outside the project's content root. For example, test data files, or the source files of

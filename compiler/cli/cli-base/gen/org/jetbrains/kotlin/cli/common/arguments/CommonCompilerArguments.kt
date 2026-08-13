@@ -31,7 +31,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
         valueDescription = "plugin:<pluginId>:<optionName>=<value>",
         description = "Pass an option to a plugin.",
     )
-    var pluginOptions: Array<String>? = null
+    var pluginOptions: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -45,7 +45,7 @@ Warning: this flag is not intended for production use. If you want to configure 
 -language-version or corresponding experimental feature flags.""",
         delimiter = Argument.Delimiters.none,
     )
-    var manuallyConfiguredFeatures: Array<String>? = null
+    var manuallyConfiguredFeatures: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -99,7 +99,6 @@ This flag partially enables functionality of `-Xexplicit-api` flag, so please do
         value = "-Xallow-any-scripts-in-source-roots",
         description = "Allow compiling scripts along with regular Kotlin sources.",
     )
-    @Disables(LanguageFeature.SkipStandaloneScriptsInSourceRoots)
     var allowAnyScriptsInSourceRoots: Boolean = false
         set(value) {
             checkFrozen()
@@ -163,13 +162,24 @@ This flag partially enables functionality of `-Xexplicit-api` flag, so please do
         }
 
     @Argument(
+        value = "-Xallow-returns-result-of",
+        description = "Allows to use `returnsResultOf()` in `contract {}` block of function body. This contract provides additional information for return value checker. Enabling this feature will force compiler to produce pre-release binaries, because this functions with this contract cannot be read correctly by Kotlin 2.3 and lower.",
+    )
+    @Enables(LanguageFeature.AllowReturnsResultOfContract)
+    var allowReturnsResultOf: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xannotation-default-target",
         valueDescription = "first-only|first-only-warn|param-property",
         description = """Change the default annotation targets for constructor properties:
 -Xannotation-default-target=first-only:      use the first of the following allowed targets: '@param:', '@property:', '@field:';
 -Xannotation-default-target=first-only-warn: same as first-only, and raise warnings when both '@param:' and either '@property:' or '@field:' are allowed;
 -Xannotation-default-target=param-property:  use '@param:' target if applicable, and also use the first of either '@property:' or '@field:';
-default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1 and before.""",
+default: 'param-property' in language version 2.4+, 'first-only-warn' in language versions 2.2 & 2.3, 'first-only' in version 2.1 and before.""",
     )
     @Disables(LanguageFeature.AnnotationDefaultTargetMigrationWarning, "first-only")
     @Enables(LanguageFeature.AnnotationDefaultTargetMigrationWarning, "first-only-warn")
@@ -204,12 +214,34 @@ default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1
         }
 
     @Argument(
+        value = "-Xcollection-literals",
+        description = "Enable experimental language support for collection literals.",
+    )
+    @Enables(LanguageFeature.CollectionLiterals)
+    var collectionLiterals: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xcommon-sources",
         valueDescription = "<path>",
         description = """Sources of the common module that need to be compiled together with this module in multiplatform mode.
 They should be a subset of sources passed as free arguments.""",
     )
-    var commonSources: Array<String>? = null
+    var commonSources: Array<String> = emptyArray()
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Xcompanion-blocks-and-extensions",
+        description = "Enables companion blocks and extensions.",
+    )
+    @Enables(LanguageFeature.CompanionBlocksAndExtensions)
+    var companionBlocksAndExtensions: Boolean = false
         set(value) {
             checkFrozen()
             field = value
@@ -221,7 +253,7 @@ They should be a subset of sources passed as free arguments.""",
         description = "Register a compiler plugin.",
         delimiter = Argument.Delimiters.none,
     )
-    var pluginConfigurations: Array<String>? = null
+    var pluginConfigurations: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -236,7 +268,7 @@ The first specified plugin will be executed before the second plugin.
 Multiple constraints can be specified by repeating this option. Cycles in constraints will cause an error.""",
         delimiter = Argument.Delimiters.none,
     )
-    var pluginOrderConstraints: Array<String>? = null
+    var pluginOrderConstraints: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -331,10 +363,22 @@ For WASM and JS, the performance report includes execution time and lines per se
         }
 
     @Argument(
+        value = "-Xdisable-ir-checkers",
+        valueDescription = "<checker1>,<checker2>",
+        description = """A list of IR checkers to disable, specified by a simple name of the checker class. A name of an annotation can also be used to match all tagged checkers.
+Only has effect if '-Xverify-ir' is not 'none'.""",
+    )
+    var disableIrCheckers: Array<String> = emptyArray()
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xdisable-phases",
         description = "Disable backend phases.",
     )
-    var disablePhases: Array<String>? = null
+    var disablePhases: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -394,6 +438,32 @@ Example: `path/to/dir/*.log` creates logs like `path/to/dir/my-module_2025-06-20
         }
 
     @Argument(
+        value = "-Xeager-lambda-analysis",
+        description = "Enable eager analysis of lambda bodies to improve overload resolution by the lambda's return type.",
+    )
+    @Enables(LanguageFeature.EagerLambdaAnalysis)
+    @Enables(LanguageFeature.UnitConversionsOnArbitraryExpressions)
+    @Enables(LanguageFeature.InferThrowableTypeParameterToUpperBound)
+    @Enables(LanguageFeature.CallCompletionRefinementsFor25)
+    var eagerLambdaAnalysis: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Xenable-additional-ir-checkers",
+        valueDescription = "<checker1>,<checker2>",
+        description = """A list of IR checkers to enable, specified by a simple name of the checker class.
+It may only be used with specific checkers that are not enabled by default, and which are prepared to be enabled this way. Only has effect if '-Xverify-ir' is not 'none'.""",
+    )
+    var enableAdditionalIrCheckers: Array<String> = emptyArray()
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xenable-incremental-compilation",
         description = "Enable incremental compilation.",
     )
@@ -438,15 +508,25 @@ Use the 'warning' level to issue warnings instead of errors.""",
         }
 
     @Argument(
+        value = "-Xexplicit-context-arguments",
+        description = "Enable explicit passing of context arguments using named argument syntax.",
+    )
+    @Enables(LanguageFeature.ExplicitContextArguments)
+    var explicitContextArguments: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xfragment-dependency",
         valueDescription = "<fragment name>:<path>",
         description = """Declare common klib dependencies for the specific fragment.
 This argument is required for any HMPP module except the platform leaf module: it takes dependencies from -cp/-libraries.
-The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation
-""",
+The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation""",
         delimiter = Argument.Delimiters.none,
     )
-    var fragmentDependencies: Array<String>? = null
+    var fragmentDependencies: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -457,11 +537,25 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<fragment name>:<path>",
         description = """Declare common klib friend dependencies for the specific fragment.
 This argument can be specified for any HMPP module except the platform leaf module: it takes dependencies from the platform specific friend module arguments.
-The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation
-""",
+The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation""",
         delimiter = Argument.Delimiters.none,
     )
-    var fragmentFriendDependencies: Array<String>? = null
+    var fragmentFriendDependencies: Array<String> = emptyArray()
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Xfragment-incremental-classpath",
+        valueDescription = "<fragment name>:<path>",
+        description = """Declare common klib incremental dependencies (results from the previous compilation) for the specific fragment.    
+This argument can be specified for any HMPP module except the platform leaf module: it takes incremental
+  dependencies from the platform specific incremental service.
+The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation""",
+        delimiter = Argument.Delimiters.none,
+    )
+    var fragmentIncrementalClasspath: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -472,7 +566,7 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<fromModuleName>:<onModuleName>",
         description = "Declare that <fromModuleName> refines <onModuleName> with the dependsOn/refines relation.",
     )
-    var fragmentRefines: Array<String>? = null
+    var fragmentRefines: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -483,7 +577,7 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<fragment name>:<path>",
         description = "Add sources to a specific fragment of a multiplatform compilation.",
     )
-    var fragmentSources: Array<String>? = null
+    var fragmentSources: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -494,7 +588,7 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<fragment name>",
         description = "Declare all known fragments of a multiplatform compilation.",
     )
-    var fragments: Array<String>? = null
+    var fragments: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -549,6 +643,7 @@ with bodies.""",
             field = value
         }
 
+    @Deprecated("This flag is deprecated")
     @Argument(
         value = "-Xintellij-plugin-root",
         valueDescription = "<path>",
@@ -558,6 +653,17 @@ with bodies.""",
         set(value) {
             checkFrozen()
             field = if (value.isNullOrEmpty()) null else value
+        }
+
+    @Argument(
+        value = "-Xintrinsic-const-evaluation",
+        description = "Enables `IntrinsicConstEvaluation` language feature.`",
+    )
+    @Enables(LanguageFeature.IntrinsicConstEvaluation)
+    var intrinsicConstEvaluation: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
         }
 
     @Argument(
@@ -635,8 +741,11 @@ with bodies.""",
     @Enables(LanguageFeature.NameBasedDestructuring, "only-syntax")
     @Enables(LanguageFeature.NameBasedDestructuring, "name-mismatch")
     @Enables(LanguageFeature.NameBasedDestructuring, "complete")
+    @Disables(LanguageFeature.DeprecateNameMismatchInShortDestructuringWithParentheses, "only-syntax")
     @Enables(LanguageFeature.DeprecateNameMismatchInShortDestructuringWithParentheses, "name-mismatch")
     @Enables(LanguageFeature.DeprecateNameMismatchInShortDestructuringWithParentheses, "complete")
+    @Disables(LanguageFeature.EnableNameBasedDestructuringShortForm, "only-syntax")
+    @Disables(LanguageFeature.EnableNameBasedDestructuringShortForm, "name-mismatch")
     @Enables(LanguageFeature.EnableNameBasedDestructuringShortForm, "complete")
     var nameBasedDestructuring: String? = null
         set(value) {
@@ -704,7 +813,7 @@ with bodies.""",
         value = "-Xphases-to-dump",
         description = "Dump the backend's state both before and after these phases.",
     )
-    var phasesToDump: Array<String>? = null
+    var phasesToDump: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -714,7 +823,7 @@ with bodies.""",
         value = "-Xphases-to-dump-after",
         description = "Dump the backend's state after these phases.",
     )
-    var phasesToDumpAfter: Array<String>? = null
+    var phasesToDumpAfter: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -724,7 +833,7 @@ with bodies.""",
         value = "-Xphases-to-dump-before",
         description = "Dump the backend's state before these phases.",
     )
-    var phasesToDumpBefore: Array<String>? = null
+    var phasesToDumpBefore: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -734,7 +843,7 @@ with bodies.""",
         value = "-Xphases-to-validate",
         description = "Validate the backend's state both before and after these phases.",
     )
-    var phasesToValidate: Array<String>? = null
+    var phasesToValidate: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -744,7 +853,7 @@ with bodies.""",
         value = "-Xphases-to-validate-after",
         description = "Validate the backend's state after these phases.",
     )
-    var phasesToValidateAfter: Array<String>? = null
+    var phasesToValidateAfter: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -754,7 +863,7 @@ with bodies.""",
         value = "-Xphases-to-validate-before",
         description = "Validate the backend's state before these phases.",
     )
-    var phasesToValidateBefore: Array<String>? = null
+    var phasesToValidateBefore: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -765,7 +874,7 @@ with bodies.""",
         valueDescription = "<path>",
         description = "Load plugins from the given classpath.",
     )
-    var pluginClasspaths: Array<String>? = null
+    var pluginClasspaths: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -918,7 +1027,7 @@ Warning: This is temporary solution (see KT-63712) intended to be used only for 
         valueDescription = "<WARNING_NAME>",
         description = "Suppress specified warning module-wide. This option is deprecated in favor of \"-Xwarning-level\" flag",
     )
-    var suppressedDiagnostics: Array<String>? = null
+    var suppressedDiagnostics: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -982,7 +1091,7 @@ Warning: This feature is not yet production-ready.""",
         value = "-Xverbose-phases",
         description = "Be verbose while performing the given backend phases.",
     )
-    var verbosePhases: Array<String>? = null
+    var verbosePhases: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -1000,26 +1109,6 @@ Warning: This feature is not yet production-ready.""",
         }
 
     @Argument(
-        value = "-Xverify-ir-nested-offsets",
-        description = "Check that offsets of nested IR elements conform to offsets of their containers. Only has effect if '-Xverify-ir' is not 'none'.",
-    )
-    var verifyIrNestedOffsets: Boolean = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
-        value = "-Xverify-ir-visibility",
-        description = "Check for visibility violations in IR when validating it before running any lowerings. Only has effect if '-Xverify-ir' is not 'none'.",
-    )
-    var verifyIrVisibility: Boolean = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
         value = "-Xwarning-level",
         valueDescription = "<WARNING_NAME>:(error|warning|disabled)",
         description = """Set the severity of the given warning.
@@ -1027,7 +1116,7 @@ Warning: This feature is not yet production-ready.""",
 - `disabled` level suppresses reporting of a warning (similar to -nowarn but more granular)
 - `warning` level overrides -nowarn and -Werror for this specific warning (the warning will be reported/won't be considered as an error)""",
     )
-    var warningLevels: Array<String>? = null
+    var warningLevels: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -1083,7 +1172,7 @@ Warning: This feature is not yet production-ready.""",
         valueDescription = "<fq.name>",
         description = "Enable API usages that require opt-in with an opt-in requirement marker with the given fully qualified name.",
     )
-    var optIn: Array<String>? = null
+    var optIn: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value

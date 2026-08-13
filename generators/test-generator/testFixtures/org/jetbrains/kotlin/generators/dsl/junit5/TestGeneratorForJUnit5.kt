@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.generators.AbstractTestGenerator
 import org.jetbrains.kotlin.generators.dsl.TestGroup
 import org.jetbrains.kotlin.generators.model.*
 import org.jetbrains.kotlin.generators.util.GeneratorsFileUtil
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
+import org.jetbrains.kotlin.generators.util.getFilePath
 import org.jetbrains.kotlin.test.TestMetadata
 import org.jetbrains.kotlin.utils.Printer
 import org.junit.jupiter.api.Nested
@@ -18,9 +20,6 @@ import java.io.File
 import java.io.IOException
 
 object TestGeneratorForJUnit5 : AbstractTestGenerator() {
-
-    private val GENERATED_FILES = HashSet<String>()
-
     private fun Printer.generateMetadata(testDataSource: TestEntityModel) {
         val dataString = testDataSource.dataString
         if (dataString != null) {
@@ -30,6 +29,10 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
 
     private fun Printer.generateTestAnnotation() {
         println("@Test")
+    }
+
+    private fun Printer.generateSmokeTestAnnotation() {
+        println("@SmokeTest")
     }
 
     private fun Printer.generateNestedAnnotation(isNested: Boolean) {
@@ -83,7 +86,7 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
         suiteTestClassFqName: String,
         baseTestClassFqName: String,
         private val testClassModels: Collection<TestClassModel>,
-        private val mainClassName: String?
+        private val mainClassName: String?,
     ) {
         private val baseTestClassPackage: String = baseTestClassFqName.substringBeforeLast('.', "")
         private val baseTestClassName: String = baseTestClassFqName.substringAfterLast('.', baseTestClassFqName)
@@ -91,12 +94,6 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
         private val suiteClassName: String = suiteTestClassFqName.substringAfterLast('.', suiteTestClassFqName)
         private val testSourceFilePath: String =
             baseDir + "/" + this.suiteClassPackage.replace(".", "/") + "/" + this.suiteClassName + ".java"
-
-        init {
-            if (!GENERATED_FILES.add(testSourceFilePath)) {
-                throw IllegalArgumentException("Same test file already generated in current session: $testSourceFilePath")
-            }
-        }
 
         @Throws(IOException::class)
         fun generateAndSave(dryRun: Boolean, allowGenerationOnTeamCity: Boolean): GenerationResult {
@@ -162,9 +159,10 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
                         get() = suiteClassName
                 }
             } else {
+                val hasModelNameClashes = testClassModels.mapTo(mutableSetOf()) { it.name }.size < testClassModels.size
+                val models = if (hasModelNameClashes) testClassModels.map { it.unfold() } else testClassModels
                 model = object : TestClassModel() {
-                    override val innerTestClasses: Collection<TestClassModel>
-                        get() = testClassModels
+                    override val innerTestClasses: Collection<TestClassModel> = models
 
                     override val methods: Collection<MethodModel<*>>
                         get() = emptyList()
@@ -188,11 +186,84 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
                     override val tags: List<String>
                         // models have same tags, so either distinct() or intersect() yield same result
                         get() = testClassModels.flatMap { it.tags }.distinct()
+
+                    override val testKClass: Class<*>
+                        get() = testClassModels.first().testKClass
+
+                    override val isSmokeTest: Boolean
+                        get() = testClassModels.any { it.isSmokeTest }
+
+                    override val smokeTestLimit: Int
+                        get() = testClassModels.maxOf { it.smokeTestLimit }
                 }
             }
 
             generateTestClass(p, model, isNested = false)
             return out.toString()
+        }
+
+        /**
+         * For test root `a/b` and model root `a/b/c/d` converts model with relative path `c/d`
+         * into models with separate classes for each directory on the way from the root.
+         *
+         * ```
+         * // original model
+         * @TestMetadata("a/b/c/d")
+         * public class D { ... }
+         *
+         * // unfolded model
+         * @TestMetadata("a/b/c")
+         * public class C {
+         *     @TestMetadata("a/b/c/d")
+         *     public class D { ... }
+         * }
+         * ```
+         */
+        private fun TestClassModel.unfold(): TestClassModel {
+            if (this !is SimpleTestClassModel) return this
+            var result = this
+            var rootFile = rootFile
+            val testDataRoot = testDataRoot
+            while (rootFile.parentFile != testDataRoot) {
+                rootFile = rootFile.parentFile
+                val fileForModel = rootFile
+                result = object : TestClassModel() {
+                    override val innerTestClasses: Collection<TestClassModel> = listOf(result)
+
+                    override val methods: Collection<MethodModel<*>>
+                        get() = emptyList()
+
+                    override val isEmpty: Boolean
+                        get() = false
+
+                    override val name: String
+                        get() = TestGeneratorUtil.fileNameToJavaIdentifier(fileForModel)
+
+                    override val dataString: String
+                        get() = fileForModel.getFilePath()
+
+                    override val dataPathRoot: String?
+                        get() = null
+
+                    override val annotations: Collection<AnnotationModel>
+                        // models have same annotations, so either distinct() or intersect() yield same result
+                        get() = emptyList()
+
+                    override val tags: List<String>
+                        // models have same tags, so either distinct() or intersect() yield same result
+                        get() = emptyList()
+
+                    override val testKClass: Class<*>
+                        get() = this@unfold.testKClass
+
+                    override val isSmokeTest: Boolean
+                        get() = this@unfold.isSmokeTest
+
+                    override val smokeTestLimit: Int
+                        get() = this@unfold.smokeTestLimit
+                }
+            }
+            return result
         }
 
         private fun generateTestClass(
@@ -217,8 +288,6 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
             var first = true
 
             for (methodModel in testMethods) {
-                if (methodModel is RunTestMethodModel) continue // should also skip its imports
-
                 if (first) {
                     first = false
                 } else {
@@ -246,6 +315,9 @@ object TestGeneratorForJUnit5 : AbstractTestGenerator() {
 
         private fun generateTestMethod(p: Printer, methodModel: MethodModel<*>) {
             if (methodModel.isTestMethod) {
+                if (methodModel.isSmokeTest) {
+                    p.generateSmokeTestAnnotation()
+                }
                 p.generateTestAnnotation()
                 p.generateTags(methodModel)
                 p.generateMetadata(methodModel)

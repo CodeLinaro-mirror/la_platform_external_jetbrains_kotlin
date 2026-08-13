@@ -32,6 +32,11 @@ public sealed class KaVariableSymbol : KaCallableSymbol(), KaNamedSymbol {
      */
     public abstract val isVal: Boolean
 
+    /**
+     * Whether the variable is a [delegated variable](https://kotlinlang.org/docs/delegated-properties.html).
+     */
+    public abstract val isDelegated: Boolean
+
     abstract override fun createPointer(): KaSymbolPointer<KaVariableSymbol>
 }
 
@@ -83,7 +88,9 @@ public abstract class KaBackingFieldSymbol : KaVariableSymbol() {
     final override val callableId: CallableId? get() = withValidityAssertion { null }
     final override val isExtension: Boolean get() = withValidityAssertion { false }
     final override val receiverParameter: KaReceiverParameterSymbol? get() = withValidityAssertion { null }
+    final override val isDelegated: Boolean get() = withValidityAssertion { false }
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
+    final override val visibility: KaSymbolVisibility get() = withValidityAssertion { KaSymbolVisibility.PRIVATE }
 
     // KT-70767: for the backing field expect/action is meaningless as it doesn't have such a semantic
 
@@ -92,6 +99,10 @@ public abstract class KaBackingFieldSymbol : KaVariableSymbol() {
     final override val isExternal: Boolean get() = withValidityAssertion { false }
 
     @KaExperimentalApi
+    final override val isCompanion: Boolean get() = withValidityAssertion { false }
+
+    @KaExperimentalApi
+    @Deprecated("Use 'visibility' instead", level = DeprecationLevel.HIDDEN)
     final override val compilerVisibility: Visibility get() = withValidityAssertion { Visibilities.Private }
 
     @KaExperimentalApi
@@ -131,8 +142,27 @@ public abstract class KaBackingFieldSymbol : KaVariableSymbol() {
 @SubclassOptInRequired(KaImplementationDetail::class)
 public abstract class KaEnumEntrySymbol : KaVariableSymbol() {
     /**
+     * The enum entry's [initializer](https://kotlinlang.org/docs/enum-classes.html#anonymous-classes),
+     * or `null` if the enum entry doesn't have a body.
+     *
+     * ### Example:
+     * ```kotlin
+     * enum class MyEnum {
+     *     A
+     *     {                       //
+     *         val x: String = ""  // Anonymous initializer for MyEnum.A
+     *     },                      //
+     *     B // Enum entry without initializer
+     * }
+     * ```
+     */
+    public abstract val initializer: KaAnonymousObjectSymbol?
+
+    /**
      * The enum entry's initializer, or `null` if the enum entry doesn't have a body.
      */
+    @Deprecated("Use 'initializer' instead. See KT-87199", ReplaceWith("initializer"))
+    @Suppress("DEPRECATION")
     public abstract val enumEntryInitializer: KaEnumEntryInitializerSymbol?
 
     final override val location: KaSymbolLocation get() = withValidityAssertion { KaSymbolLocation.CLASS }
@@ -142,12 +172,18 @@ public abstract class KaEnumEntrySymbol : KaVariableSymbol() {
     @KaExperimentalApi
     final override val contextReceivers: List<KaContextReceiver> get() = withValidityAssertion { emptyList() }
     final override val isVal: Boolean get() = withValidityAssertion { true }
+    final override val isDelegated: Boolean get() = withValidityAssertion { false }
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
+    final override val visibility: KaSymbolVisibility get() = withValidityAssertion { KaSymbolVisibility.PUBLIC }
 
     @KaExperimentalApi
+    @Deprecated("Use 'visibility' instead", level = DeprecationLevel.HIDDEN)
     final override val compilerVisibility: Visibility get() = withValidityAssertion { Visibilities.Public }
 
     final override val isActual: Boolean get() = withValidityAssertion { false }
+
+    @KaExperimentalApi
+    final override val isCompanion: Boolean get() = withValidityAssertion { true }
 
     abstract override fun createPointer(): KaSymbolPointer<KaEnumEntrySymbol>
 }
@@ -173,8 +209,10 @@ public abstract class KaEnumEntrySymbol : KaVariableSymbol() {
  * The initializer of `A` declares a member `x: Int`, which is inaccessible outside the initializer. Still, the corresponding
  * [KaEnumEntryInitializerSymbol] can be used to get a declared member scope that contains `x`.
  */
+@Deprecated("Use 'KaAnonymousObjectSymbol' instead. See KT-87199", ReplaceWith("KaAnonymousObjectSymbol"))
 @SubclassOptInRequired(KaImplementationDetail::class)
 public interface KaEnumEntryInitializerSymbol : KaDeclarationContainerSymbol {
+    @Suppress("DEPRECATION")
     override fun createPointer(): KaSymbolPointer<KaEnumEntryInitializerSymbol>
 }
 
@@ -185,12 +223,15 @@ public interface KaEnumEntryInitializerSymbol : KaDeclarationContainerSymbol {
 public abstract class KaJavaFieldSymbol : KaVariableSymbol() {
     /**
      * Whether the Java field is [static](https://docs.oracle.com/javase/specs/jls/se23/html/jls-8.html#jls-8.3.1.1).
+     *
+     * @see isCompanion
      */
     public abstract val isStatic: Boolean
 
     final override val location: KaSymbolLocation get() = withValidityAssertion { KaSymbolLocation.CLASS }
     final override val isExtension: Boolean get() = withValidityAssertion { false }
     final override val receiverParameter: KaReceiverParameterSymbol? get() = withValidityAssertion { null }
+    final override val isDelegated: Boolean get() = withValidityAssertion { false }
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
     final override val isExpect: Boolean get() = withValidityAssertion { false }
     final override val isActual: Boolean get() = withValidityAssertion { false }
@@ -243,10 +284,10 @@ public sealed class KaPropertySymbol : KaVariableSymbol(), KaTypeParameterOwnerS
      *
      * ### Good to know
      * On Kotlin/JVM compiled properties from annotations classes are compiled without a backing field,
-     * but for sources it still returns **true**.
+     * but for sources it is still **true**.
      *
      * @see backingFieldSymbol
-     * @see isDelegatedProperty
+     * @see isDelegated
      */
     public abstract val hasBackingField: Boolean
 
@@ -285,7 +326,7 @@ public sealed class KaPropertySymbol : KaVariableSymbol(), KaTypeParameterOwnerS
      * ```
      *
      * @see hasBackingField
-     * @see isDelegatedProperty
+     * @see isDelegated
      */
     public abstract val backingFieldSymbol: KaBackingFieldSymbol?
 
@@ -294,7 +335,9 @@ public sealed class KaPropertySymbol : KaVariableSymbol(), KaTypeParameterOwnerS
      *
      * @see backingFieldSymbol
      */
-    public abstract val isDelegatedProperty: Boolean
+    @Deprecated("Use `isDelegated` instead", replaceWith = ReplaceWith("isDelegated"))
+    public val isDelegatedProperty: Boolean
+        get() = isDelegated
 
     /**
      * Whether the property is declared in a class's primary constructor.
@@ -324,7 +367,14 @@ public sealed class KaPropertySymbol : KaVariableSymbol(), KaTypeParameterOwnerS
     public abstract val isOverride: Boolean
 
     /**
-     * Whether the property is static. While Kotlin properties cannot be static, the property symbol may represent e.g. a static Java field.
+     * Whether the property is [static](https://docs.oracle.com/javase/specs/jls/se23/html/jls-8.html#jls-8.3.1.1).
+     *
+     * While Kotlin properties cannot be marked as static, the property symbol may represent, e.g., a static Java field.
+     *
+     * **Note**: **true** doesn't guarantee the property is a Java one as Kotlin properties internally might be treated as static,
+     * but their behavior is not specified. Consider using [isCompanion].
+     *
+     * @see isCompanion
      */
     public abstract val isStatic: Boolean
 
@@ -437,7 +487,7 @@ public abstract class KaSyntheticJavaPropertySymbol : KaPropertySymbol() {
     public abstract val javaSetterSymbol: KaNamedFunctionSymbol?
 
     final override val hasBackingField: Boolean get() = withValidityAssertion { true }
-    final override val isDelegatedProperty: Boolean get() = withValidityAssertion { false }
+    final override val isDelegated: Boolean get() = withValidityAssertion { false }
     final override val hasGetter: Boolean get() = withValidityAssertion { true }
     final override val location: KaSymbolLocation get() = withValidityAssertion { KaSymbolLocation.CLASS }
 
@@ -465,9 +515,13 @@ public abstract class KaLocalVariableSymbol : KaVariableSymbol() {
     final override val contextReceivers: List<KaContextReceiver> get() = withValidityAssertion { emptyList() }
     final override val location: KaSymbolLocation get() = withValidityAssertion { KaSymbolLocation.LOCAL }
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
+    final override val visibility: KaSymbolVisibility get() = withValidityAssertion { KaSymbolVisibility.LOCAL }
     final override val isActual: Boolean get() = withValidityAssertion { false }
     final override val isExpect: Boolean get() = withValidityAssertion { false }
     final override val isExternal: Boolean get() = withValidityAssertion { false }
+
+    @KaExperimentalApi
+    final override val isCompanion: Boolean get() = withValidityAssertion { false }
 
     /**
      * Whether the variable is a [late-initialized variable](https://kotlinlang.org/docs/properties.html#late-initialized-properties-and-variables).
@@ -475,6 +529,7 @@ public abstract class KaLocalVariableSymbol : KaVariableSymbol() {
     public abstract val isLateInit: Boolean
 
     @KaExperimentalApi
+    @Deprecated("Use 'visibility' instead", level = DeprecationLevel.HIDDEN)
     final override val compilerVisibility: Visibility get() = withValidityAssertion { Visibilities.Local }
 
     abstract override fun createPointer(): KaSymbolPointer<KaLocalVariableSymbol>
@@ -497,10 +552,14 @@ public sealed class KaParameterSymbol : KaVariableSymbol() {
     @KaExperimentalApi
     final override val contextReceivers: List<KaContextReceiver> get() = withValidityAssertion { emptyList() }
     final override val isVal: Boolean get() = withValidityAssertion { true }
+    final override val isDelegated: Boolean get() = withValidityAssertion { false }
     final override val isExpect: Boolean get() = withValidityAssertion { false }
     final override val isActual: Boolean get() = withValidityAssertion { false }
     final override val isExternal: Boolean get() = withValidityAssertion { false }
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
+
+    @KaExperimentalApi
+    final override val isCompanion: Boolean get() = withValidityAssertion { false }
 
     abstract override fun createPointer(): KaSymbolPointer<KaParameterSymbol>
 }
@@ -551,26 +610,6 @@ public abstract class KaValueParameterSymbol : KaParameterSymbol() {
      * The names of the value parameters for `invoke()` are "item" and "p2" (its default parameter name).
      */
     abstract override val name: Name
-
-    /**
-     * Whether the compiler synthesized the value parameter name.
-     *
-     * This flag is meaningful only for value parameters of binary Java methods since they
-     * might not have names in the bytecode.
-     *
-     * ### Example
-     *
-     * ```java
-     * public JavaClass {
-     *   public void foo(int meaningfulName1, String meaningfulName2) { ... }
-     * }
-     * ```
-     *
-     * The bytecode don't have to have `meaningfulName1` and `meaningfulName2` information, so the compiler
-     * will generate `p0` and `p1` names for the parameters instead.
-     */
-    @KaExperimentalApi
-    public abstract val hasSynthesizedName: Boolean
 
     /**
      * Whether the value parameter is marked as [`noinline`](https://kotlinlang.org/docs/inline-functions.html#noinline).

@@ -7,16 +7,19 @@ package org.jetbrains.kotlin.gradle.testbase
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
 import org.jetbrains.kotlin.gradle.util.assertProcessRunResult
 import org.jetbrains.kotlin.gradle.util.runProcess
 import java.io.Closeable
 import java.io.File
+import java.nio.file.Path
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.logging.Level
 import java.util.logging.Logger
+import kotlin.io.path.pathString
 
 /** Maximum number of attempts to boot a simulator. */
 private const val BOOT_RETRIES = 3
@@ -41,7 +44,41 @@ internal class XCTestHelpers : Closeable {
     }
 
     @Serializable
-    data class Device(val name: String, val udid: String)
+    data class Device(val name: String, val udid: String) {
+        fun install(application: File) {
+            runProcessAndReturnStdoutWithoutTimeout(
+                listOf("/usr/bin/xcrun", "simctl", "install", udid, application.path)
+            )
+        }
+
+        fun spawn(executable: Path, environmentOverrides: Map<String, String>, stdout: File, stderr: File): Int {
+            return ProcessBuilder(
+                listOf(
+                    "/usr/bin/xcrun", "simctl", "spawn",
+                    udid, executable.pathString,
+                )
+            ).apply {
+                val env = environment()
+                environmentOverrides.forEach { (key, value) -> env[key] = value }
+                redirectOutput(stdout)
+                redirectError(stderr)
+            }.start().waitFor()
+        }
+
+        fun launch(bundleId: String, stdout: File, stderr: File): Int {
+            return ProcessBuilder(
+                listOf(
+                    "/usr/bin/xcrun", "simctl", "launch",
+                    "--console",
+                    udid, bundleId,
+                )
+            ).apply {
+                redirectOutput(stdout)
+                redirectError(stderr)
+            }.start().waitFor()
+        }
+
+    }
 
     @Serializable
     data class Simulators(val devices: Map<String, List<Device>>)
@@ -191,9 +228,7 @@ private fun runProcessAndReturnStdoutWithoutTimeout(arguments: List<String>): St
         arguments, File("."),
         redirectErrorStream = false, // Keep false to see stderr on failure
     )
-    assertProcessRunResult(
-        result
-    ) {
+    result.assertProcessRunResult {
         assert(isSuccessful)
     }
 
@@ -222,7 +257,7 @@ private fun processOutputWithTimeout(
     timeout: Long,
     unit: TimeUnit,
     redirectErrorStream: Boolean = false,
-    logger: Logger
+    logger: Logger,
 ): String {
     val process = ProcessBuilder(arguments)
         .directory(workDir)
@@ -302,7 +337,7 @@ private fun processOutputWithTimeout(
  */
 private fun <T> retry(
     logger: Logger,
-    block: (attempt: Int) -> T
+    block: (attempt: Int) -> T,
 ): T {
     var lastException: Throwable? = null
     for (attempt in 1..BOOT_RETRIES) {

@@ -1,6 +1,5 @@
 // ISSUE: KT-67699
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 
 class Controller<E>(val e: E)
 

@@ -146,7 +146,7 @@ KtNameReferenceExpression(276,280): 'Left'
   null
 
 KtNameReferenceExpression(284,285): 'z'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaSmartCastedReceiverValue:
@@ -154,9 +154,10 @@ KtNameReferenceExpression(284,285): 'z'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -202,7 +203,7 @@ KtNameReferenceExpression(293,298): 'Right'
   null
 
 KtNameReferenceExpression(302,303): 'y'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaSmartCastedReceiverValue:
@@ -210,9 +211,10 @@ KtNameReferenceExpression(302,303): 'y'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false

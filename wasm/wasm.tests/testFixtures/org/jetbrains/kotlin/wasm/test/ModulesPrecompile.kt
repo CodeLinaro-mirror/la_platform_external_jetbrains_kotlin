@@ -1,53 +1,37 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.wasm.test
 
-import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.backend.wasm.compileWasmIrToBinary
 import org.jetbrains.kotlin.backend.wasm.linkWasmIr
-import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArgumentsConfigurator
+import org.jetbrains.kotlin.cli.common.arguments.KotlinWasmCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.toLanguageVersionSettings
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.common.testEnvironment
 import org.jetbrains.kotlin.cli.create
-import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.pipeline.ConfigurationPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.web.wasm.WasmBackendPipelinePhase
+import org.jetbrains.kotlin.cli.pipeline.web.wasm.WasmIrLoadingPipelinePhase
 import org.jetbrains.kotlin.config.AnalysisFlags.allowFullyQualifiedNameInKClass
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.ir.backend.js.MainModule
-import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
-import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
-import org.jetbrains.kotlin.js.config.includes
-import org.jetbrains.kotlin.js.config.outputDir
-import org.jetbrains.kotlin.js.config.outputName
-import org.jetbrains.kotlin.js.config.useDebuggerCustomFormatters
-import org.jetbrains.kotlin.js.config.wasmCompilation
-import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
+import org.jetbrains.kotlin.js.config.*
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.DebugMode
-import org.jetbrains.kotlin.test.diagnostics.DiagnosticsCollectorStub
-import org.jetbrains.kotlin.wasm.config.wasmDebug
-import org.jetbrains.kotlin.wasm.config.wasmDependencyResolutionMap
-import org.jetbrains.kotlin.wasm.config.wasmEnableArrayRangeChecks
-import org.jetbrains.kotlin.wasm.config.wasmForceDebugFriendlyCompilation
-import org.jetbrains.kotlin.wasm.config.wasmGenerateWat
-import org.jetbrains.kotlin.wasm.config.wasmIncludedModuleOnly
-import org.jetbrains.kotlin.wasm.config.wasmTarget
-import org.jetbrains.kotlin.wasm.config.wasmUseNewExceptionProposal
+import org.jetbrains.kotlin.wasm.config.*
 import org.jetbrains.kotlin.wasm.test.handlers.writeTo
+import org.jetbrains.kotlin.test.testInfraError
 import java.io.File
 
 private val outputDir: File
-    get() = File(System.getProperty("kotlin.wasm.test.root.out.dir") ?: error("Please set output dir path"))
+    get() = File(System.getProperty("kotlin.wasm.test.root.out.dir") ?: testInfraError("Please set output dir path"))
 private val stdlibPath =
-    File(System.getProperty("kotlin.wasm-js.stdlib.path") ?: error("Please set stdlib path")).canonicalPath
+    File(System.getProperty("kotlin.wasm-js.stdlib.path") ?: testInfraError("Please set stdlib path")).canonicalPath
 private val kotlinTestPath =
-    File(System.getProperty("kotlin.wasm-js.kotlin.test.path") ?: error("Please set kotlin-test path")).canonicalPath
+    File(System.getProperty("kotlin.wasm-js.kotlin.test.path") ?: testInfraError("Please set kotlin-test path")).canonicalPath
 
 const val precompiledStdlibOutputName: String = "kotlin-kotlin-stdlib"
 const val precompiledKotlinTestOutputName: String = "kotlin-kotlin-test"
@@ -81,8 +65,8 @@ internal enum class PrecompileSetup(
 internal fun precompileWasmModules(setup: PrecompileSetup) {
     val debugMode = DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
 
-    val languageSettings = K2JSCompilerArguments().toLanguageVersionSettings(
-        MessageCollector.NONE,
+    val languageSettings = KotlinWasmCompilerArguments().toLanguageVersionSettings(
+        CommonCompilerArgumentsConfigurator.Reporter.DoNothing,
         mapOf(allowFullyQualifiedNameInKClass to true)
     )
 
@@ -94,46 +78,24 @@ internal fun precompileWasmModules(setup: PrecompileSetup) {
         it.wasmGenerateWat = debugMode >= DebugMode.DEBUG
         it.useDebuggerCustomFormatters = debugMode >= DebugMode.DEBUG
         it.languageVersionSettings = languageSettings
+        it.testEnvironment = true
     }
 
-    val input = ConfigurationPipelineArtifact(configuration, DiagnosticsCollectorStub()) {}
-
-    @OptIn(K1Deprecation::class)
-    val environment = KotlinCoreEnvironment.createForProduction(
-        input.rootDisposable,
-        configuration,
-        EnvironmentConfigFiles.WASM_CONFIG_FILES,
-    )
+    val input = ConfigurationPipelineArtifact(configuration) {}
 
     fun compileWasmModule(includes: String, libraries: List<String>, outputName: String, outputDir: File) {
-        val klibs = loadWebKlibsInTestPipeline(
-            configuration = configuration,
-            includedPath = includes,
-            libraryPaths = libraries,
-            platformChecker = KlibPlatformChecker.Wasm(WasmTarget.JS.alias),
-        )
-
-        val module = ModulesStructure(
-            project = environment.project,
-            mainModule = MainModule.Klib(kotlinTestPath),
-            compilerConfiguration = configuration,
-            klibs = klibs,
-        )
-
         with(configuration) {
             this.outputDir = outputDir
             this.outputName = outputName
             wasmIncludedModuleOnly = true
             wasmUseNewExceptionProposal = setup.newExceptionProposal
             wasmForceDebugFriendlyCompilation = setup.debugFriendly
+            this.libraries = libraries
             this.includes = includes
         }
 
-        val parametersForCompile = WasmBackendPipelinePhase.compileNonIncrementally(
-            configuration = configuration,
-            module = module,
-            mainCallArguments = null
-        ).first()
+        val loadedIr = WasmIrLoadingPipelinePhase.executePhase(input)
+        val parametersForCompile = WasmBackendPipelinePhase.compileNonIncrementally(loadedIr).first()
 
         val linkedModule = linkWasmIr(parametersForCompile)
         val compileResult = compileWasmIrToBinary(parametersForCompile, linkedModule)

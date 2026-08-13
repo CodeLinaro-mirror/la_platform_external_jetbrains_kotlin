@@ -157,7 +157,7 @@ abstract class AbstractFirMetadataSessionFactory(
         extensionRegistrars: List<FirExtensionRegistrar>,
         configuration: CompilerConfiguration,
         context: Context,
-        isForLeafHmppModule: Boolean,
+        kmpModuleKind: KmpModuleKind,
         init: FirSessionConfigurator.() -> Unit = {}
     ): FirSession {
         return createSourceSession(
@@ -165,13 +165,13 @@ abstract class AbstractFirMetadataSessionFactory(
             context,
             extensionRegistrars,
             configuration,
-            isForLeafHmppModule,
+            kmpModuleKind,
             init,
             createProviders = { session, kotlinScopeProvider, symbolProvider, generatedSymbolsProvider ->
                 var symbolProviderForBinariesFromIncrementalCompilation: MetadataSymbolProvider? = null
                 incrementalCompilationContext?.let {
                     val precompiledBinariesPackagePartProvider = it.precompiledBinariesPackagePartProvider
-                    if (precompiledBinariesPackagePartProvider != null && it.precompiledBinariesFileScope != null) {
+                    if (it.precompiledBinariesFileScope != null) {
                         val moduleDataProvider = SingleModuleDataProvider(moduleData)
                         symbolProviderForBinariesFromIncrementalCompilation =
                             MetadataSymbolProvider(
@@ -212,23 +212,27 @@ abstract class AbstractFirMetadataSessionFactory(
     }
 
     override fun FirSessionConfigurator.registerPlatformCheckers() {
-        processPlatforms(
-            onJvmPlatform = { registerPlatformCheckers() },
-            onJsPlatform = { registerPlatformCheckers() },
-            onWasmJsPlatform = { registerPlatformCheckers() },
-            onWasmWasiPlatform = { registerPlatformCheckers() },
-            onNativePlatform = { registerPlatformCheckers() },
-        )
+        withOnlyPlatformSpecificCheckersEnabledInMetadataCompilation {
+            processPlatforms(
+                onJvmPlatform = { registerPlatformCheckers() },
+                onJsPlatform = { registerPlatformCheckers() },
+                onWasmJsPlatform = { registerPlatformCheckers() },
+                onWasmWasiPlatform = { registerPlatformCheckers() },
+                onNativePlatform = { registerPlatformCheckers() },
+            )
+        }
     }
 
     override fun FirSessionConfigurator.registerExtraPlatformCheckers() {
-        processPlatforms(
-            onJvmPlatform = { registerExtraPlatformCheckers() },
-            onJsPlatform = { registerExtraPlatformCheckers() },
-            onWasmJsPlatform = { registerExtraPlatformCheckers() },
-            onWasmWasiPlatform = { registerExtraPlatformCheckers() },
-            onNativePlatform = { registerExtraPlatformCheckers() },
-        )
+        withOnlyPlatformSpecificCheckersEnabledInMetadataCompilation {
+            processPlatforms(
+                onJvmPlatform = { registerExtraPlatformCheckers() },
+                onJsPlatform = { registerExtraPlatformCheckers() },
+                onWasmJsPlatform = { registerExtraPlatformCheckers() },
+                onWasmWasiPlatform = { registerExtraPlatformCheckers() },
+                onNativePlatform = { registerExtraPlatformCheckers() },
+            )
+        }
     }
 
     override fun FirSession.registerSourceSessionComponents(c: Context) {

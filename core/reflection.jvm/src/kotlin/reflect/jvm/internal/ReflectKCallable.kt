@@ -7,6 +7,7 @@ package kotlin.reflect.jvm.internal
 
 import kotlin.coroutines.Continuation
 import kotlin.jvm.internal.CallableReference
+import kotlin.metadata.Modality
 import kotlin.reflect.KCallable
 import kotlin.reflect.KParameter
 import kotlin.reflect.KType
@@ -40,7 +41,7 @@ internal interface ReflectKCallable<out R> : KCallable<R>, KTypeParameterOwnerIm
     /**
      * Instance which is used to perform a call "by name", i.e. `callBy`.
      */
-    val defaultCaller: Caller<*>?
+    val callerWithDefaults: Caller<*>?
 
     /**
      * Returns an array that contains default values of all parameter types, which is copied and filled on every `callBy`.
@@ -48,6 +49,17 @@ internal interface ReflectKCallable<out R> : KCallable<R>, KTypeParameterOwnerIm
      * @see computeAbsentArguments
      */
     fun getAbsentArguments(): Array<Any?>
+
+    val overriddenStorage: KCallableOverriddenStorage
+
+    val modality: Modality
+
+    val isPackagePrivate: Boolean
+
+    fun shallowCopy(
+        container: KDeclarationContainerImpl,
+        overriddenStorage: KCallableOverriddenStorage,
+    ): ReflectKCallable<R>
 
     @Suppress("UNCHECKED_CAST")
     override fun call(vararg args: Any?): R = reflectionCall {
@@ -154,7 +166,7 @@ internal fun <R> ReflectKCallable<R>.callDefaultMethod(args: Map<KParameter, Any
         }
     }
 
-    val caller = defaultCaller ?: throw KotlinReflectionInternalError("This callable does not support a default call: $this")
+    val caller = callerWithDefaults ?: throw KotlinReflectionInternalError("This callable does not support a default call: $this")
 
     @Suppress("UNCHECKED_CAST")
     return reflectionCall {
@@ -174,7 +186,7 @@ internal fun <R> ReflectKCallable<R>.callAnnotationConstructor(args: Map<KParame
         }
     }
 
-    val caller = defaultCaller ?: throw KotlinReflectionInternalError("This callable does not support a default call: $this")
+    val caller = callerWithDefaults ?: throw KotlinReflectionInternalError("This callable does not support a default call: $this")
 
     @Suppress("UNCHECKED_CAST")
     return reflectionCall {
@@ -195,3 +207,12 @@ internal val ReflectKCallable<*>.isConstructor: Boolean
 
 internal val ReflectKCallable<*>.isAnnotationConstructor: Boolean
     get() = isConstructor && container.jClass.isAnnotation
+
+/**
+ * Returns an object which represents the same callable, but without any bound receivers (instance, extension or context).
+ *
+ * Throws an exception if receiver is a property accessor. To unbind a property accessor, unbind the corresponding property and get its
+ * accessor instead.
+ */
+internal fun <R> ReflectKCallable<R>.unbindAllReceivers(): ReflectKCallable<R> =
+    if (!isBound) this else shallowCopy(container, overriddenStorage)

@@ -32,13 +32,24 @@ KtParameter(118,127): 'a: MyEnum'
   null
 
 KtTypeReference(121,127): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(121,127): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(121,127): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtBlockExpression(129,131): '{}'
   null
@@ -53,22 +64,39 @@ KtParameter(153,168): 'b: () -> MyEnum'
   null
 
 KtTypeReference(156,168): '() -> MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtFunctionType(156,168): '() -> MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtParameterList(156,158): '()'
   null
 
 KtTypeReference(162,168): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(162,168): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(162,168): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtBlockExpression(170,172): '{}'
   null
@@ -89,31 +117,59 @@ KtParameter(187,197): 'b: () -> T'
   null
 
 KtTypeReference(190,197): '() -> T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtFunctionType(190,197): '() -> T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtParameterList(190,192): '()'
   null
 
 KtTypeReference(196,197): 'T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtUserType(196,197): 'T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtNameReferenceExpression(196,197): 'T'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtTypeReference(200,201): 'T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtUserType(200,201): 'T'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtNameReferenceExpression(200,201): 'T'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      T
+    ]
 
 KtCallExpression(204,210): 'TODO()'
   KaSymbolResolutionSuccess:
@@ -122,7 +178,12 @@ KtCallExpression(204,210): 'TODO()'
     ]
 
 KtNameReferenceExpression(204,208): 'TODO'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/TODO(): kotlin.Nothing
+    ]
 
 KtValueArgumentList(208,210): '()'
   null
@@ -143,22 +204,44 @@ KtParameter(223,227): 'x: X'
   null
 
 KtTypeReference(226,227): 'X'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtUserType(226,227): 'X'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtNameReferenceExpression(226,227): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtTypeReference(230,231): 'X'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtUserType(230,231): 'X'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtNameReferenceExpression(230,231): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      X
+    ]
 
 KtCallExpression(234,240): 'TODO()'
   KaSymbolResolutionSuccess:
@@ -167,7 +250,12 @@ KtCallExpression(234,240): 'TODO()'
     ]
 
 KtNameReferenceExpression(234,238): 'TODO'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/TODO(): kotlin.Nothing
+    ]
 
 KtValueArgumentList(238,240): '()'
   null
@@ -182,25 +270,47 @@ KtParameter(251,261): 'b: Boolean'
   null
 
 KtTypeReference(254,261): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(254,261): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(254,261): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtParameter(263,269): 'i: Int'
   null
 
 KtTypeReference(266,269): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(266,269): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(266,269): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(271,1123): '{'
   null
@@ -209,25 +319,49 @@ KtProperty(277,293): 'val L = MyEnum.X'
   null
 
 KtDotQualifiedExpression(285,293): 'MyEnum.X'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtNameReferenceExpression(285,291): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(292,293): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtProperty(299,414): 'val m1: MyEnum = try {'
   null
 
 KtTypeReference(307,313): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(307,313): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(307,313): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtTryExpression(316,414): 'try {'
   null
@@ -236,7 +370,12 @@ KtBlockExpression(320,337): '{'
   null
 
 KtNameReferenceExpression(330,331): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(338,375): 'catch(e: Exception) {'
   null
@@ -248,19 +387,35 @@ KtParameter(344,356): 'e: Exception'
   null
 
 KtTypeReference(347,356): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(347,356): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(347,356): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(358,375): '{'
   null
 
 KtNameReferenceExpression(368,369): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Y
+    ]
 
 KtCatchClause(376,414): 'catch (t: Throwable) {'
   null
@@ -272,31 +427,58 @@ KtParameter(383,395): 't: Throwable'
   null
 
 KtTypeReference(386,395): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(386,395): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(386,395): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(397,414): '{'
   null
 
 KtNameReferenceExpression(407,408): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]
 
 KtProperty(420,656): 'val m2: MyEnum = try {'
   null
 
 KtTypeReference(428,434): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(428,434): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(428,434): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtTryExpression(437,656): 'try {'
   null
@@ -305,7 +487,12 @@ KtBlockExpression(441,458): '{'
   null
 
 KtNameReferenceExpression(451,452): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(459,617): 'catch(e: Exception) {'
   null
@@ -317,13 +504,24 @@ KtParameter(465,477): 'e: Exception'
   null
 
 KtTypeReference(468,477): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(468,477): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(468,477): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(479,617): '{'
   null
@@ -335,7 +533,12 @@ KtBlockExpression(493,518): '{'
   null
 
 KtNameReferenceExpression(507,508): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(519,564): 'catch(e: Exception) {'
   null
@@ -347,19 +550,35 @@ KtParameter(525,537): 'e: Exception'
   null
 
 KtTypeReference(528,537): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(528,537): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(528,537): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(539,564): '{'
   null
 
 KtNameReferenceExpression(553,554): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Y
+    ]
 
 KtCatchClause(565,611): 'catch (t: Throwable) {'
   null
@@ -371,19 +590,35 @@ KtParameter(572,584): 't: Throwable'
   null
 
 KtTypeReference(575,584): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(575,584): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(575,584): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(586,611): '{'
   null
 
 KtNameReferenceExpression(600,601): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]
 
 KtCatchClause(618,656): 'catch (t: Throwable) {'
   null
@@ -395,19 +630,35 @@ KtParameter(625,637): 't: Throwable'
   null
 
 KtTypeReference(628,637): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(628,637): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(628,637): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(639,656): '{'
   null
 
 KtNameReferenceExpression(649,650): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]
 
 KtCallExpression(662,803): 'foo('
   KaSymbolResolutionSuccess:
@@ -416,7 +667,12 @@ KtCallExpression(662,803): 'foo('
     ]
 
 KtNameReferenceExpression(662,665): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /foo(a: MyEnum): kotlin.Unit
+    ]
 
 KtValueArgumentList(665,803): '('
   null
@@ -431,7 +687,12 @@ KtBlockExpression(679,704): '{'
   null
 
 KtNameReferenceExpression(693,694): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(705,750): 'catch(e: Exception) {'
   null
@@ -443,19 +704,35 @@ KtParameter(711,723): 'e: Exception'
   null
 
 KtTypeReference(714,723): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(714,723): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(714,723): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(725,750): '{'
   null
 
 KtNameReferenceExpression(739,740): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Y
+    ]
 
 KtCatchClause(751,797): 'catch (t: Throwable) {'
   null
@@ -467,19 +744,35 @@ KtParameter(758,770): 't: Throwable'
   null
 
 KtTypeReference(761,770): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(761,770): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(761,770): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(772,797): '{'
   null
 
 KtNameReferenceExpression(786,787): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]
 
 KtCallExpression(809,963): 'myRunWithMyEnum {'
   KaSymbolResolutionSuccess:
@@ -488,7 +781,12 @@ KtCallExpression(809,963): 'myRunWithMyEnum {'
     ]
 
 KtNameReferenceExpression(809,824): 'myRunWithMyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /myRunWithMyEnum(b: () -> MyEnum): kotlin.Unit
+    ]
 
 KtLambdaArgument(825,963): '{'
   null
@@ -509,7 +807,12 @@ KtBlockExpression(839,864): '{'
   null
 
 KtNameReferenceExpression(853,854): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(865,910): 'catch(e: Exception) {'
   null
@@ -521,19 +824,35 @@ KtParameter(871,883): 'e: Exception'
   null
 
 KtTypeReference(874,883): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(874,883): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(874,883): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(885,910): '{'
   null
 
 KtNameReferenceExpression(899,900): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Y
+    ]
 
 KtCatchClause(911,957): 'catch (t: Throwable) {'
   null
@@ -545,19 +864,35 @@ KtParameter(918,930): 't: Throwable'
   null
 
 KtTypeReference(921,930): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(921,930): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(921,930): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(932,957): '{'
   null
 
 KtNameReferenceExpression(946,947): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]
 
 KtCallExpression(969,1121): 'myRun<MyEnum> {'
   KaSymbolResolutionSuccess:
@@ -566,7 +901,12 @@ KtCallExpression(969,1121): 'myRun<MyEnum> {'
     ]
 
 KtNameReferenceExpression(969,974): 'myRun'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /myRun(b: () -> T): T
+    ]
 
 KtTypeArgumentList(974,982): '<MyEnum>'
   null
@@ -575,13 +915,24 @@ KtTypeProjection(975,981): 'MyEnum'
   null
 
 KtTypeReference(975,981): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(975,981): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(975,981): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtLambdaArgument(983,1121): '{'
   null
@@ -602,7 +953,12 @@ KtBlockExpression(997,1022): '{'
   null
 
 KtNameReferenceExpression(1011,1012): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.X
+    ]
 
 KtCatchClause(1023,1068): 'catch(e: Exception) {'
   null
@@ -614,19 +970,35 @@ KtParameter(1029,1041): 'e: Exception'
   null
 
 KtTypeReference(1032,1041): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtUserType(1032,1041): 'Exception'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtNameReferenceExpression(1032,1041): 'Exception'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Exception
+    ]
 
 KtBlockExpression(1043,1068): '{'
   null
 
 KtNameReferenceExpression(1057,1058): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Y
+    ]
 
 KtCatchClause(1069,1115): 'catch (t: Throwable) {'
   null
@@ -638,16 +1010,32 @@ KtParameter(1076,1088): 't: Throwable'
   null
 
 KtTypeReference(1079,1088): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtUserType(1079,1088): 'Throwable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtNameReferenceExpression(1079,1088): 'Throwable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Throwable
+    ]
 
 KtBlockExpression(1090,1115): '{'
   null
 
 KtNameReferenceExpression(1104,1105): 'L'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val L: MyEnum
+    ]

@@ -1,4 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
 // LANGUAGE: +CollectionLiterals
 
 class MyList<T>(val data: Array<out T>) {

@@ -9,11 +9,11 @@ import org.jetbrains.kotlin.generators.dsl.junit5.generateTestGroupSuiteWithJUni
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.spec.utils.tasks.detectDirsWithTestsMapFileOnly
 import org.jetbrains.kotlin.test.runners.AbstractFirBlackBoxCodegenTestSpec
-import org.jetbrains.kotlin.test.runners.AbstractFirLightTreeDiagnosticsTestWithJvmIrBackend
-import org.jetbrains.kotlin.test.runners.AbstractFirPsiDiagnosticsTestWithConverter
-import org.jetbrains.kotlin.test.runners.AbstractFirPsiDiagnosticsTestWithJvmIrBackend
 import org.jetbrains.kotlin.test.runners.codegen.*
-import org.jetbrains.kotlin.test.runners.ir.*
+import org.jetbrains.kotlin.test.runners.ir.AbstractFirLightTreeJvmIrSourceRangesTest
+import org.jetbrains.kotlin.test.runners.ir.AbstractFirLightTreeJvmIrTextTest
+import org.jetbrains.kotlin.test.runners.ir.AbstractFirPsiJvmIrSourceRangesTest
+import org.jetbrains.kotlin.test.runners.ir.AbstractFirPsiJvmIrTextTest
 import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 
 fun main(args: Array<String>) {
@@ -25,32 +25,55 @@ fun main(args: Array<String>) {
     val excludedScriptDirs = listOf("script")
 
     generateTestGroupSuiteWithJUnit5(args, mainClassName) {
-        testGroup(testRoot, testDataRoot = "compiler/testData") {
+        testGroup(testRoot, testDataRoot = "compiler/testData/codegen") {
+            testClass<AbstractFirPsiCustomScriptCodegenTest> {
+                model("customScript", pattern = "^(.*)$")
+            }
+            testClass<AbstractFirLightTreeCustomScriptCodegenTest> {
+                model("customScript", pattern = "^(.*)$")
+            }
             testClass<AbstractFirLightTreeBlackBoxCodegenTest> {
-                model("codegen/box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
+                model("box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
+                model("boxJvm", excludeDirs = k1BoxTestDir + excludedScriptDirs)
             }
 
             testClass<AbstractFirLightTreeHeaderModeCodegenTest> {
-                model("codegen/box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
+                model("box", excludeDirs = k1BoxTestDir + excludedScriptDirs)
+                model("boxJvm", excludeDirs = k1BoxTestDir + excludedScriptDirs)
             }
 
             testClass<AbstractFirPsiBlackBoxCodegenTest> {
-                model("codegen/box", excludeDirs = k1BoxTestDir)
+                model("box", excludeDirs = k1BoxTestDir)
+                model("boxJvm", excludeDirs = k1BoxTestDir)
             }
             testClass<AbstractJvmLightTreeBlackBoxCodegenWithSeparateKmpCompilationTest> {
-                model("codegen/box/${k2BoxTestDir.first()}")
+                model("box/${k2BoxTestDir.first()}")
+                model("boxJvm/${k2BoxTestDir.first()}")
             }
 
+            testClass<AbstractReflectionLegacyImplementationTest> {
+                model("box/reflection")
+                model("boxJvm/reflection")
+            }
+
+            testClass<AbstractNewReflectionFakeOverridesImplementationTest> {
+                model("box/reflection")
+                model("boxJvm/reflection")
+            }
+
+            testClass<AbstractReflectionLoadMetadataDirectlyTest> {
+                model("box/reflection")
+                model("boxJvm/reflection")
+            }
+        }
+
+        testGroup(testRoot, testDataRoot = "compiler/testData") {
             testClass<AbstractFirLightTreeBlackBoxCodegenTest>("FirLightTreeBlackBoxModernJdkCodegenTestGenerated") {
                 model("codegen/boxModernJdk")
             }
 
             testClass<AbstractFirPsiBlackBoxCodegenTest>("FirPsiBlackBoxModernJdkCodegenTestGenerated") {
                 model("codegen/boxModernJdk")
-            }
-
-            testClass<AbstractReflectionLegacyImplementationTest> {
-                model("codegen/box/reflection")
             }
 
             testClass<AbstractFirPsiBlackBoxInlineCodegenTest> {
@@ -62,16 +85,8 @@ fun main(args: Array<String>) {
                 model("klib/syntheticAccessors")
             }
 
-            testClass<AbstractComposeLikeIrBlackBoxCodegenTest> {
-                model("codegen/composeLike")
-            }
-
             testClass<AbstractComposeLikeFirLightTreeBlackBoxCodegenTest> {
                 model("codegen/composeLike")
-            }
-
-            testClass<AbstractComposeLikeIrBytecodeTextTest> {
-                model("codegen/composeLikeBytecodeText")
             }
 
             testClass<AbstractComposeLikeFirLightTreeBytecodeTextTest> {
@@ -92,40 +107,6 @@ fun main(args: Array<String>) {
 
             testClass<AbstractFirPsiLocalVariableTest> {
                 model("debug/localVariables")
-            }
-
-            testClass<AbstractFirPsiWithInterpreterDiagnosticsTest> {
-                model("diagnostics/irInterpreter")
-            }
-
-            testClass<AbstractFirLightTreeWithInterpreterDiagnosticsTest> {
-                model("diagnostics/irInterpreter")
-            }
-
-            testClass<AbstractFirPsiDiagnosticsTestWithConverter> {
-                model(
-                    "diagnostics/testsWithConverter",
-                    pattern = "^(.+)\\.kts?$",
-                    excludedPattern = excludedCustomTestdataPattern
-                )
-            }
-
-            testClass<AbstractFirPsiDiagnosticsTestWithJvmIrBackend> {
-                model("diagnostics/testsWithJvmBackend", excludedPattern = excludedCustomTestdataPattern)
-            }
-
-            testClass<AbstractFirLightTreeDiagnosticsTestWithJvmIrBackend> {
-                model("diagnostics/testsWithJvmBackend", excludedPattern = excludedCustomTestdataPattern)
-            }
-
-            testClass<AbstractFirLightTreeSerializeCompileKotlinAgainstInlineKotlinTest> {
-                model("codegen/box")
-                model("codegen/boxInline")
-            }
-
-            testClass<AbstractFirPsiSerializeCompileKotlinAgainstInlineKotlinTest> {
-                model("codegen/box")
-                model("codegen/boxInline")
             }
 
             testClass<AbstractFirPsiBytecodeListingTest> {

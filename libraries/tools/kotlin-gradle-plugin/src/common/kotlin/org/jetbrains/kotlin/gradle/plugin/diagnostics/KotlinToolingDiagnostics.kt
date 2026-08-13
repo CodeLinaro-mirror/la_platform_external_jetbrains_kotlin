@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle.plugin.diagnostics
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.buildtools.api.abi.KlibTargetType
 import org.jetbrains.kotlin.gradle.dsl.KotlinSourceSetConvention.isAccessedByKotlinSourceSetConventionAt
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.internal.KOTLIN_BUILD_TOOLS_API_IMPL
@@ -22,13 +23,12 @@ import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLI
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_APPLY_DEFAULT_HIERARCHY_TEMPLATE
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_SUPPRESS_EXPERIMENTAL_ARTIFACTS_DSL_WARNING
+
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics.CompilationDependenciesPair.Companion.toFormattedString
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.*
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.checkers.UnresolvedKmpDependency.ResolvedVariant
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.checkers.UnresolvedKmpDependency.UnresolvedComponent
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.Uklib
-import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV1
 import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV2
 import org.jetbrains.kotlin.gradle.targets.jvm.JAVA_TEST_FIXTURES_PLUGIN_ID
 import org.jetbrains.kotlin.gradle.utils.appendLine
@@ -412,6 +412,20 @@ internal object KotlinToolingDiagnostics {
         )
     }
 
+    object DeprecatedNativeHostDiagnostic : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
+        operator fun invoke(hostName: String) = build {
+            title("Deprecated Kotlin/Native Host")
+                .description {
+                    "The current host platform '$hostName' is deprecated and will be removed in a future Kotlin release. " +
+                            "The Kotlin/Native compiler will no longer be distributed for this host."
+                }
+                .solution("Migrate your build to a non-deprecated supported host platform for Kotlin/Native.")
+                .documentationLink(URI("https://kotl.in/native-targets-tiers")) { url ->
+                    "Learn more about Kotlin/Native target support and migration: $url"
+                }
+        }
+    }
+
     object CommonMainOrTestWithDependsOnDiagnostic : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(suffix: String) = buildDiagnostic(
             title = "Invalid `dependsOn` Configuration in Common Source Set",
@@ -631,20 +645,6 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object AndroidSourceSetLayoutV1Deprecation : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Deprecation) {
-        operator fun invoke() = build {
-            title("Deprecated Android Source Set Layout V1")
-                .description {
-                    "The version 1 of Android source set layout is deprecated."
-                }
-                .solution {
-                    "Please remove kotlin.mpp.androidSourceSetLayoutVersion=1 from the gradle.properties file."
-                }
-                .documentationLink(URI("https://kotl.in/android-source-set-layout-v2")) { url ->
-                    "Learn how to migrate to the version 2 source set layout at: $url"
-                }
-        }
-    }
 
     object AgpRequirementNotMetForAndroidSourceSetLayoutV2 : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(minimumRequiredAgpVersion: String, currentAgpVersion: String) = build {
@@ -682,22 +682,6 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object SourceSetLayoutV1StyleDirUsageWarning : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
-        operator fun invoke(v1StyleSourceDirInUse: String, currentLayoutName: String, v2StyleSourceDirToUse: String) = build {
-            title("Deprecated Source Set Layout V1")
-                .description {
-                    """
-                    Found used source directory $v1StyleSourceDirInUse
-                    This source directory was supported by: ${multiplatformAndroidSourceSetLayoutV1.name}
-                    Current KotlinAndroidSourceSetLayout: $currentLayoutName
-                    New source directory is: $v2StyleSourceDirToUse
-                    """.trimIndent()
-                }
-                .solution {
-                    "Please migrate to the new source directory: $v2StyleSourceDirToUse"
-                }
-        }
-    }
 
     object IncompatibleGradleVersionTooLowFatalError : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(
@@ -713,6 +697,28 @@ internal object KotlinToolingDiagnostics {
                 }
                 .solution {
                     "Please update the Gradle version to at least $minimallySupportedGradleVersion."
+                }
+        }
+    }
+
+    object DeprecatedGradleVersionWarning : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
+        operator fun invoke(
+            currentGradleVersion: GradleVersion,
+            nextMinimumSupportedGradleVersion: GradleVersion,
+        ) = build {
+            title("Deprecated Gradle Version")
+                .description {
+                    """
+                    The used Gradle version ($currentGradleVersion) is deprecated and will not be supported in future Kotlin Gradle Plugin releases.
+                    The minimum supported Gradle version will become $nextMinimumSupportedGradleVersion in Kotlin 2.5.0.
+
+                    This warning can be suppressed in 'gradle.properties':
+                        ${KOTLIN_SUPPRESS_GRADLE_PLUGIN_WARNINGS_PROPERTY}=$id
+                    
+                    """.trimIndent()
+                }
+                .solution {
+                    "Please update the Gradle version to at least $nextMinimumSupportedGradleVersion."
                 }
         }
     }
@@ -750,27 +756,6 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object AndroidSourceSetLayoutV1SourceSetsNotFoundError : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
-        operator fun invoke(nameOfRequestedSourceSet: String) = build {
-            title("Renamed Android Source Set Not Found")
-                .description {
-                    """
-                    KotlinSourceSet with name '$nameOfRequestedSourceSet' not found:
-                    The SourceSet requested ('$nameOfRequestedSourceSet') was renamed in Kotlin 1.9.0
-                    
-                    In order to migrate you might want to replace:
-                    sourceSets.getByName("androidTest") -> sourceSets.getByName("androidUnitTest")
-                    sourceSets.getByName("androidAndroidTest") -> sourceSets.getByName("androidInstrumentedTest")
-                    """.trimIndent()
-                }
-                .solution {
-                    "Please update the source set name to the new one."
-                }
-                .documentationLink(URI("https://kotl.in/android-source-set-layout-v2")) { url ->
-                    "Learn more about the new Kotlin/Android SourceSet Layout: $url"
-                }
-        }
-    }
 
     object KotlinJvmMainRunTaskConflict : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(targetName: String, taskName: String) = build {
@@ -903,6 +888,26 @@ internal object KotlinToolingDiagnostics {
                 }
                 .solution {
                     "To hide this message, add '$KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS=true' to the Gradle properties."
+                }
+        }
+    }
+
+    object DisabledNativeTargetTaskWarning : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(
+            taskName: String,
+            targetName: String,
+            currentHost: String,
+            reason: String,
+        ): ToolingDiagnostic = build(taskName.toIdSuffix()) {
+            title("Native task '$taskName' is disabled")
+                .description {
+                    """
+                    Task '$taskName' for target '$targetName' cannot run on the current host ($currentHost).
+                    Reason: $reason
+                    """.trimIndent()
+                }
+                .solution {
+                    "To suppress this warning, add '$KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS=true' to gradle.properties."
                 }
         }
     }
@@ -1246,15 +1251,20 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object ExperimentalArtifactsDslUsed : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Experimental) {
-        operator fun invoke() = build {
-            title("Using Experimental 'kotlinArtifacts' DSL")
+    object XcodeArchitectureNotConfiguredInGradle : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(missingTargets: List<String>, frameworkName: String) = build {
+            val renderedTargets = missingTargets.sorted().joinToString(separator = ", ")
+            title("Xcode Requested Architecture Not Configured in Gradle")
                 .description {
-                    "'kotlinArtifacts' DSL is experimental and may be changed in the future."
+                    """
+                    Xcode requested target architectures that are not configured in your Gradle build: $renderedTargets.
+                    The framework '$frameworkName' cannot be built for these target architectures.
+                    """.trimIndent()
                 }
-                .solution {
-                    "To suppress this warning add '$KOTLIN_NATIVE_SUPPRESS_EXPERIMENTAL_ARTIFACTS_DSL_WARNING=true' to your gradle.properties"
-                }
+                .solutions(
+                    "Add the missing Kotlin/Native target(s) to your kotlin {} block in build.gradle.kts",
+                    "Or exclude unsupported architectures in your Xcode project's Build Settings by setting EXCLUDED_ARCHS"
+                )
         }
     }
 
@@ -1393,6 +1403,22 @@ internal object KotlinToolingDiagnostics {
                 }
                 .documentationLink(URI("https://kotlinlang.org/docs/multiplatform-dsl-reference.html#cinterops")) { url ->
                     "More info here: $url"
+                }
+        }
+    }
+
+    object SwiftPMImportLockFileSync : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke() = build {
+            title("Invalid SwiftPM package lock synchronization configuration")
+
+                .description {
+                    "The 'packageResolvedSynchronization' property for SwiftPM import was modified after the project was evaluated. " +
+                            "This property must be configured during the configuration phase."
+                }
+
+                .solution {
+                    "Move the configuration of 'packageResolvedSynchronization' to the project configuration phase (e.g., directly in the build script), " +
+                            "and avoid changing it after evaluation (e.g., inside 'afterEvaluate')."
                 }
         }
     }
@@ -1847,22 +1873,6 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object AndroidExtensionPluginRemoval : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Deprecation) {
-        operator fun invoke(): ToolingDiagnostic = build {
-            title("Removed 'kotlin-android-extensions' Gradle Plugin")
-                .description {
-                    """
-                    The 'kotlin-android-extensions' Gradle plugin is no longer supported and was removed.
-                    Please use this migration guide (https://goo.gle/kotlin-android-extensions-deprecation) to start
-                    working with View Binding (https://developer.android.com/topic/libraries/view-binding)
-                    and the 'kotlin-parcelize' plugin.
-                    """.trimIndent()
-                }
-                .solution {
-                    "Please remove the 'kotlin-android-extensions' Gradle plugin from your build script."
-                }
-        }
-    }
 
     internal object KotlinScriptingMisconfiguration : ToolingDiagnosticFactory(
         predefinedSeverity = WARNING,
@@ -1910,6 +1920,43 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
+    object SwiftPMLocalPackageDirectoryNotFound : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(resolvedPath: String, originalPath: String) = build {
+            title("Local SwiftPM Package Directory Not Found")
+                .description {
+                    "Local SwiftPM package directory does not exist: $resolvedPath\n" +
+                    "Path was resolved from: layout.projectDirectory.dir(\"$originalPath\")"
+                }
+                .solutions {
+                    listOf(
+                        "Verify the path '$originalPath' is correct relative to the project directory",
+                        "Create the SwiftPM package directory at: $resolvedPath"
+                    )
+                }
+        }
+    }
+
+    object SwiftPMLocalPackageMissingManifest : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(resolvedPath: File) = build {
+            title("Local SwiftPM Package Missing Package.swift")
+                .description { "Local SwiftPM package is missing Package.swift manifest: ${resolvedPath.absolutePath}" }
+                .solutions {
+                    listOf(
+                        "Create a Package.swift file in: ${resolvedPath.absolutePath}",
+                        "Initialize a new SwiftPM package using 'swift package init'"
+                    )
+                }
+        }
+    }
+
+    object SwiftPMLocalPackageInvalidName : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(originalPath: String) = build {
+            title("Cannot Infer SwiftPM Package Name")
+                .description { "Cannot infer package name from path '$originalPath'" }
+                .solution { "Provide an explicit packageName parameter in the localPackage() call" }
+        }
+    }
+
     object IcFirMisconfigurationLV : ToolingDiagnosticFactory(
         predefinedSeverity = FATAL,
         predefinedGroup = DiagnosticGroup.Kgp.Misconfiguration
@@ -1929,23 +1976,38 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object KotlinNativeArtifactsDeprecation : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
-        operator fun invoke() = build {
-            title("kotlinArtifacts DSL is deprecated")
-                .description("kotlinArtifacts DSL is deprecated and will be removed in the future")
-                .solution("Please migrate to another way to create Kotlin/Native binaries")
-                .documentationLink(URI("https://kotl.in/kotlin-native-artifacts-gradle-dsl"))
-        }
-    }
-
     object AbiValidationUnsupportedTarget : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Experimental) {
-        operator fun invoke(targetName: String): ToolingDiagnostic = build {
+        operator fun invoke(targetType: KlibTargetType): ToolingDiagnostic = build {
             title("ABI Validation: unsupported target")
                 .description {
-                    "Target $targetName is not supported by the host compiler and a KLib ABI dump could not be directly generated for it."
+                    "Target ${targetType.canonicalName} is not supported by the host compiler and a KLib ABI dump could not be directly generated for it."
                 }
                 .solution {
                     "Build project on suitable machine"
+                }
+        }
+    }
+
+    object AbiValidationNoPublishPlugin : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Experimental) {
+        operator fun invoke(): ToolingDiagnostic = build {
+            title("ABI Validation: no Maven publishing plugin")
+                .description {
+                    "Source of binaries is set to Maven publications, but maven publishing plugin is not applied."
+                }
+                .solution {
+                    "Apply `maven-publish` plugin and create Maven publication, or specify `kotlin.abiValidation { binariesSource = MAIN_COMPILATION }` to use output of the main compilation tasks"
+                }
+        }
+    }
+
+    object AbiValidationAndroidPublicationNotSupported : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Experimental) {
+        operator fun invoke(): ToolingDiagnostic = build {
+            title("ABI Validation: Android target unsupported with Maven binary sources mode")
+                .description {
+                    "Android targets are not supported by ABI validation when Maven binary sources mode is enabled"
+                }
+                .solution {
+                    "Specify `kotlin.abiValidation { binariesSource = MAIN_COMPILATION }` to use output of the main compilation tasks"
                 }
         }
     }
@@ -2178,45 +2240,14 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    internal object UsingOutOfProcessDisablesBuildToolsApi : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
-        operator fun invoke() = build {
-            title("Using out-of-process Kotlin compilation disables Build Tools API.")
-                .description(
-                    """
-                    By default, the Kotlin Gradle Plugin runs the compiler via the Build Tools API (BTA). 
-                    BTA doesn’t support out‑of‑process compilation, so the selected compilation mode disables BTA for this build. 
-                    This warning will become an error in a future release of KGP.
-                """.trimIndent()
-                )
-                .solution("Select the daemon or in-process compilation modes to allow KGP to run compilation through BTA.")
-                .documentationLink(URI("https://kotl.in/build-tools-api"))
-        }
-    }
-
     internal object GeneratingCompilerRefIndexWithoutBuildToolsApi : ToolingDiagnosticFactory(
         WARNING,
         DiagnosticGroup.Kgp.Misconfiguration,
     ) {
-        operator fun invoke() = build {
-            title("Skipping the Compiler Reference Index data generation")
+        operator fun invoke(projectName: String, projectPath: String) = build {
+            title("Skipping the Compiler Reference Index data generation in '$projectName' ('$projectPath')")
                 .description("Compiler Reference Index data can be generated only when compilation is performed via Build Tools API.")
                 .solution("Please set `kotlin.compiler.runViaBuildToolsApi=true` to enable compilation via Build Tools API.")
-        }
-    }
-
-    internal object OutOfProcessExecutionStrategyUsage : ToolingDiagnosticFactory(
-        WARNING,
-        DiagnosticGroup.Kgp.Deprecation,
-    ) {
-        operator fun invoke() = build {
-            title("Deprecated usage of 'out-of-process' Kotlin compiler execution strategy")
-                .description(
-                    """
-                The 'out-of-process' Kotlin compiler execution strategy is deprecated and will be removed in future versions.
-                Consider using a default 'daemon' strategy for improved performance and stability.
-                """.trimIndent()
-                )
-                .solution("Please remove 'kotlin.compiler.executionStrategy=out-of-process' from project 'gradle.properties' file.")
         }
     }
 
@@ -2240,6 +2271,46 @@ internal object KotlinToolingDiagnostics {
                         """.trimIndent()
                 }
                 .solution("Use the source set created by the compilation instead of creating it manually")
+        }
+    }
+
+    internal object SourceSetsAccessInAndroidExtension : ToolingDiagnosticFactory(
+        WARNING,
+        DiagnosticGroup.Kgp.Deprecation
+    ) {
+        operator fun invoke(trace: Throwable? = null) = build(throwable = trace) {
+            title {"sourceSets collection in Kotlin Android is deprecated" }
+                .description {
+                    """
+                        Kotlin Source Sets collection in Android extension should not be used and is deprecated now.
+                    """.trimIndent()
+                }
+                .solution { "Use source set alternative provided by Android Gradle Plugin: https://kotl.in/b2vftz" }
+                .documentationLink(URI("https://youtrack.jetbrains.com/issue/KT-74451"))
+        }
+    }
+
+    internal object DeprecatedKotlinJsPlugin : ToolingDiagnosticFactory(
+        FATAL,
+        DiagnosticGroup.Kgp.Deprecation,
+    ) {
+        operator fun invoke(trace: Throwable? = null) = build(throwable = trace) {
+            title { "'kotlin-js' Gradle plugin is deprecated" }
+                .description { "'kotlin-js' Gradle plugin is deprecated and will be removed in the future" }
+                .solution { "Please use 'kotlin(\"multiplatform\")' plugin with a 'js()' target instead" }
+                .documentationLink(URI("https://kotl.in/t6m3vu"))
+        }
+    }
+
+    internal object XCFrameworkWithSwiftPMDependencies : ToolingDiagnosticFactory(
+        WARNING,
+        DiagnosticGroup.Kgp.Experimental,
+    ) {
+        operator fun invoke() = build() {
+            title { "XCFramework has SwiftPM dependencies" }
+                .description { "A SwiftPM package has been generated alongside the XCFramework to describe its SwiftPM dependencies" }
+                .solution { "Please publish the XCFramework with the generated SwiftPM package" }
+                .documentationLink(URI("https://kotl.in/xcframework-with-swiftpm-dependencies"))
         }
     }
 }

@@ -47,6 +47,9 @@ object FirJvmIdentitySensitiveCallWithValueTypeObjectChecker : FirFunctionCallCh
         CallableId(FqName("java.util"), FqName("WeakHashMap"), Name.identifier("WeakHashMap")),
     )
 
+    override val platformSpecificCheckerEnabledInMetadataCompilation: Boolean
+        get() = true
+
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(expression: FirFunctionCall) {
         val function = expression.calleeReference.toResolvedCallableSymbol() ?: return
@@ -78,7 +81,7 @@ object FirJvmIdentitySensitiveCallWithValueTypeObjectChecker : FirFunctionCallCh
     private fun checkSynchronizedCall(
         expression: FirFunctionCall,
     ) {
-        for ((argument, parameter) in expression.resolvedArgumentMapping?.entries ?: return) {
+        for ([argument, parameter] in expression.resolvedArgumentMapping?.entries ?: return) {
             if (parameter.name != lockParameterName) continue
             val type = argument.resolvedType
             if (type.isPrimitive || type.isValueClass(context.session)) {

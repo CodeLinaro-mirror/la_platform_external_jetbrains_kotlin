@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -58,6 +58,7 @@ import kotlin.contracts.contract
 abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val context: Context<T> = Context()) {
     companion object {
         fun firScriptName(fileName: String): Name = Name.special("<script-$fileName>")
+        fun firSnippetName(fileName: String): Name = Name.special("<snippet-$fileName>")
     }
 
     val baseModuleData: FirModuleData = baseSession.moduleData
@@ -225,6 +226,19 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
             context.containingReplSymbol = null
         }
     }
+
+    inline fun withCompanionBlock(block: () -> Unit) {
+        val oldValue = context.currentCompanionBlockOwnerOrNull
+        context.currentCompanionBlockOwnerOrNull = context.containerSymbolIfAny
+        try {
+            block()
+        } finally {
+            context.currentCompanionBlockOwnerOrNull = oldValue
+        }
+    }
+
+    val isDirectlyInsideCompanionBlock: Boolean
+        get() = context.currentCompanionBlockOwnerOrNull.let { it != null && it == context.containerSymbolIfAny }
 
     protected open fun addCapturedTypeParameters(
         status: Boolean,
@@ -843,17 +857,12 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                     ),
                     sourceKind
                 )
-                statements += buildGetCall(
-                    if (isInc) {
-                        KtFakeSourceElementKind.DesugaredPrefixIncSecondGetReference
-                    } else {
-                        KtFakeSourceElementKind.DesugaredPrefixDecSecondGetReference
-                    }
-                )
+                statements += buildGetCall(sourceKind.forSecondGetReference)
             } else {
+                val unaryVariableSource = baseSource.fakeElement(sourceKind.forUnaryVariable)
                 val initialValueVar = generateTemporaryVariable(
                     baseModuleData,
-                    desugaredSource,
+                    unaryVariableSource,
                     SpecialNames.UNARY,
                     buildGetCall(sourceKind)
                 )
@@ -1123,6 +1132,12 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         }
     }
 
+    /**
+     * Generates the synthetic members of a data class.
+     *
+     * The fake source elements of the generated members should be distinct per the contract of [KtSourceElement]. Hence, the generator must
+     * ensure that each pair of `(realSource, fakeElementKind)` is distinct.
+     */
     inner class DataClassMembersGenerator(
         private val source: T,
         private val classBuilder: FirRegularClassBuilder,
@@ -1142,15 +1157,23 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
 
         private fun generateComponentFunctions() {
             var componentIndex = 1
-            for ((sourceNode, firProperty) in zippedParameters) {
+            for ([sourceNode, firProperty] in zippedParameters) {
                 if (!firProperty.isVal && !firProperty.isVar) continue
                 val name = Name.identifier("component$componentIndex")
                 componentIndex++
+                val componentSource =
+                    sourceNode.toFirSourceElement(KtFakeSourceElementKind.DataClassGeneratedMembers.ComponentFunction)
+
                 val componentFunction = buildNamedFunction {
-                    source = sourceNode.toFirSourceElement(KtFakeSourceElementKind.DataClassGeneratedMembers)
+                    source = componentSource
                     moduleData = baseModuleData
                     origin = FirDeclarationOrigin.Synthetic.DataClassMember
-                    returnTypeRef = firProperty.returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers)
+
+                    // The return type reference has a different real source than the component function, so we can reuse
+                    // `ComponentFunction`.
+                    returnTypeRef = firProperty.returnTypeRef
+                        .copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers.ComponentFunction)
+
                     this.name = name
                     status = FirDeclarationStatusImpl(firProperty.visibility, Modality.FINAL).apply {
                         isOperator = true
@@ -1175,7 +1198,7 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                     zippedParameters,
                     isFromLibrary = false,
                     firPrimaryConstructor,
-                    { src, kind -> src?.toFirSourceElement(kind) },
+                    { src, kind -> src.toFirSourceElement(kind) },
                     addValueParameterAnnotations,
                     { it.isVararg },
                 )
@@ -1326,48 +1349,73 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         CONTEXT_PARAMETER(shouldExplicitParameterTypeBePresent = true, isAnnotationOwner = true),
     }
 
-    protected fun convertScriptOrSnippets(declaration: T, fileBuilder: FirFileBuilder): FirDeclaration {
-        val scriptSource = declaration.toFirSourceElement()
-        val sourceFile = fileBuilder.sourceFile!!
+    protected open fun isReplSnippet(script: T, sourceFile: KtSourceFile): Boolean {
+        val scriptSource = script.toFirSourceElement()
+        return baseSession.extensionService.replSnippetConfigurators.any {
+            it.isReplSnippetsSource(sourceFile, scriptSource)
+        }
+    }
 
-        val repSnippetConfigurator =
-            baseSession.extensionService.replSnippetConfigurators.filter {
+    /**
+     * Converts the [declaration] to a [FirScript] or [FirReplSnippet] depending on the [sourceFile].
+     *
+     * If [fileBuilder] is provided, it will be used to configure the file containing the script or snippet.
+     */
+    protected fun convertScriptOrSnippets(declaration: T, sourceFile: KtSourceFile, fileBuilder: FirFileBuilder?): FirDeclaration {
+        val scriptSource = declaration.toFirSourceElement()
+
+        return if (isReplSnippet(declaration, sourceFile)) {
+            val repSnippetConfigurator = baseSession.extensionService.replSnippetConfigurators.filter {
                 it.isReplSnippetsSource(sourceFile, scriptSource)
-            }.let {
+            }.let { snippetConfiguratorExtensions ->
                 requireWithAttachment(
-                    it.size <= 1,
+                    snippetConfiguratorExtensions.size <= 1,
                     message = { "More than one REPL snippet configurator is found for the file" },
                 ) {
                     withEntry("fileName", sourceFile.name)
-                    withEntry("configurators", it.joinToString { "${it::class.java.name}" })
+                    withEntry("configurators", snippetConfiguratorExtensions.joinToString { "${it::class.java.name}" })
                 }
-                it.firstOrNull()
+
+                snippetConfiguratorExtensions.firstOrNull()
             }
 
-        return if (repSnippetConfigurator != null) {
             convertReplSnippet(
-                declaration, scriptSource, sourceFile.name,
+                script = declaration,
+                scriptSource = scriptSource,
+                fileName = sourceFile.name,
                 snippetSetup = {
-                    with(repSnippetConfigurator) {
-                        configureContainingFile(fileBuilder)
-                        configure(fileBuilder.sourceFile, context)
+                    if (repSnippetConfigurator != null) {
+                        with(repSnippetConfigurator) {
+                            fileBuilder?.let { configureContainingFile(it) }
+                            configure(sourceFile, context)
+                        }
+                    }
+                },
+                functionBodySetup = {
+                    if (repSnippetConfigurator != null) {
+                        with(repSnippetConfigurator) {
+                            configureEvalBody(sourceFile, scriptSource, context)
+                        }
                     }
                 },
                 statementsSetup = {
-                    with(repSnippetConfigurator) {
-                        configure(fileBuilder.sourceFile, scriptSource, context)
+                    if (repSnippetConfigurator != null) {
+                        with(repSnippetConfigurator) {
+                            configure(sourceFile, scriptSource, context)
+                        }
                     }
                 },
             )
         } else {
-            val scriptConfigurator =
-                baseSession.extensionService.scriptConfigurators.firstOrNull { it.accepts(fileBuilder.sourceFile, scriptSource) }
+            val scriptConfigurator = baseSession.extensionService.scriptConfigurators.firstOrNull {
+                it.accepts(sourceFile, scriptSource)
+            }
 
-            convertScript(declaration, scriptSource, fileBuilder.name) {
+            convertScript(declaration, scriptSource, sourceFile.name) {
                 if (scriptConfigurator != null) {
                     with(scriptConfigurator) {
-                        configureContainingFile(fileBuilder)
-                        configure(fileBuilder.sourceFile, context)
+                        fileBuilder?.let { configureContainingFile(it) }
+                        configure(sourceFile, context)
                     }
                 }
             }
@@ -1386,7 +1434,8 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         scriptSource: KtSourceElement,
         fileName: String,
         snippetSetup: FirReplSnippetBuilder.() -> Unit,
-        statementsSetup: MutableList<FirStatement>.() -> Unit,
+        functionBodySetup: FirBlockBuilder.() -> Unit,
+        statementsSetup: MutableList<FirElement>.() -> Unit,
     ): FirReplSnippet
 
     protected fun configureScriptDestructuringDeclarationEntry(declaration: FirVariable, container: FirVariable) {
@@ -1401,7 +1450,7 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
     zippedParameters: List<Pair<TParameter, FirProperty>>,
     isFromLibrary: Boolean,
     firConstructor: FirConstructor,
-    toFirSource: (TBase?, KtFakeSourceElementKind) -> KtSourceElement?,
+    toFirSource: (TBase, KtFakeSourceElementKind) -> KtSourceElement,
     addValueParameterAnnotations: FirValueParameterBuilder.(TParameter) -> Unit,
     isVararg: (TParameter) -> Boolean,
 ): FirNamedFunction {
@@ -1431,8 +1480,13 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
     val declarationOrigin = if (isFromLibrary) FirDeclarationOrigin.Library else FirDeclarationOrigin.Synthetic.DataClassMember
 
     return buildNamedFunction {
-        val classTypeRef = firConstructor.returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers)
-        this.source = toFirSource(sourceElement, KtFakeSourceElementKind.DataClassGeneratedMembers)
+        val copySourceElement = toFirSource(sourceElement, KtFakeSourceElementKind.DataClassGeneratedMembers.CopyFunction)
+
+        // The return type reference has a different real source than the copy function, so we can reuse `CopyFunction`.
+        val classTypeRef = firConstructor.returnTypeRef
+            .copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers.CopyFunction)
+
+        this.source = copySourceElement
         moduleData = this@createDataClassCopyFunction.moduleData
         origin = declarationOrigin
         returnTypeRef = classTypeRef
@@ -1449,10 +1503,14 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
         }
         isLocal = firConstructor.isLocal
 
-        for ((ktParameter, firProperty) in zippedParameters) {
+        for ([ktParameter, firProperty] in zippedParameters) {
             val propertyName = firProperty.name
-            val parameterSource = toFirSource(ktParameter, KtFakeSourceElementKind.DataClassGeneratedMembers)
-            val propertyReturnTypeRef = firProperty.returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers)
+            val parameterSource = toFirSource(ktParameter, KtFakeSourceElementKind.DataClassGeneratedMembers.CopyFunction.Parameter)
+
+            // The return type reference has a different real source than the parameter, so we can reuse `CopyFunction.Parameter`.
+            val propertyReturnTypeRef = firProperty.returnTypeRef
+                .copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers.CopyFunction.Parameter)
+
             valueParameters += buildValueParameter {
                 resolvePhase = this@createDataClassCopyFunction.resolvePhase
                 source = parameterSource

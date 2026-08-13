@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.generators.InconsistencyChecker.Companion.inconsiste
 import org.jetbrains.kotlin.generators.allowGenerationOnTeamCity
 import org.jetbrains.kotlin.generators.dsl.TestGroupSuite
 import org.jetbrains.kotlin.generators.dsl.forEachTestClassParallel
+import org.jetbrains.kotlin.generators.model.TestInfraRevision
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 
 fun generateTestGroupSuiteWithJUnit4(
@@ -31,10 +32,13 @@ fun generateTestGroupSuiteWithJUnit4(
     mainClassName: String? = TestGeneratorUtil.getMainClassName(),
     init: TestGroupSuite.() -> Unit,
 ) {
-    val suite = TestGroupSuite(TestGroupSuite.Mode.LegacyJUnit4).apply(init)
+    val suite = TestGroupSuite(TestInfraRevision.LegacyJUnit4, defaultSkipTestAllFilesCheck = false).apply(init)
     suite.forEachTestClassParallel { testClass ->
-        val (changed, testSourceFilePath) = TestGeneratorForJUnit4
-            .generateAndSave(testClass, dryRun, allowGenerationOnTeamCity, mainClassName)
+        (
+            val changed = newFileGenerated, val testSourceFilePath
+        ) =
+            TestGeneratorForJUnit4
+                .generateAndSave(testClass, dryRun, allowGenerationOnTeamCity, mainClassName)
         if (changed) {
             inconsistencyChecker(dryRun).add(testSourceFilePath)
         }

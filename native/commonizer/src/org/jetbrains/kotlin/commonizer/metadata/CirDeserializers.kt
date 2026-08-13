@@ -9,9 +9,9 @@ import kotlinx.metadata.klib.annotations
 import kotlinx.metadata.klib.compileTimeValue
 import org.jetbrains.kotlin.commonizer.cir.*
 import org.jetbrains.kotlin.commonizer.utils.*
-import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.types.Variance
 import kotlin.metadata.*
@@ -19,7 +19,6 @@ import kotlin.metadata.ClassKind as KmClassKind
 import kotlin.metadata.Modality as KmModality
 import kotlin.metadata.Visibility as KmVisibility
 
-@OptIn(ExperimentalAnnotationsInMetadata::class)
 object CirDeserializers {
     private fun annotations(annotations: List<KmAnnotation>, typeResolver: CirTypeResolver): List<CirAnnotation> =
         annotations.compactMap { annotation(it, typeResolver) }
@@ -50,7 +49,7 @@ object CirDeserializers {
         val constantValueArguments: MutableMap<CirName, CirConstantValue> = CommonizerMap(allValueArguments.size)
         val annotationValueArguments: MutableMap<CirName, CirAnnotation> = CommonizerMap(allValueArguments.size)
 
-        allValueArguments.forEach { (name, constantValue) ->
+        allValueArguments.forEach { [name, constantValue] ->
             val cirName = CirName.create(name)
             if (constantValue is KmAnnotationArgument.AnnotationValue)
                 annotationValueArguments[cirName] = annotation(source = constantValue.annotation, typeResolver)

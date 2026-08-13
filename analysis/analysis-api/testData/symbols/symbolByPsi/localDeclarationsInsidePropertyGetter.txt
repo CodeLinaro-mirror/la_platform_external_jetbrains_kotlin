@@ -1,9 +1,10 @@
 KaLocalVariableSymbol:
   annotations: []
   callableId: null
-  compilerVisibility: Local
   contextReceivers: []
   isActual: false
+  isCompanion: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -22,19 +23,19 @@ KaLocalVariableSymbol:
   getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
   getContainingJvmClassName: null
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: null
-  compilerVisibility: Local
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -61,7 +62,7 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: null
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: null
 
@@ -70,7 +71,6 @@ KaNamedClassSymbol:
   classId: null
   classKind: CLASS
   companionObject: null
-  compilerVisibility: Local
   contextReceivers: []
   isActual: false
   isData: false
@@ -93,14 +93,13 @@ KaNamedClassSymbol:
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: null
 
 KaTypeAliasSymbol:
   annotations: []
   classId: null
-  compilerVisibility: Local
   expandedType: KaUsualClassType:
     annotations: []
     typeArguments: []
@@ -116,7 +115,7 @@ KaTypeAliasSymbol:
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: null
 
 KaKotlinPropertySymbol:
@@ -124,9 +123,10 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Private
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -146,19 +146,18 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
     getContainingJvmClassName: LocalDeclarationsInsidePropertyGetterKt
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   callableId: /x
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -178,15 +177,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
     getContainingJvmClassName: LocalDeclarationsInsidePropertyGetterKt
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: true
   hasGetter: true
   hasSetter: false
   initializer: KaConstantInitializerValue(5)
   isActual: false
+  isCompanion: false
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -210,7 +210,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(localDeclarationsInsidePropertyGetter.kt)
   getContainingJvmClassName: LocalDeclarationsInsidePropertyGetterKt
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getX
   javaSetterName: null
   isInline: false

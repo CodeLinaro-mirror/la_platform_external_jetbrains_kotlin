@@ -1,3 +1,7 @@
+// IGNORE_KLIB_BACKEND_ERRORS_WITH_CUSTOM_FIRST_STAGE: Native:2.3
+// IGNORE_KLIB_BACKEND_ERRORS_WITH_CUSTOM_SECOND_STAGE: Native:2.3
+// ^^^ KT-79742 is fixed in 2.3.20-Beta1
+
 // TARGET_BACKEND: NATIVE
 // FREE_CINTEROP_ARGS: -Xccall-mode direct
 // MODULE: cinterop1
@@ -19,7 +23,7 @@ headers = lib2.h
 // FILE: lib2.h
 extern unsigned sameGlobal;
 
-// MODULE: main(cinterop1,cinterop2)
+// MODULE: main(cinterop1, cinterop2)
 // FILE: main.kt
 @file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 

@@ -1,4 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
 // LANGUAGE: +CollectionLiterals
 // WITH_STDLIB
 // ISSUE: KT-82638

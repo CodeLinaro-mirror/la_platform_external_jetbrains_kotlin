@@ -55,7 +55,7 @@ import kotlin.time.Duration.Companion.seconds
  * Also, there is a [minus] operator that returns the [Duration] representing the difference between two instants:
  *
  * ```
- * val kotlinRelease = Instant.parse("2016-02-15T02:00T12:00:00+03:00")
+ * val kotlinRelease = Instant.parse("2016-02-15T12:00:00+03:00")
  * val kotlinStableDuration = Clock.System.now() - kotlinRelease
  * ```
  *
@@ -94,7 +94,7 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  *
  * [parse] and [toString] methods can be used to obtain an [Instant] from and convert it to a string in the
- * (ISO 8601 extended format)[https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations],
+ * [ISO 8601 extended format](https://en.wikipedia.org/wiki/ISO_8601#Combined_date_and_time_representations),
  * which includes a time zone designator.
  *
  * ```

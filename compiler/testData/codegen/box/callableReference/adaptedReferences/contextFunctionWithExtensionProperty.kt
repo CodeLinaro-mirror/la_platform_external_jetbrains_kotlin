@@ -1,4 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
 // LANGUAGE: +ContextParameters
 // NO_CHECK_LAMBDA_INLINING
 // FILE: lib.kt

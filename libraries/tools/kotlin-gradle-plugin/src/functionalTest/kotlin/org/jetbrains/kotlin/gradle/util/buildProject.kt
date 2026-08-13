@@ -19,14 +19,14 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_RUN_COMPILER_VIA_BUILD_TOOLS_API
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
-import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupportDeprecated
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SwiftExportExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftimport.SwiftPMImportExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.consumption.KmpResolutionStrategy
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.KmpPublicationStrategy
-import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionImpl
-import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.kotlinArtifactsExtension
+
+
 import org.jetbrains.kotlin.gradle.utils.getFile
 import org.jetbrains.kotlin.konan.target.XcodeVersion
 
@@ -87,16 +87,6 @@ fun buildProjectWithJvm(
     code()
 }
 
-fun buildProjectWithJs(
-    projectBuilder: ProjectBuilder.() -> Unit = {},
-    preApplyCode: Project.() -> Unit = {},
-    code: Project.() -> Unit = {},
-) = buildProject(projectBuilder) {
-    preApplyCode()
-    project.applyKotlinJsPlugin()
-    code()
-}
-
 fun buildProjectWithCocoapods(projectBuilder: ProjectBuilder.() -> Unit = {}, code: Project.() -> Unit = {}) =
     buildProject(projectBuilder) {
         project.applyMultiplatformPlugin()
@@ -108,10 +98,6 @@ fun Project.applyKotlinJvmPlugin() {
     project.plugins.apply(KotlinPluginWrapper::class.java)
 }
 
-fun Project.applyKotlinJsPlugin() {
-    project.plugins.apply(KotlinJsPluginWrapper::class.java)
-}
-
 fun Project.applyKotlinAndroidPlugin() {
     project.plugins.apply(KotlinAndroidPluginWrapper::class.java)
 }
@@ -119,11 +105,6 @@ fun Project.applyKotlinAndroidPlugin() {
 fun Project.kotlin(code: KotlinMultiplatformExtension.() -> Unit) {
     val kotlin = project.kotlinExtension as KotlinMultiplatformExtension
     kotlin.code()
-}
-
-fun Project.kotlinArtifacts(code: KotlinArtifactsExtensionImpl.() -> Unit) {
-    val kotlinArtifacts = project.kotlinArtifactsExtension as KotlinArtifactsExtensionImpl
-    kotlinArtifacts.code()
 }
 
 fun Project.androidLibrary(code: LibraryExtension.() -> Unit) {
@@ -162,6 +143,10 @@ fun KotlinMultiplatformExtension.swiftExport(code: SwiftExportExtension.() -> Un
     requireNotNull(getExtension<SwiftExportExtension>("swiftExport")).apply(code)
 }
 
+fun KotlinMultiplatformExtension.swiftPMDependencies(code: SwiftPMImportExtension.() -> Unit) {
+    requireNotNull(getExtension<SwiftPMImportExtension>("swiftPMDependencies")).apply(code)
+}
+
 val Project.propertiesExtension: ExtraPropertiesExtension
     get() = extensions.getByType(ExtraPropertiesExtension::class.java)
 
@@ -193,9 +178,6 @@ fun Project.enableDefaultJsDomApiDependency(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_JS_STDLIB_DOM_API_INCLUDED, enabled.toString())
 }
 
-fun Project.setMultiplatformAndroidSourceSetLayoutVersion(version: Int) {
-    project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_MPP_ANDROID_SOURCE_SET_LAYOUT_VERSION, version.toString())
-}
 
 fun Project.enableDependencyVerification(enabled: Boolean = true) {
     gradle.startParameter.dependencyVerificationMode = if (enabled) DependencyVerificationMode.STRICT
@@ -217,13 +199,10 @@ fun Project.enableSecondaryJvmClassesVariant(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_JVM_ADD_CLASSES_VARIANT, enabled.toString())
 }
 
-fun Project.enableKmpProjectIsolationSupport(enabled: Boolean = true) {
+
+fun Project.enableBtaJvm(enabled: Boolean = true) {
     @Suppress("DEPRECATION")
-    if (enabled) {
-        project.propertiesExtension.set(KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT, KmpIsolatedProjectsSupportDeprecated.ENABLE)
-    } else {
-        project.propertiesExtension.set(KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT, KmpIsolatedProjectsSupportDeprecated.DISABLE)
-    }
+    project.propertiesExtension.set(KOTLIN_RUN_COMPILER_VIA_BUILD_TOOLS_API, enabled)
 }
 
 fun Project.enableNonPackedKlibsUsage(enabled: Boolean = true) {
@@ -239,4 +218,8 @@ fun Project.enableEagerUnresolvedDependenciesDiagnostic(enabled: Boolean = true)
 
 fun Project.enableUnresolvedDependenciesDiagnostic(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_KMP_UNRESOLVED_DEPENDENCIES_DIAGNOSTIC, enabled.toString())
+}
+
+fun Project.withTemporaryKotlinNativeHome() {
+    project.extraProperties.set("kotlin.native.home", System.getProperty("kotlin.native.home"))
 }

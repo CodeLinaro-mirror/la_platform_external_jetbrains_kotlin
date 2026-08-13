@@ -45,6 +45,7 @@ import java.lang.invoke.MethodType
 class JvmSymbols(
     private val context: JvmBackendContext,
 ) : BackendSymbols(context.irBuiltIns) {
+    private val irBuiltIns = context.irBuiltIns
     private val storageManager = LockBasedStorageManager(this::class.java.simpleName)
     private val irFactory = context.irFactory
 
@@ -279,7 +280,7 @@ class JvmSymbols(
             klass.addFunction("desiredAssertionStatus", irBuiltIns.booleanType)
         }
 
-    private val javaLangDeprecatedWithDeprecatedFlag: IrClassSymbol =
+    val javaLangDeprecatedWithDeprecatedFlag: IrClassSymbol =
         createClass(FqName("java.lang.Deprecated"), classKind = ClassKind.ANNOTATION_CLASS) { klass ->
             klass.addConstructor { isPrimary = true }
         }
@@ -590,7 +591,7 @@ class JvmSymbols(
         listOf(
             "kotlin.internal.ProgressionUtilKt" to listOf(irBuiltIns.intClass, irBuiltIns.longClass),
             "kotlin.internal.UProgressionUtilKt" to listOfNotNull(irBuiltIns.uintClass, irBuiltIns.ulongClass)
-        ).map { (fqn, types) ->
+        ).map { [fqn, types] ->
             createClass(FqName(fqn)) { klass ->
                 for (type in types) {
                     klass.addFunction("getProgressionLastElement", type.owner.defaultType, isStatic = true).apply {

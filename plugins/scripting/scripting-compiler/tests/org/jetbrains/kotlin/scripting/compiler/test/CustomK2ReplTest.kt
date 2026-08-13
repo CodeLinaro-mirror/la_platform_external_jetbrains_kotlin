@@ -13,14 +13,12 @@ import org.jetbrains.kotlin.scripting.compiler.plugin.impl.K2ReplEvaluator
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.SCRIPT_BASE_COMPILER_ARGUMENTS_PROPERTY
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.withMessageCollectorAndDisposable
 import org.junit.jupiter.api.Assumptions.abort
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.reflect.full.declaredMemberFunctions
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.dependencies.CompoundDependenciesResolver
-import kotlin.script.experimental.dependencies.FileSystemDependenciesResolver
 import kotlin.script.experimental.dependencies.maven.MavenDependenciesResolver
 import kotlin.script.experimental.host.toScriptSource
 import kotlin.script.experimental.impl.internalScriptingRunSuspend
@@ -37,7 +35,7 @@ class ReplReceiver1 {
 @Suppress("unused") // Used in snippets
 class TestReplReceiver1() { fun checkReceiver(block: ReplReceiver1.() -> Any) = block(ReplReceiver1()) }
 
-val dependenciesResolver = CompoundDependenciesResolver(FileSystemDependenciesResolver(), MavenDependenciesResolver())
+val dependenciesResolver = CompoundDependenciesResolver(MavenDependenciesResolver())
 
 class CustomK2ReplTest {
 
@@ -119,7 +117,7 @@ class CustomK2ReplTest {
             sequenceOf(0, 0),
             baseCompilationConfiguration.with {
                 refineConfiguration {
-                    beforeCompiling { (script, config, _) ->
+                    beforeCompiling { (val script, val config = compilationConfiguration, val _ = collectedData) ->
                         config.with {
                             if (!script.text.contains("kotlin.random.Random")) {
                                 defaultImports("kotlin.random.Random")
@@ -144,7 +142,7 @@ class CustomK2ReplTest {
             sequenceOf(null, null, "null", null, "ftp://xx"),
             baseCompilationConfiguration.with {
                 refineConfiguration {
-                    beforeCompiling { (script, config, _) ->
+                    beforeCompiling { (val script, val config = compilationConfiguration, val _ = collectedData) ->
                         if (!script.text.contains("firstLine")) {
                             val resolveResults = runBlocking {
                                 dependenciesResolver.resolve("org.jetbrains.kotlinx:dataframe-core:0.15.0")
@@ -385,11 +383,11 @@ class CustomK2ReplTest {
 
         val layer1 = snippetClass.nestedClasses.toList()
         assertEquals(layer1.map { it.simpleName }, listOf("A", "B"))
-        val (_, bClass) = layer1
+        val [_, bClass] = layer1
 
         val layer2 = bClass.nestedClasses.toList()
         assertEquals(layer2.map { it.simpleName }, listOf("C", "D"))
-        val (_, dClass) = layer2
+        val [_, dClass] = layer2
 
         val layer3 = dClass.nestedClasses.toList()
         assertEquals(layer3.map { it.simpleName }, listOf("E"))
@@ -477,6 +475,49 @@ class CustomK2ReplTest {
         val expected = sequence { while (true) yield(null) }
 
         checkEvaluatedSnippetsResultVals(expected, results)
+    }
+
+    @Test
+    fun testSuspendWrapper() {
+        if (!isK2) return
+        val coroutinesCoreClasspath = System.getProperty("kotlin.script.test.kotlinx.coroutines.core.classpath")!!
+            .split(File.pathSeparator).map(::File)
+
+        evalAndCheckSnippetsResultVals(
+            sequenceOf(
+                """
+                    import kotlinx.coroutines.*
+                    
+                    suspend fun request(): String {
+                        yield()
+                        return "OK"
+                    }
+                    
+                    launch {
+                    }
+                    
+                    val response = request()
+                """.trimIndent(),
+                """
+                    response
+                """.trimIndent()
+            ),
+            sequenceOf(
+                null,
+                "OK",
+            ),
+            baseCompilationConfiguration.with {
+                updateClasspath(coroutinesCoreClasspath)
+                repl {
+                    internalWrapper("kotlinx.coroutines.runBlocking")
+                }
+            },
+            baseEvaluationConfiguration.with {
+                jvm {
+                    baseClassLoader(null)
+                }
+            }
+        )
     }
 }
 

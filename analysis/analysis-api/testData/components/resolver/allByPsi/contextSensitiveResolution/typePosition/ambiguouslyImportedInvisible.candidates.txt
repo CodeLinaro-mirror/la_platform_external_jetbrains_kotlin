@@ -140,7 +140,7 @@ KtNameReferenceExpression(212,216): 'Left'
   NO_CANDIDATES
 
 KtNameReferenceExpression(220,221): 'x'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaSmartCastedReceiverValue:
@@ -148,9 +148,10 @@ KtNameReferenceExpression(220,221): 'x'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -197,7 +198,7 @@ KtNameReferenceExpression(229,234): 'Right'
   NO_CANDIDATES
 
 KtNameReferenceExpression(238,239): 'y'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaSmartCastedReceiverValue:
@@ -205,9 +206,10 @@ KtNameReferenceExpression(238,239): 'y'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false

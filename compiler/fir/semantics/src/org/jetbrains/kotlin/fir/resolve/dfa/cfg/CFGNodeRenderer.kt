@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -118,10 +118,7 @@ fun CFGNode<*>.render(): String =
                 is CodeFragmentEnterNode -> "Enter code fragment"
                 is CodeFragmentExitNode -> "Exit code fragment"
 
-                is ReplSnippetEnterNode -> "Enter repl snippet"
-                is ReplSnippetExitNode -> "Exit repl snippet"
-
-                is FakeExpressionEnterNode -> "Enter fake expression"
+                is FakeExpressionTerminalNode -> "Enter or exit fake expression"
 
                 is EnterValueParameterNode -> "Enter default value of ${fir.name}"
                 is EnterDefaultArgumentsNode -> "Enter default value of ${fir.name}"

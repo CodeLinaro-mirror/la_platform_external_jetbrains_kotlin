@@ -478,6 +478,17 @@ class KlibParsingCursorExtensionsTest {
     }
 
     @Test
+    fun parseValueParamVarargWithoutTypeParams() {
+        val input = "kotlin/DoubleArray..."
+        val cursor = Cursor(input)
+        val valueParam = cursor.parseValueParameter()!!
+        assertEquals("kotlin/DoubleArray", valueParam.type.className.toString())
+        assertFalse(valueParam.hasDefaultArg)
+        assertFalse(valueParam.isCrossinline)
+        assertTrue(valueParam.isVararg)
+    }
+
+    @Test
     fun parseValueParametersWithTypeArgs() {
         val input = "kotlin/Array<out #A>..."
         val cursor = Cursor(input)
@@ -723,7 +734,7 @@ class KlibParsingCursorExtensionsTest {
         val input = "sOME! enum? //"
         val cursor = Cursor(input)
         val enumName = cursor.parseEnumEntryName()
-        assertEquals("sOME! enum? ", enumName)
+        assertEquals("sOME! enum?", enumName)
         assertEquals("//", cursor.currentLine)
     }
 

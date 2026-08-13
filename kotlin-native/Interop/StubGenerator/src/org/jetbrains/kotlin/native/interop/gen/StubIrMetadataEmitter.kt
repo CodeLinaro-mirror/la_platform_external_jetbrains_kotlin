@@ -2,7 +2,6 @@
  * Copyright 2010-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
-@file:OptIn(ExperimentalAnnotationsInMetadata::class)
 
 package org.jetbrains.kotlin.native.interop.gen
 
@@ -355,7 +354,7 @@ private class MappingExtensions(
 
     fun AnnotationStub.map(): KmAnnotation {
         fun Pair<String, String>.asOptionalAnnotationArgument(): Pair<String, KmAnnotationArgument.StringValue>? {
-            val (argumentName, argumentValue) = this
+            val [argumentName, argumentValue] = this
             return if (argumentValue.isEmpty()) null else argumentName to KmAnnotationArgument.StringValue(argumentValue)
         }
 
@@ -443,6 +442,7 @@ private class MappingExtensions(
                     ("align" to KmAnnotationArgument.IntValue(align))
             )
             is AnnotationStub.ExperimentalForeignApi -> emptyMap()
+            AnnotationStub.ObjC.Unavailable -> emptyMap()
         }
         return KmAnnotation(classifier.fqNameSerialized, args)
     }

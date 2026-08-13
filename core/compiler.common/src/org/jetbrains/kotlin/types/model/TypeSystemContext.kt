@@ -58,6 +58,14 @@ fun Variance.convertVariance(): TypeVariance {
     }
 }
 
+fun TypeVariance.convertVariance(): Variance {
+    return when (this) {
+        TypeVariance.INV -> Variance.INVARIANT
+        TypeVariance.IN -> Variance.IN_VARIANCE
+        TypeVariance.OUT -> Variance.OUT_VARIANCE
+    }
+}
+
 interface TypeSystemOptimizationContext {
     /**
      *  @return true is a.arguments == b.arguments, or false if not supported
@@ -116,11 +124,31 @@ interface TypeSystemTypeFactoryContext : TypeSystemContext, TypeSystemBuiltInsCo
  * Implementation is recommended to be [TypeSystemContext]
  */
 interface TypeCheckerProviderContext {
+    /**
+     * This one is expected to be the actual factory method implementation
+     */
     fun newTypeCheckerState(
+        typeSystemContext: TypeSystemContext,
         errorTypesEqualToAnything: Boolean,
         stubTypesEqualToAnything: Boolean,
         dnnTypesEqualToFlexible: Boolean = false,
     ): TypeCheckerState
+
+    // TODO: This method is likely to be moved as a helper into TypeSystemContext (KT-84895)
+    fun newTypeCheckerState(
+        errorTypesEqualToAnything: Boolean,
+        stubTypesEqualToAnything: Boolean,
+        dnnTypesEqualToFlexible: Boolean = false,
+    ): TypeCheckerState {
+        check(this is TypeSystemContext) {
+            "All current implementations are expected to be TypeSystemContext, but ${this::class.qualifiedName} found"
+        }
+
+        return newTypeCheckerState(
+            typeSystemContext = this,
+            errorTypesEqualToAnything, stubTypesEqualToAnything, dnnTypesEqualToFlexible,
+        )
+    }
 }
 
 /**
@@ -336,8 +364,10 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
      * and it can lead to information loss. E.g. with initial constraints T = Bar, Bar? <: U, U? <: (T..T?)
      * we infer a lower constraint U <: T and get Bar? <: Bar contradiction.
      *
-     * In K1 and early versions of K2 (2.0-2.2) this problem is mitigated with so-called TypePreservingVisibilityWrtHack,
-     * that allows us to use flexible types for explicit type arguments of Java type parameters
+     * Currently (both in K1 and K2), this problem is mitigated with so-called TypePreservingVisibilityWrtHack,
+     * that allows us to use flexible types for not-null explicit type arguments of Java type parameters
+     *
+     * TODO: consider dropping in 2.5 timeframe together with the corresponding feature (KT-84664)
      */
     fun usePreciseSimplificationToFlexibleLowerConstraint(): Boolean
 
@@ -637,7 +667,18 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
      * @returns substituted type or [type] if there were no substitution
      */
     fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker
+
+    /** See [CustomSubtypingCallback] */
+    val customSubtypingCallback: CustomSubtypingCallback? get() = null
 }
+
+/**
+ * A callback which is being called on each subtyping to override the regular algorithm.
+ * Being called also for recursive subtyping, e.g., when comparing type arguments.
+ *
+ * `null` returned means that the regular algorithm should be used.
+ */
+typealias CustomSubtypingCallback = (subType: KotlinTypeMarker, superType: KotlinTypeMarker) -> Boolean?
 
 enum class CaptureStatus {
     FOR_SUBTYPING,

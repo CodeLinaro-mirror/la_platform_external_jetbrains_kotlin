@@ -1,10 +1,12 @@
 plugins {
     kotlin("jvm")
     id("generated-sources")
+    id("require-explicit-types")
 }
 
 dependencies {
     api(project(":compiler:fir:checkers"))
+    implementation(project(":compiler:fir:diagnostic-renderers"))
     implementation(project(":core:compiler.common.web"))
 
     /*

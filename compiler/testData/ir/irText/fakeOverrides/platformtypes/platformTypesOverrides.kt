@@ -1,4 +1,4 @@
-// FIR_IDENTICAL
+// IGNORE_BACKEND: JKLIB
 // TARGET_BACKEND: JVM
 
 // The test primarily tests reflect dumps (k1 vs new reflect), we don't need kt dumps

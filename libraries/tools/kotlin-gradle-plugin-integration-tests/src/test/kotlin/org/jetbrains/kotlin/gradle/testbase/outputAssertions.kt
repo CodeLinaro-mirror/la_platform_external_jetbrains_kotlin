@@ -10,6 +10,7 @@ import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.cli.common.arguments.*
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import java.util.*
 import kotlin.test.assertEquals
 
@@ -60,7 +61,7 @@ fun BuildResult.assertOutputDoesNotContain(
             endIndex = startIndex + notExpectedSubString.length
         } while (startIndex != -1)
 
-        val linesContainingSubString = occurrences.map { (startIndex, endIndex) ->
+        val linesContainingSubString = occurrences.map { [startIndex, endIndex] ->
             output.subSequence(
                 (startIndex - wrappingCharsCount).coerceAtLeast(0),
                 (endIndex + wrappingCharsCount).coerceAtMost(output.length)
@@ -133,22 +134,23 @@ fun BuildResult.assertOutputContainsExactlyTimes(
 
 /**
  * Assert build contains no warnings.
+ *
+ * @param additionalExpectedWarningIds Additional diagnostic IDs to suppress in warning checks.
  */
 fun BuildResult.assertNoBuildWarnings(
-    additionalExpectedWarnings: Set<String> = emptySet(),
+    additionalExpectedWarningIds: Set<String> = emptySet(),
 ) {
-    val expectedWarnings = setOf(
-        "w: [InternalKotlinGradlePluginPropertiesUsed | WARNING] Usage of Internal Kotlin Gradle Plugin Properties Detected",
-        // An (KTI-1928) issue prevents us from using a snapshot version of Kotlin Native during testing. This results in a diagnostic warning.
-        // Diagnostic warnings concern outdated Kotlin Native versions should be ignored in test environments.
-        "w: [OldNativeVersionDiagnostic | WARNING]"
-    )
-    val cleanedOutput = (expectedWarnings + additionalExpectedWarnings).fold(output) { acc, s ->
-        acc.replace(s, "")
-    }
-    val warnings = cleanedOutput
+    val expectedWarningIds = setOf(
+        KotlinToolingDiagnostics.InternalKotlinGradlePluginPropertiesUsed.id,
+        // An issue (KTI-1928) prevents us from using a snapshot version of Kotlin/Native during testing.
+        // Diagnostics about outdated Kotlin/Native versions should be ignored in test environments.
+        KotlinToolingDiagnostics.OldNativeVersionDiagnostic.id,
+    ) + additionalExpectedWarningIds
+
+    val warnings = output
         .lineSequence()
         .filter { it.trim().startsWith("w:") }
+        .filterNot { warningLine -> expectedWarningIds.any { warningId -> warningId in warningLine } }
         .toList()
 
     assert(warnings.isEmpty()) {
@@ -220,7 +222,7 @@ fun BuildResult.assertDeprecationWarningsArePresent(warningMode: WarningMode) {
  */
 fun findParameterInOutput(name: String, output: String): String? =
     output.lineSequence().mapNotNull { line ->
-        val (key, value) = line.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+        val [key, value] = line.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
         if (key.endsWith(name)) value else null
     }.firstOrNull()
 
@@ -428,6 +430,6 @@ fun CommandLineArguments.assertNoDuplicates() {
 
 private fun BuildResult.extractNativeCustomEnvironment(taskPath: String, toolName: NativeToolKind): Map<String, String> =
     extractNativeToolSettings(getOutputForTask(taskPath, LogLevel.INFO), toolName, NativeToolSettingsKind.CUSTOM_ENV_VARIABLES).map {
-        val (key, value) = it.split("=")
+        val [key, value] = it.split("=")
         key.trim() to value.trim()
     }.toMap()

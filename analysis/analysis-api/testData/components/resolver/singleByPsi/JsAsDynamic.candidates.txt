@@ -1,5 +1,5 @@
-KtNameReferenceExpression(100,109): 'asDynamic'
-  KaApplicableCallCandidateInfo:
+KtNameReferenceExpression(85,94): 'asDynamic'
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.parsing.KotlinParserDefinition
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNonPublicApi
 import org.jetbrains.kotlin.psi.KtPropertyDelegate
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
@@ -74,7 +75,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
     protected open fun doRawFirTest(filePath: String) {
         val file = createKtFile(filePath)
         val firFile = file.toFirFile(BodyBuildingMode.NORMAL)
-        val firFileDump = FirRenderer.withDeclarationAttributes().renderElementAsString(firFile)
+        val firFileDump = dumpFirFile(firFile)
         val expectedPath = expectedPath(filePath, ".txt")
         TestDataAssertions.assertEqualsToFile(File(expectedPath), firFileDump)
         checkAnnotationOwners(filePath, firFile)
@@ -98,7 +99,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
 
         val actual = annotations.groupBy(AnnotationWithContext::annotation)
             .entries
-            .joinToString(separator = "\n\n") { (annotation, contexts) ->
+            .joinToString(separator = "\n\n") { [annotation, contexts] ->
                 buildString {
                     appendLine(annotation.render().trim())
                     append("owner -> ")
@@ -122,6 +123,7 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
         TestDataAssertions.assertEqualsToFile(expectedFile, actual)
     }
 
+    @OptIn(KtNonPublicApi::class)
     protected open fun createKtFile(filePath: String): KtFile {
         myFileExt = FileUtilRt.getExtension(PathUtil.getFileName(filePath))
         return (createFile(filePath, KtNodeTypes.KT_FILE) as KtFile).apply {
@@ -129,8 +131,16 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
         }
     }
 
-    protected fun KtFile.toFirFile(bodyBuildingMode: BodyBuildingMode = BodyBuildingMode.NORMAL): FirFile {
-        val session = FirSessionFactoryHelper.createEmptySession(parseLanguageFeatures(this.text))
+    protected fun dumpFirFile(firFile: FirFile): String {
+        val renderer = FirRenderer.withDeclarationAttributes()
+        return renderer.renderElementAsString(firFile)
+    }
+
+    protected fun KtFile.toFirFile(
+        bodyBuildingMode: BodyBuildingMode = BodyBuildingMode.NORMAL,
+        features: Map<LanguageFeature, LanguageFeature.State> = emptyMap(),
+    ): FirFile {
+        val session = FirSessionFactoryHelper.createEmptySession(parseLanguageFeatures(this.text) + features)
         return toFirFile(session, bodyBuildingMode)
     }
 

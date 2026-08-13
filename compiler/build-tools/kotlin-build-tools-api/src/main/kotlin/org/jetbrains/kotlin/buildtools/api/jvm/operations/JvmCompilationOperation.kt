@@ -35,7 +35,7 @@ import kotlin.contracts.contract
  * @since 2.3.0
  */
 @ExperimentalBuildToolsApi
-public interface JvmCompilationOperation : CancellableBuildOperation<CompilationResult> {
+public interface JvmCompilationOperation : BaseCompilationOperation, CancellableBuildOperation<CompilationResult> {
 
     /**
      * All sources of the compilation unit. This includes Java source files.
@@ -56,7 +56,7 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
      *
      * @since 2.3.20
      */
-    public interface Builder : BuildOperation.Builder {
+    public interface Builder : BaseCompilationOperation.Builder {
         /**
          * All sources of the compilation unit. This includes Java source files.
          *
@@ -76,7 +76,7 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
          *
          * @since 2.3.20
          */
-        public val compilerArguments: JvmCompilerArguments.Builder
+        public override val compilerArguments: JvmCompilerArguments.Builder
 
         /**
          * Get the value for option specified by [key] if it was previously [set] or if it has a default value.
@@ -100,7 +100,7 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
          *
          * @since 2.3.20
          */
-        public fun build(): JvmCompilationOperation
+        public override fun build(): JvmCompilationOperation
 
         /**
          * Creates the configuration object for snapshot-based incremental compilation (IC) in JVM projects.
@@ -161,7 +161,10 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
      * @see set
      * @see JvmCompilationOperation.Companion
      */
-    public class Option<V> internal constructor(id: String) : BaseOption<V>(id)
+    public class Option<V> internal constructor(
+        id: String,
+        public val availableSinceVersion: KotlinReleaseVersion,
+    ) : BaseOption<V>(id)
 
     /**
      * Get the value for option specified by [key] if it was previously [set] or if it has a default value.
@@ -172,57 +175,33 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
     public operator fun <V> get(key: Option<V>): V
 
     /**
-     * Set the [value] for option specified by [key], overriding any previous value for that option.
-     */
-    @Deprecated(
-        "Build operations will become immutable in an upcoming release. " +
-                "Use `JvmPlatformToolchain.jvmCompilationOperationBuilder` to create a mutable builder instead."
-    )
-    public operator fun <V> set(key: Option<V>, value: V)
-
-    /**
      * Kotlin compiler configurable options for JVM platform.
      */
     public val compilerArguments: JvmCompilerArguments
-
-    /**
-     * Creates an options set for snapshot-based incremental compilation (IC) in JVM projects.
-     * May be used to configure incremental compilation as follows:
-     * ```
-     * val icOptions = compilation.snapshotBasedIcConfigurationBuilder()
-     *
-     * icOptions[JvmIncrementalCompilationOptions.BACKUP_CLASSES] = true
-     *
-     * compilation[JvmCompilationOperation.INCREMENTAL_COMPILATION] = JvmIncrementalCompilationConfiguration(
-     *     workingDirectory = Paths.get("build/kotlin"),
-     *     sourcesChanges = SourcesChanges.ToBeCalculated,
-     *     dependenciesSnapshotFiles = snapshots,
-     *     shrunkClasspathSnapshot = shrunkSnapshot,
-     *     options = icOptions,
-     * )
-     * ```
-     * @see org.jetbrains.kotlin.buildtools.api.jvm.JvmSnapshotBasedIncrementalCompilationConfiguration
-     */
-    @Suppress("DEPRECATION")
-    @Deprecated("JvmSnapshotBasedIncrementalCompilationOptions is deprecated. Use `snapshotBasedIcConfigurationBuilder` instead.")
-    public fun createSnapshotBasedIcOptions(): org.jetbrains.kotlin.buildtools.api.jvm.JvmSnapshotBasedIncrementalCompilationOptions
 
     public companion object {
 
         /**
          * Configures usage of incremental compilation.
          *
-         * @see createSnapshotBasedIcOptions
+         * @see Builder.snapshotBasedIcConfigurationBuilder
          */
         @JvmField
         public val INCREMENTAL_COMPILATION: Option<JvmIncrementalCompilationConfiguration?> =
-            Option("INCREMENTAL_COMPILATION")
+            Option("INCREMENTAL_COMPILATION", KotlinReleaseVersion(2, 3, 0))
 
         /**
          * Adds a tracker that will be informed whenever the compiler makes lookups for references.
          */
+        @Deprecated(
+            "Use `BaseCompilationOperation.LOOKUP_TRACKER` instead",
+            ReplaceWith(
+                "BaseCompilationOperation.LOOKUP_TRACKER",
+                "org.jetbrains.kotlin.buildtools.api.BaseCompilationOperation"
+            )
+        )
         @JvmField
-        public val LOOKUP_TRACKER: Option<CompilerLookupTracker?> = Option("LOOKUP_TRACKER")
+        public val LOOKUP_TRACKER: Option<CompilerLookupTracker?> = Option("LOOKUP_TRACKER", KotlinReleaseVersion(2, 3, 0))
 
         /**
          * An array of additional Kotlin script extensions (on top of the default `kt` and `kts`).
@@ -230,23 +209,48 @@ public interface JvmCompilationOperation : CancellableBuildOperation<Compilation
          * The extension should not contain the leading dot (an example of a valid value `bar` for the `foo.bar` file)
          */
         @JvmField
-        public val KOTLINSCRIPT_EXTENSIONS: Option<Array<String>?> = Option("KOTLINSCRIPT_EXTENSIONS")
+        public val KOTLINSCRIPT_EXTENSIONS: Option<Array<String>?> = Option("KOTLINSCRIPT_EXTENSIONS", KotlinReleaseVersion(2, 3, 0))
 
         /**
          * Controls at which logging level to display the command line arguments passed to the compiler.
          *
          * Defaults to [CompilerArgumentsLogLevel.DEBUG].
          */
+        @Deprecated(
+            "Use `BaseCompilationOperation.COMPILER_ARGUMENTS_LOG_LEVEL` instead",
+            ReplaceWith(
+                "BaseCompilationOperation.COMPILER_ARGUMENTS_LOG_LEVEL",
+                "org.jetbrains.kotlin.buildtools.api.BaseCompilationOperation"
+            )
+        )
         @JvmField
-        public val COMPILER_ARGUMENTS_LOG_LEVEL: Option<CompilerArgumentsLogLevel> = Option("COMPILER_ARGUMENTS_LOG_LEVEL")
+        public val COMPILER_ARGUMENTS_LOG_LEVEL: Option<CompilerArgumentsLogLevel> =
+            Option("COMPILER_ARGUMENTS_LOG_LEVEL", KotlinReleaseVersion(2, 3, 0))
 
         /**
          * Enables the Compiler Reference Index generation during the compilation.
+         *
+         * @since 2.3.20
          */
+        @Deprecated(
+            "Use `BaseCompilationOperation.GENERATE_COMPILER_REF_INDEX` instead",
+            ReplaceWith(
+                "BaseCompilationOperation.GENERATE_COMPILER_REF_INDEX",
+                "org.jetbrains.kotlin.buildtools.api.BaseCompilationOperation"
+            )
+        )
         @JvmField
-        public val GENERATE_COMPILER_REF_INDEX: Option<Boolean> = Option("GENERATE_COMPILER_REF_INDEX")
+        public val GENERATE_COMPILER_REF_INDEX: Option<Boolean> = Option("GENERATE_COMPILER_REF_INDEX", KotlinReleaseVersion(2, 3, 20))
     }
 
+    // KT-86102 [BTA] Move CompilerArgumentsLogLevel to BaseCompilationOperation
+    /**
+     * Log levels for compiler arguments.
+     *
+     * For historical and backward compatibility reasons this enum is placed in the [JvmCompilationOperation] class, however
+     * it can be used with any operation that is a [BaseCompilationOperation] with the
+     * [BaseCompilationOperation.COMPILER_ARGUMENTS_LOG_LEVEL] option.
+     */
     public enum class CompilerArgumentsLogLevel {
         ERROR,
         WARNING,
@@ -268,7 +272,7 @@ public inline fun JvmCompilationOperation.Builder.snapshotBasedIcConfiguration(
     workingDirectory: Path,
     sourcesChanges: SourcesChanges,
     dependenciesSnapshotFiles: List<Path>,
-    builderAction: JvmSnapshotBasedIncrementalCompilationConfiguration.Builder.() -> Unit,
+    builderAction: JvmSnapshotBasedIncrementalCompilationConfiguration.Builder.() -> Unit = {},
 ): JvmSnapshotBasedIncrementalCompilationConfiguration {
     contract {
         callsInPlace(builderAction, InvocationKind.EXACTLY_ONCE)
@@ -299,7 +303,7 @@ public inline fun JvmCompilationOperation.Builder.snapshotBasedIcConfiguration(
     sourcesChanges: SourcesChanges,
     dependenciesSnapshotFiles: List<Path>,
     shrunkClasspathSnapshot: Path,
-    builderAction: JvmSnapshotBasedIncrementalCompilationConfiguration.Builder.() -> Unit,
+    builderAction: JvmSnapshotBasedIncrementalCompilationConfiguration.Builder.() -> Unit = {},
 ): JvmSnapshotBasedIncrementalCompilationConfiguration {
     contract {
         callsInPlace(builderAction, InvocationKind.EXACTLY_ONCE)

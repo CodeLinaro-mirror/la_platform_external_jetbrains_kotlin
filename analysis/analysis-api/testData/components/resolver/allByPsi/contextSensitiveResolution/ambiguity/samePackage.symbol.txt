@@ -5,7 +5,12 @@ KtPackageDirective(59,70): 'package foo'
   null
 
 KtNameReferenceExpression(67,70): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtImportList(70,70): ''
   null
@@ -35,16 +40,30 @@ KtSuperTypeCallEntry(114,122): 'Sealed()'
     ]
 
 KtConstructorCalleeExpression(114,120): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): foo.Sealed
+    ]
 
 KtTypeReference(114,120): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(114,120): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(114,120): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtValueArgumentList(120,122): '()'
   null
@@ -65,13 +84,24 @@ KtParameter(140,150): 'val x: Int'
   null
 
 KtTypeReference(147,150): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(147,150): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(147,150): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtSuperTypeList(154,162): 'Sealed()'
   null
@@ -83,16 +113,30 @@ KtSuperTypeCallEntry(154,162): 'Sealed()'
     ]
 
 KtConstructorCalleeExpression(154,160): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): foo.Sealed
+    ]
 
 KtTypeReference(154,160): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(154,160): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(154,160): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtValueArgumentList(160,162): '()'
   null
@@ -113,16 +157,30 @@ KtSuperTypeCallEntry(183,191): 'Sealed()'
     ]
 
 KtConstructorCalleeExpression(183,189): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): foo.Sealed
+    ]
 
 KtTypeReference(183,189): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(183,189): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(183,189): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtValueArgumentList(189,191): '()'
   null
@@ -143,13 +201,24 @@ KtParameter(209,219): 'val y: Int'
   null
 
 KtTypeReference(216,219): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(216,219): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(216,219): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtSuperTypeList(223,231): 'Sealed()'
   null
@@ -161,16 +230,30 @@ KtSuperTypeCallEntry(223,231): 'Sealed()'
     ]
 
 KtConstructorCalleeExpression(223,229): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): foo.Sealed
+    ]
 
 KtTypeReference(223,229): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(223,229): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(223,229): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtValueArgumentList(229,231): '()'
   null
@@ -191,19 +274,38 @@ KtParameter(254,274): 'val t: kotlin.String'
   null
 
 KtTypeReference(261,274): 'kotlin.String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(261,274): 'kotlin.String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(261,267): 'kotlin'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin
+    ]
 
 KtNameReferenceExpression(261,267): 'kotlin'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin
+    ]
 
 KtNameReferenceExpression(268,274): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtSuperTypeList(278,286): 'Sealed()'
   null
@@ -215,16 +317,30 @@ KtSuperTypeCallEntry(278,286): 'Sealed()'
     ]
 
 KtConstructorCalleeExpression(278,284): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): foo.Sealed
+    ]
 
 KtTypeReference(278,284): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(278,284): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(278,284): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtValueArgumentList(284,286): '()'
   null
@@ -245,28 +361,55 @@ KtParameter(319,328): 's: Sealed'
   null
 
 KtTypeReference(322,328): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(322,328): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(322,328): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(331,334): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(331,334): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(331,334): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtWhenExpression(337,432): 'when (s) {'
   null
 
 KtNameReferenceExpression(343,344): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtWhenEntry(352,358): 'A -> 1'
   null
@@ -275,7 +418,12 @@ KtWhenConditionWithExpression(352,353): 'A'
   null
 
 KtNameReferenceExpression(352,353): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtConstantExpression(357,358): '1'
   null
@@ -287,13 +435,24 @@ KtWhenConditionIsPattern(363,367): 'is B'
   null
 
 KtTypeReference(366,367): 'B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(366,367): 'B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtNameReferenceExpression(366,367): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtConstantExpression(371,372): '2'
   null
@@ -305,7 +464,12 @@ KtWhenConditionWithExpression(377,378): 'C'
   null
 
 KtNameReferenceExpression(377,378): 'C'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.C
+    ]
 
 KtConstantExpression(382,383): '3'
   null
@@ -317,13 +481,24 @@ KtWhenConditionIsPattern(388,392): 'is D'
   null
 
 KtTypeReference(391,392): 'D'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtUserType(391,392): 'D'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtNameReferenceExpression(391,392): 'D'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtConstantExpression(396,397): '4'
   null
@@ -335,13 +510,24 @@ KtWhenConditionIsPattern(402,411): 'is String'
   null
 
 KtTypeReference(405,411): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(405,411): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(405,411): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtConstantExpression(415,416): '5'
   null
@@ -362,28 +548,55 @@ KtParameter(453,462): 's: Sealed'
   null
 
 KtTypeReference(456,462): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(456,462): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(456,462): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(465,468): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(465,468): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(465,468): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtWhenExpression(471,536): 'when (s) {'
   null
 
 KtNameReferenceExpression(477,478): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtWhenEntry(486,499): 'Sealed.A -> 1'
   null
@@ -395,10 +608,20 @@ KtDotQualifiedExpression(486,494): 'Sealed.A'
   null
 
 KtNameReferenceExpression(486,492): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(493,494): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.A
+    ]
 
 KtConstantExpression(498,499): '1'
   null
@@ -410,19 +633,38 @@ KtWhenConditionIsPattern(504,515): 'is Sealed.B'
   null
 
 KtTypeReference(507,515): 'Sealed.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtUserType(507,515): 'Sealed.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtUserType(507,513): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(507,513): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(514,515): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtConstantExpression(519,520): '2'
   null
@@ -443,28 +685,55 @@ KtParameter(559,568): 's: Sealed'
   null
 
 KtTypeReference(562,568): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(562,568): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(562,568): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(571,574): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(571,574): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(571,574): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtWhenExpression(577,636): 'when (s) {'
   null
 
 KtNameReferenceExpression(583,584): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtWhenEntry(592,602): 'foo.A -> 1'
   null
@@ -476,10 +745,20 @@ KtDotQualifiedExpression(592,597): 'foo.A'
   null
 
 KtNameReferenceExpression(592,595): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(596,597): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtConstantExpression(601,602): '1'
   null
@@ -491,19 +770,38 @@ KtWhenConditionIsPattern(607,615): 'is foo.B'
   null
 
 KtTypeReference(610,615): 'foo.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(610,615): 'foo.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(610,613): 'foo'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(610,613): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(614,615): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtConstantExpression(619,620): '2'
   null
@@ -524,22 +822,44 @@ KtParameter(653,662): 's: Sealed'
   null
 
 KtTypeReference(656,662): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(656,662): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(656,662): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(665,668): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(665,668): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(665,668): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(669,696): '{'
   null
@@ -548,19 +868,37 @@ KtBinaryExpressionWithTypeRHS(675,681): 's as A'
   null
 
 KtNameReferenceExpression(675,676): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(677,679): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(680,681): 'A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtUserType(680,681): 'A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtNameReferenceExpression(680,681): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtReturnExpression(686,694): 'return 1'
   KaSymbolResolutionSuccess:
@@ -581,22 +919,44 @@ KtParameter(713,722): 's: Sealed'
   null
 
 KtTypeReference(716,722): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(716,722): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(716,722): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(725,728): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(725,728): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(725,728): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(729,756): '{'
   null
@@ -605,19 +965,37 @@ KtBinaryExpressionWithTypeRHS(735,741): 's as B'
   null
 
 KtNameReferenceExpression(735,736): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(737,739): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(740,741): 'B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(740,741): 'B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtNameReferenceExpression(740,741): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtReturnExpression(746,754): 'return 2'
   KaSymbolResolutionSuccess:
@@ -638,22 +1016,44 @@ KtParameter(774,783): 's: Sealed'
   null
 
 KtTypeReference(777,783): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(777,783): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(777,783): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(786,789): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(786,789): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(786,789): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(790,824): '{'
   null
@@ -662,25 +1062,51 @@ KtBinaryExpressionWithTypeRHS(796,809): 's as Sealed.A'
   null
 
 KtNameReferenceExpression(796,797): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(798,800): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(801,809): 'Sealed.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.A
+    ]
 
 KtUserType(801,809): 'Sealed.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.A
+    ]
 
 KtUserType(801,807): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(801,807): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(808,809): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.A
+    ]
 
 KtReturnExpression(814,822): 'return 1'
   KaSymbolResolutionSuccess:
@@ -701,22 +1127,44 @@ KtParameter(842,851): 's: Sealed'
   null
 
 KtTypeReference(845,851): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(845,851): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(845,851): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(854,857): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(854,857): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(854,857): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(858,892): '{'
   null
@@ -725,25 +1173,51 @@ KtBinaryExpressionWithTypeRHS(864,877): 's as Sealed.B'
   null
 
 KtNameReferenceExpression(864,865): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(866,868): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(869,877): 'Sealed.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtUserType(869,877): 'Sealed.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtUserType(869,875): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(869,875): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(876,877): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.B
+    ]
 
 KtReturnExpression(882,890): 'return 2'
   KaSymbolResolutionSuccess:
@@ -764,22 +1238,44 @@ KtParameter(912,921): 's: Sealed'
   null
 
 KtTypeReference(915,921): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(915,921): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(915,921): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(924,927): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(924,927): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(924,927): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(928,959): '{'
   null
@@ -788,25 +1284,51 @@ KtBinaryExpressionWithTypeRHS(934,944): 's as foo.A'
   null
 
 KtNameReferenceExpression(934,935): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(936,938): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(939,944): 'foo.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtUserType(939,944): 'foo.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtUserType(939,942): 'foo'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(939,942): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(943,944): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtReturnExpression(949,957): 'return 1'
   KaSymbolResolutionSuccess:
@@ -827,22 +1349,44 @@ KtParameter(979,988): 's: Sealed'
   null
 
 KtTypeReference(982,988): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(982,988): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(982,988): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(991,994): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(991,994): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(991,994): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(995,1026): '{'
   null
@@ -851,25 +1395,51 @@ KtBinaryExpressionWithTypeRHS(1001,1011): 's as foo.B'
   null
 
 KtNameReferenceExpression(1001,1002): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1003,1005): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(1006,1011): 'foo.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(1006,1011): 'foo.B'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtUserType(1006,1009): 'foo'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(1006,1009): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(1010,1011): 'B'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/B
+    ]
 
 KtReturnExpression(1016,1024): 'return 2'
   KaSymbolResolutionSuccess:
@@ -890,22 +1460,44 @@ KtParameter(1040,1049): 's: Sealed'
   null
 
 KtTypeReference(1043,1049): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1043,1049): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1043,1049): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1052,1055): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(1052,1055): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(1052,1055): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(1056,1083): '{'
   null
@@ -914,19 +1506,37 @@ KtBinaryExpressionWithTypeRHS(1062,1068): 's as C'
   null
 
 KtNameReferenceExpression(1062,1063): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1064,1066): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(1067,1068): 'C'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.C
+    ]
 
 KtUserType(1067,1068): 'C'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.C
+    ]
 
 KtNameReferenceExpression(1067,1068): 'C'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.C
+    ]
 
 KtReturnExpression(1073,1081): 'return 3'
   KaSymbolResolutionSuccess:
@@ -947,22 +1557,44 @@ KtParameter(1097,1106): 's: Sealed'
   null
 
 KtTypeReference(1100,1106): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1100,1106): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1100,1106): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1109,1112): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(1109,1112): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(1109,1112): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(1113,1140): '{'
   null
@@ -971,19 +1603,37 @@ KtBinaryExpressionWithTypeRHS(1119,1125): 's as D'
   null
 
 KtNameReferenceExpression(1119,1120): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1121,1123): 'as'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(1124,1125): 'D'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtUserType(1124,1125): 'D'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtNameReferenceExpression(1124,1125): 'D'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.D
+    ]
 
 KtReturnExpression(1130,1138): 'return 4'
   KaSymbolResolutionSuccess:
@@ -1004,34 +1654,74 @@ KtParameter(1161,1170): 's: Sealed'
   null
 
 KtTypeReference(1164,1170): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1164,1170): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1164,1170): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1173,1180): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(1173,1180): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(1173,1180): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtBinaryExpression(1183,1189): 's == A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(1183,1184): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1185,1187): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(1188,1189): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtNamedFunction(1190,1245): 'fun equality1sealed(s: Sealed): Boolean = s == Sealed.A'
   null
@@ -1043,40 +1733,85 @@ KtParameter(1210,1219): 's: Sealed'
   null
 
 KtTypeReference(1213,1219): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1213,1219): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1213,1219): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1222,1229): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(1222,1229): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(1222,1229): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtBinaryExpression(1232,1245): 's == Sealed.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(1232,1233): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1234,1236): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtDotQualifiedExpression(1237,1245): 'Sealed.A'
   null
 
 KtNameReferenceExpression(1237,1243): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1244,1245): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.A
+    ]
 
 KtNamedFunction(1246,1300): 'fun equality1topLevel(s: Sealed): Boolean = s == foo.A'
   null
@@ -1088,40 +1823,85 @@ KtParameter(1268,1277): 's: Sealed'
   null
 
 KtTypeReference(1271,1277): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1271,1277): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1271,1277): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1280,1287): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(1280,1287): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(1280,1287): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtBinaryExpression(1290,1300): 's == foo.A'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(1290,1291): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1292,1294): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtDotQualifiedExpression(1295,1300): 'foo.A'
   null
 
 KtNameReferenceExpression(1295,1298): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo
+    ]
 
 KtNameReferenceExpression(1299,1300): 'A'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/A
+    ]
 
 KtNamedFunction(1301,1352): 'fun equality2ok(s: Sealed): Boolean = s == Sealed.C'
   null
@@ -1133,37 +1913,82 @@ KtParameter(1317,1326): 's: Sealed'
   null
 
 KtTypeReference(1320,1326): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtUserType(1320,1326): 'Sealed'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1320,1326): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtTypeReference(1329,1336): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(1329,1336): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(1329,1336): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtBinaryExpression(1339,1352): 's == Sealed.C'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(1339,1340): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: foo.Sealed
+    ]
 
 KtOperationReferenceExpression(1341,1343): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtDotQualifiedExpression(1344,1352): 'Sealed.C'
   null
 
 KtNameReferenceExpression(1344,1350): 'Sealed'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed
+    ]
 
 KtNameReferenceExpression(1351,1352): 'C'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Sealed.C
+    ]

@@ -84,6 +84,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.JVM_SYNTHE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.LOCAL_JVM_RECORD
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.MISSING_BUILT_IN_DECLARATION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.NON_DATA_CLASS_JVM_RECORD
+import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.NON_DATA_VALUE_CLASS_JVM_RECORD
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.NON_FINAL_JVM_RECORD
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.NON_SOURCE_REPEATED_ANNOTATION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.NOT_YET_SUPPORTED_LOCAL_INLINE_FUNCTION
@@ -118,11 +119,12 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZ
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_IN_INTERFACE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_ON_ABSTRACT
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_ON_INLINE
-import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_ON_SUSPEND
+import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_ON_SUSPEND_ERROR
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNCHRONIZED_ON_VALUE_CLASS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.SYNTHETIC_PROPERTY_WITHOUT_JAVA_ORIGIN
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.THROWS_IN_ANNOTATION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.TYPE_MISMATCH_WHEN_FLEXIBILITY_CHANGES
+import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.UNEXHAUSTIVE_WHEN_BASED_ON_JAVA_ANNOTATIONS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.UPPER_BOUND_CANNOT_BE_ARRAY
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.UPPER_BOUND_VIOLATED_BASED_ON_JAVA_ANNOTATIONS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.UPPER_BOUND_VIOLATED_IN_TYPEALIAS_EXPANSION_BASED_ON_JAVA_ANNOTATIONS
@@ -184,6 +186,11 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
         )
 
         map.put(
+            UNEXHAUSTIVE_WHEN_BASED_ON_JAVA_ANNOTATIONS,
+            "''when'' expression over a subject of type ''{0}'' is not exhaustive. Add a ''null'' or ''else'' branch.",
+            RENDER_TYPE
+        )
+        map.put(
             WRONG_TYPE_FOR_JAVA_OVERRIDE,
             "Override ''{0}'' has incorrect nullability/mutability in its signature compared to the overridden declaration ''{1}''.",
             SYMBOL,
@@ -211,15 +218,17 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
 
         map.put(
             UPPER_BOUND_VIOLATED_BASED_ON_JAVA_ANNOTATIONS,
-            "Type argument is not within its bounds: must be subtype of ''{0}''.",
+            "Type argument is not within its bounds: type parameter ''{2}'' must be subtype of ''{0}'', but actual: ''{1}''.",
             RENDER_TYPE,
-            RENDER_TYPE
+            RENDER_TYPE,
+            RENDER_TYPE,
         )
         map.put(
             UPPER_BOUND_VIOLATED_IN_TYPEALIAS_EXPANSION_BASED_ON_JAVA_ANNOTATIONS,
-            "Type argument is not within its bounds: must be subtype of ''{0}''.",
+            "Type argument is not within its bounds: type parameter ''{2}'' must be subtype of ''{0}'', but actual: ''{1}''.",
             RENDER_TYPE,
-            RENDER_TYPE
+            RENDER_TYPE,
+            RENDER_TYPE,
         )
         map.put(
             PROPERTY_HIDES_JAVA_FIELD,
@@ -238,7 +247,7 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
             RENDER_TYPE,
         )
         map.put(SYNCHRONIZED_BLOCK_ON_VALUE_CLASS_OR_PRIMITIVE, "Synchronizing on ''{0}'' is forbidden.", RENDER_TYPE)
-        map.put(SYNCHRONIZED_ON_SUSPEND, "'@Synchronized' annotation is not applicable to 'suspend' functions and lambdas.")
+        map.put(SYNCHRONIZED_ON_SUSPEND_ERROR, "'@Synchronized' annotation is not applicable to 'suspend' functions and lambdas.")
         map.put(SYNCHRONIZED_IN_INTERFACE, "'@Synchronized' annotation cannot be used on interface members.")
         map.put(SYNCHRONIZED_IN_ANNOTATION, "'@Synchronized' annotation cannot be used on annotation parameters.")
         map.put(OVERLOADS_WITHOUT_DEFAULT_ARGUMENTS, "'@JvmOverloads' annotation has no effect for methods without default arguments.")
@@ -276,6 +285,10 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
         map.put(FIELD_IN_JVM_RECORD, "Non-constructor properties with backing field in '@JvmRecord' class are prohibited.")
         map.put(DELEGATION_BY_IN_JVM_RECORD, "Delegation is prohibited for '@JvmRecord' classes.")
         map.put(NON_DATA_CLASS_JVM_RECORD, "Only data classes are allowed to be marked as '@JvmRecord'.")
+        map.put(
+            NON_DATA_VALUE_CLASS_JVM_RECORD,
+            "Only data classes and non-@JvmInline value classes are allowed to be marked as '@JvmRecord'."
+        )
         map.put(ILLEGAL_JAVA_LANG_RECORD_SUPERTYPE, "Classes cannot have explicit 'java.lang.Record' supertype.")
         map.put(
             JVM_RECORDS_ILLEGAL_BYTECODE_TARGET,
@@ -310,7 +323,7 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
         )
         map.put(
             JVM_STATIC_ON_CONST_OR_JVM_FIELD,
-            "'@JvmStatic' annotation is useless for const or '@JvmField' properties.",
+            "'@JvmStatic' annotation is redundant for const or '@JvmField' properties.",
         )
         map.put(
             JVM_STATIC_ON_EXTERNAL_IN_INTERFACE,
@@ -328,7 +341,7 @@ object FirJvmErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
         map.put(INAPPLICABLE_JVM_EXPOSE_BOXED_WITH_NAME, "'@JvmExposeBoxed' with name is applicable only to functions, getters and setters.")
         map.put(
             USELESS_JVM_EXPOSE_BOXED,
-            "Useless '@JvmExposeBoxed', it is a callable declaration with no inline value class in its signature."
+            "'@JvmExposeBoxed' has no effect when applied to a callable declaration with no inline value class in its signature."
         )
         map.put(
             JVM_EXPOSE_BOXED_CANNOT_EXPOSE_SUSPEND,

@@ -20,13 +20,24 @@ KtProperty(118,144): 'val superProp: String = ""'
   null
 
 KtTypeReference(133,139): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(133,139): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(133,139): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtStringTemplateExpression(142,144): '""'
   null
@@ -59,7 +70,12 @@ KtProperty(228,255): 'val EnumValue3 = EnumValue1'
   null
 
 KtNameReferenceExpression(245,255): 'EnumValue1'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.EnumValue1
+    ]
 
 KtClass(265,785): 'open class MyClass {'
   null
@@ -83,16 +99,30 @@ KtSuperTypeCallEntry(314,323): 'MyClass()'
     ]
 
 KtConstructorCalleeExpression(314,321): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): MyClass
+    ]
 
 KtTypeReference(314,321): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(314,321): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(314,321): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtValueArgumentList(321,323): '()'
   null
@@ -113,16 +143,30 @@ KtSuperTypeCallEntry(354,363): 'MyClass()'
     ]
 
 KtConstructorCalleeExpression(354,361): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): MyClass
+    ]
 
 KtTypeReference(354,361): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(354,361): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(354,361): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtValueArgumentList(361,363): '()'
   null
@@ -152,16 +196,30 @@ KtSuperTypeCallEntry(441,450): 'MySuper()'
     ]
 
 KtConstructorCalleeExpression(441,448): 'MySuper'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): MySuper
+    ]
 
 KtTypeReference(441,448): 'MySuper'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MySuper
+    ]
 
 KtUserType(441,448): 'MySuper'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MySuper
+    ]
 
 KtNameReferenceExpression(441,448): 'MySuper'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MySuper
+    ]
 
 KtValueArgumentList(448,450): '()'
   null
@@ -173,13 +231,24 @@ KtProperty(461,492): 'val propClass: MyClass = TODO()'
   null
 
 KtTypeReference(476,483): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(476,483): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(476,483): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtCallExpression(486,492): 'TODO()'
   KaSymbolResolutionSuccess:
@@ -188,7 +257,12 @@ KtCallExpression(486,492): 'TODO()'
     ]
 
 KtNameReferenceExpression(486,490): 'TODO'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/TODO(): kotlin.Nothing
+    ]
 
 KtValueArgumentList(490,492): '()'
   null
@@ -197,13 +271,24 @@ KtProperty(501,558): 'val propInheritorClass: InheritorClass = InheritorClass()'
   null
 
 KtTypeReference(525,539): 'InheritorClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorClass
+    ]
 
 KtUserType(525,539): 'InheritorClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorClass
+    ]
 
 KtNameReferenceExpression(525,539): 'InheritorClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorClass
+    ]
 
 KtCallExpression(542,558): 'InheritorClass()'
   KaSymbolResolutionSuccess:
@@ -212,7 +297,12 @@ KtCallExpression(542,558): 'InheritorClass()'
     ]
 
 KtNameReferenceExpression(542,556): 'InheritorClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorClass
+    ]
 
 KtValueArgumentList(556,558): '()'
   null
@@ -221,28 +311,55 @@ KtProperty(567,625): 'val propInheritorObject: InheritorObject = InheritorObject
   null
 
 KtTypeReference(592,607): 'InheritorObject'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtUserType(592,607): 'InheritorObject'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtNameReferenceExpression(592,607): 'InheritorObject'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtNameReferenceExpression(610,625): 'InheritorObject'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtProperty(634,655): 'val prop: String = ""'
   null
 
 KtTypeReference(644,650): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(644,650): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(644,650): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtStringTemplateExpression(653,655): '""'
   null
@@ -254,13 +371,24 @@ KtParameterList(672,674): '()'
   null
 
 KtTypeReference(676,683): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(676,683): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(676,683): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtCallExpression(686,692): 'TODO()'
   KaSymbolResolutionSuccess:
@@ -269,7 +397,12 @@ KtCallExpression(686,692): 'TODO()'
     ]
 
 KtNameReferenceExpression(686,690): 'TODO'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/TODO(): kotlin.Nothing
+    ]
 
 KtValueArgumentList(690,692): '()'
   null
@@ -278,16 +411,30 @@ KtProperty(701,734): 'val lazyProp: String by lazy {""}'
   null
 
 KtTypeReference(715,721): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(715,721): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(715,721): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtPropertyDelegate(722,734): 'by lazy {""}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/getValue(<extension receiver>: kotlin.Lazy<T>, thisRef: kotlin.Any?, property: kotlin.reflect.KProperty<*>): T
+    ]
 
 KtCallExpression(725,734): 'lazy {""}'
   KaSymbolResolutionSuccess:
@@ -296,7 +443,12 @@ KtCallExpression(725,734): 'lazy {""}'
     ]
 
 KtNameReferenceExpression(725,729): 'lazy'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/lazy(initializer: () -> T): kotlin.Lazy<T>
+    ]
 
 KtLambdaArgument(730,734): '{""}'
   null
@@ -326,7 +478,12 @@ KtBlockExpression(761,776): 'InheritorObject'
   null
 
 KtNameReferenceExpression(761,776): 'InheritorObject'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtNamedFunction(787,845): 'fun namedArgumentsHolder(enumArg: MyEnum, arg: MyClass) {}'
   null
@@ -338,25 +495,47 @@ KtParameter(812,827): 'enumArg: MyEnum'
   null
 
 KtTypeReference(821,827): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(821,827): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(821,827): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtParameter(829,841): 'arg: MyClass'
   null
 
 KtTypeReference(834,841): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(834,841): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(834,841): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtBlockExpression(843,845): '{}'
   null
@@ -371,13 +550,24 @@ KtParameter(870,882): 'arg: MyClass'
   null
 
 KtTypeReference(875,882): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtUserType(875,882): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtNameReferenceExpression(875,882): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass
+    ]
 
 KtBlockExpression(884,886): '{}'
   null
@@ -398,7 +588,12 @@ KtCallExpression(914,1001): 'namedArgumentsHolder('
     ]
 
 KtNameReferenceExpression(914,934): 'namedArgumentsHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /namedArgumentsHolder(enumArg: MyEnum, arg: MyClass): kotlin.Unit
+    ]
 
 KtValueArgumentList(934,1001): '('
   null
@@ -410,10 +605,20 @@ KtValueArgumentName(944,947): 'arg'
   null
 
 KtNameReferenceExpression(944,947): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtNameReferenceExpression(950,965): 'InheritorObject'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.InheritorObject
+    ]
 
 KtValueArgument(975,995): 'enumArg = EnumValue1'
   null
@@ -422,10 +627,20 @@ KtValueArgumentName(975,982): 'enumArg'
   null
 
 KtNameReferenceExpression(975,982): 'enumArg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      enumArg: MyEnum
+    ]
 
 KtNameReferenceExpression(985,995): 'EnumValue1'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.EnumValue1
+    ]
 
 KtCallExpression(1006,1087): 'namedArgumentsHolder('
   KaSymbolResolutionSuccess:
@@ -434,7 +649,12 @@ KtCallExpression(1006,1087): 'namedArgumentsHolder('
     ]
 
 KtNameReferenceExpression(1006,1026): 'namedArgumentsHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /namedArgumentsHolder(enumArg: MyEnum, arg: MyClass): kotlin.Unit
+    ]
 
 KtValueArgumentList(1026,1087): '('
   null
@@ -446,10 +666,20 @@ KtValueArgumentName(1036,1043): 'enumArg'
   null
 
 KtNameReferenceExpression(1036,1043): 'enumArg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      enumArg: MyEnum
+    ]
 
 KtNameReferenceExpression(1046,1056): 'EnumValue3'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val EnumValue3: MyEnum
+    ]
 
 KtValueArgument(1066,1081): 'arg = propClass'
   null
@@ -458,10 +688,20 @@ KtValueArgumentName(1066,1069): 'arg'
   null
 
 KtNameReferenceExpression(1066,1069): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtNameReferenceExpression(1072,1081): 'propClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val propClass: MyClass
+    ]
 
 KtCallExpression(1092,1123): 'namedArgumentHolder(arg = prop)'
   KaSymbolResolutionError:
@@ -471,7 +711,13 @@ KtCallExpression(1092,1123): 'namedArgumentHolder(arg = prop)'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtNameReferenceExpression(1092,1111): 'namedArgumentHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = [
+      /namedArgumentHolder(arg: MyClass): kotlin.Unit
+    ]
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtValueArgumentList(1111,1123): '(arg = prop)'
   null
@@ -483,10 +729,20 @@ KtValueArgumentName(1112,1115): 'arg'
   null
 
 KtNameReferenceExpression(1112,1115): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtNameReferenceExpression(1118,1122): 'prop'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val prop: kotlin.String
+    ]
 
 KtCallExpression(1128,1164): 'namedArgumentHolder(arg = superProp)'
   KaSymbolResolutionError:
@@ -496,7 +752,13 @@ KtCallExpression(1128,1164): 'namedArgumentHolder(arg = superProp)'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtNameReferenceExpression(1128,1147): 'namedArgumentHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = [
+      /namedArgumentHolder(arg: MyClass): kotlin.Unit
+    ]
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtValueArgumentList(1147,1164): '(arg = superProp)'
   null
@@ -508,10 +770,20 @@ KtValueArgumentName(1148,1151): 'arg'
   null
 
 KtNameReferenceExpression(1148,1151): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtNameReferenceExpression(1154,1163): 'superProp'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val superProp: kotlin.String
+    ]
 
 KtCallExpression(1169,1202): 'namedArgumentHolder(arg = func())'
   KaSymbolResolutionSuccess:
@@ -520,7 +792,12 @@ KtCallExpression(1169,1202): 'namedArgumentHolder(arg = func())'
     ]
 
 KtNameReferenceExpression(1169,1188): 'namedArgumentHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /namedArgumentHolder(arg: MyClass): kotlin.Unit
+    ]
 
 KtValueArgumentList(1188,1202): '(arg = func())'
   null
@@ -532,7 +809,12 @@ KtValueArgumentName(1189,1192): 'arg'
   null
 
 KtNameReferenceExpression(1189,1192): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtCallExpression(1195,1201): 'func()'
   KaSymbolResolutionError:
@@ -540,7 +822,11 @@ KtCallExpression(1195,1201): 'func()'
     diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'func'.>
 
 KtNameReferenceExpression(1195,1199): 'func'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'func'.>
 
 KtValueArgumentList(1199,1201): '()'
   null
@@ -552,7 +838,12 @@ KtCallExpression(1207,1245): 'namedArgumentHolder(arg = superFunc())'
     ]
 
 KtNameReferenceExpression(1207,1226): 'namedArgumentHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /namedArgumentHolder(arg: MyClass): kotlin.Unit
+    ]
 
 KtValueArgumentList(1226,1245): '(arg = superFunc())'
   null
@@ -564,7 +855,12 @@ KtValueArgumentName(1227,1230): 'arg'
   null
 
 KtNameReferenceExpression(1227,1230): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtCallExpression(1233,1244): 'superFunc()'
   KaSymbolResolutionError:
@@ -572,7 +868,11 @@ KtCallExpression(1233,1244): 'superFunc()'
     diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'superFunc'.>
 
 KtNameReferenceExpression(1233,1242): 'superFunc'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'superFunc'.>
 
 KtValueArgumentList(1242,1244): '()'
   null
@@ -585,7 +885,13 @@ KtCallExpression(1250,1285): 'namedArgumentHolder(arg = lazyProp)'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtNameReferenceExpression(1250,1269): 'namedArgumentHolder'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = [
+      /namedArgumentHolder(arg: MyClass): kotlin.Unit
+    ]
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyClass' was expected.>
 
 KtValueArgumentList(1269,1285): '(arg = lazyProp)'
   null
@@ -597,7 +903,17 @@ KtValueArgumentName(1270,1273): 'arg'
   null
 
 KtNameReferenceExpression(1270,1273): 'arg'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arg: MyClass
+    ]
 
 KtNameReferenceExpression(1276,1284): 'lazyProp'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val lazyProp: kotlin.String
+    ]

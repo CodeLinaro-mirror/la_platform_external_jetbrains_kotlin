@@ -1,2 +1,7 @@
 KtNameReferenceExpression(86,88): 'BB'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /AA.BB
+    ]

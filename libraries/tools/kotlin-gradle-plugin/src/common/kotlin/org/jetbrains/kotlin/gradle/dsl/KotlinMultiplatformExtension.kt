@@ -19,12 +19,14 @@ import org.jetbrains.kotlin.gradle.internal.dsl.KotlinMultiplatformSourceSetConv
 import org.jetbrains.kotlin.gradle.internal.syncCommonMultiplatformOptions
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinPluginLifecycle.Stage.AfterFinaliseDsl
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.reportDiagnostic
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.reportDiagnosticOncePerBuild
 import org.jetbrains.kotlin.gradle.plugin.hierarchy.KotlinHierarchyDslImpl
 import org.jetbrains.kotlin.gradle.plugin.hierarchy.redundantDependsOnEdgesTracker
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftimport.swiftPMImportIdeModelProvider
 import org.jetbrains.kotlin.gradle.targets.android.internal.InternalKotlinTargetPreset
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmJsTargetDsl
@@ -79,6 +81,12 @@ internal constructor(
     final override val targets: NamedDomainObjectCollection<KotlinTarget>
         get() = targetsContainer.targets
 
+    @Suppress("DEPRECATION")
+    @Deprecated(
+        "Kotlin/JS IR is the only supported compiler type. Use js(name, configure) instead. Scheduled for removal in Kotlin 2.6.",
+        replaceWith = ReplaceWith("js(name, configure)"),
+        level = DeprecationLevel.WARNING,
+    )
     override fun js(
         name: String,
         compiler: KotlinJsCompilerType,
@@ -139,12 +147,6 @@ internal constructor(
             }
         }
     }
-
-    @Deprecated(
-        "Because only the IR compiler is left, it's no longer necessary to know about the compiler type in properties. Scheduled for removal in Kotlin 2.3.",
-        level = DeprecationLevel.ERROR
-    )
-    override val compilerTypeFromProperties: KotlinJsCompilerType? = null
 
     internal suspend fun awaitTargets(): NamedDomainObjectCollection<KotlinTarget> {
         AfterFinaliseDsl.await()
@@ -246,10 +248,6 @@ internal constructor(
         hierarchy.applyHierarchyTemplate(template)
     }
 
-    @ExperimentalKotlinGradlePluginApi
-    val targetHierarchy: @Suppress("DEPRECATION_ERROR") DeprecatedKotlinTargetHierarchyDsl
-        get() = @Suppress("DEPRECATION_ERROR") DeprecatedKotlinTargetHierarchyDsl(this)
-
     @Suppress("unused") // DSL
     val testableTargets: NamedDomainObjectCollection<KotlinTargetWithTests<*, *>>
         get() = targets.withType(KotlinTargetWithTests::class.java)
@@ -280,6 +278,10 @@ internal constructor(
             .also {
                 syncCommonMultiplatformOptions(it)
             }
+
+    // This getter is consumed during KMP import in KotlinMPPGradleModelBuilder
+    internal val swiftPMImportIdeModel
+        get() = if (!project.kotlinPropertiesProvider.disableSwiftPMImport) project.swiftPMImportIdeModelProvider().get() else null
 }
 
 private const val targetsExtensionDeprecationMessage =

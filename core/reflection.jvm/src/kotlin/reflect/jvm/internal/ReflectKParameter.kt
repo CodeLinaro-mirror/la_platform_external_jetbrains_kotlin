@@ -5,12 +5,14 @@
 
 package kotlin.reflect.jvm.internal
 
+import org.jetbrains.kotlin.descriptors.runtime.structure.safeClassLoader
 import java.lang.reflect.Constructor
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.reflect.KClass
+import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KParameter
 import kotlin.reflect.KType
 import kotlin.reflect.full.createDefaultType
@@ -21,6 +23,8 @@ internal abstract class ReflectKParameter : KParameter {
     abstract val declaresDefaultValue: Boolean
 
     override val annotations: List<Annotation> by lazy(PUBLICATION) {
+        if (callable.isAnnotationConstructor) return@lazy loadAnnotationsOnAnnotationParameter()
+
         val java = javaParameter
         when (val callable = java?.callable) {
             is Method -> callable.parameterAnnotations[java.index].toList()
@@ -50,6 +54,29 @@ internal class InstanceParameter(override val callable: ReflectKCallable<*>, kla
     override val declaresDefaultValue: Boolean get() = false
 }
 
+private fun ReflectKParameter.loadAnnotationsOnAnnotationParameter(): List<Annotation> {
+    // In Java, there's no notion of annotation constructors.
+    if (this !is KotlinKParameter) return emptyList()
+
+    // In Kotlin, parameters of annotation constructors have no annotations in JVM bytecode, so we load them from metadata.
+    return kmParameter.annotations.map { it.toAnnotation(callable.container.jClass.safeClassLoader) }
+}
+
+internal class DefaultSetterValueParameter(private val property: ReflectKProperty<*>) : ReflectKParameter() {
+    override val callable: ReflectKCallable<*> get() = (property as KMutableProperty<*>).setter as ReflectKCallable<*>
+    override val index: Int get() = 0
+    override val name: String? get() = null
+    override val type: KType get() = property.returnType
+    override val kind: KParameter.Kind get() = KParameter.Kind.VALUE
+    override val isOptional: Boolean get() = false
+    override val isVararg: Boolean get() = false
+    override val declaresDefaultValue: Boolean get() = false
+
+    override val annotations: List<Annotation>
+        // As long as there's at least one annotation, the setter would no longer be default.
+        get() = emptyList()
+}
+
 /**
  * Represents a parameter in Java reflection. Unfortunately, there's no good representation of parameters in Java reflection, and we can't
  * use [java.lang.reflect.Parameter] because it's only available with javac's `-parameters` (or Kotlin's `-java-parameters`) option,
@@ -64,8 +91,7 @@ internal class JavaParameter(val callable: Member, val index: Int)
 internal val ReflectKParameter.javaParameter: JavaParameter?
     get() = when (val callable = callable.caller.member) {
         is Method -> {
-            require(Modifier.isStatic(callable.modifiers)) { "Only static methods are supported for now: $callable" }
-            JavaParameter(callable, index)
+            JavaParameter(callable, index + (if (Modifier.isStatic(callable.modifiers)) 0 else -1))
         }
         is Constructor<*> -> {
             val shift = when {

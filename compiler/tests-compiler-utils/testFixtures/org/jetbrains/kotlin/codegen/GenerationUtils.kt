@@ -1,26 +1,23 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.ProjectScope
 import org.jetbrains.kotlin.ObsoleteTestInfrastructure
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.analyzer.CompilationErrorException
-import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
-import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
 import org.jetbrains.kotlin.cli.jvm.compiler.AllJavaSourcesInProjectScope
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
-import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.convertToIrAndActualizeForJvm
+import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFir2IrPipelinePhase.convertToIrAndActualizeForJvm
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelinePhase.runAnalysisHandlerExtensions
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
@@ -57,7 +54,7 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory = ClassBuilderFactories.TEST,
         trace: BindingTrace = NoScopeRecordCliBindingTrace(environment.project)
     ): GenerationState =
-        compileFiles(files, environment.configuration, classBuilderFactory, environment::createPackagePartProvider, trace).first
+        compileFiles(files, environment.configuration, classBuilderFactory, environment::createPackagePartProvider, trace)
 
     @JvmStatic
     @JvmOverloads
@@ -67,12 +64,12 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory,
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
         trace: BindingTrace = NoScopeRecordCliBindingTrace(files.first().project)
-    ): Pair<GenerationState, BindingContext> {
+    ): GenerationState {
         val project = files.first().project
         return if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
-            compileFilesUsingFrontendIR(project, files, configuration, classBuilderFactory, packagePartProvider) to BindingContext.EMPTY
+            compileFilesUsingFrontendIR(project, files, configuration, classBuilderFactory, packagePartProvider)
         } else {
-            compileFilesUsingStandardMode(project, files, configuration, classBuilderFactory, packagePartProvider, trace)
+            compileFilesUsingStandardMode(project, files, configuration, classBuilderFactory, packagePartProvider, trace).first
         }
     }
 
@@ -84,8 +81,6 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory,
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider
     ): GenerationState {
-        PsiElementFinder.EP.getPoint(project).unregisterExtension(JavaElementFinder::class.java)
-
         if (runAnalysisHandlerExtensions(project, configuration) == false) {
             throw CompilationErrorException()
         }
@@ -105,16 +100,19 @@ object GenerationUtils {
             FirParser.Psi,
         )
 
-        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
+        val fir2IrExtensions = JvmFir2IrExtensions(configuration)
         val diagnosticReporter = DiagnosticsCollectorImpl()
         firAnalyzerFacade.runResolution()
         val irGenerationExtensions = configuration.getCompilerExtensions(IrGenerationExtension)
-        val (moduleFragment, components, pluginContext, _, _, symbolTable) = firAnalyzerFacade.frontendOutput.convertToIrAndActualizeForJvm(
-            fir2IrExtensions,
-            configuration,
-            diagnosticReporter,
-            irGenerationExtensions
-        )
+        (
+            val moduleFragment = irModuleFragment, val components, val pluginContext, val _ = irActualizedResult, val _ = irBuiltIns, val symbolTable
+        ) =
+            firAnalyzerFacade.frontendOutput.convertToIrAndActualizeForJvm(
+                fir2IrExtensions,
+                configuration,
+                diagnosticReporter,
+                irGenerationExtensions
+            )
 
         val generationState = GenerationState(
             project, moduleFragment.descriptor, configuration, classBuilderFactory,

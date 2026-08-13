@@ -3,11 +3,29 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+int8_t kotlin_Number_toByte__reverse_swift(void * self);
+
+uint16_t kotlin_Number_toChar__reverse_swift(void * self);
+
+double kotlin_Number_toDouble__reverse_swift(void * self);
+
+float kotlin_Number_toFloat__reverse_swift(void * self);
+
+int32_t kotlin_Number_toInt__reverse_swift(void * self);
+
+int64_t kotlin_Number_toLong__reverse_swift(void * self);
+
+int16_t kotlin_Number_toShort__reverse_swift(void * self);
+
+_Bool kotlin_collections_BooleanIterator_nextBoolean__reverse_swift(void * self);
+
+int32_t kotlin_collections_IntIterator_nextInt__reverse_swift(void * self);
+
 _Bool kotlin_BooleanArray_get__TypesOfArguments__Swift_Int32__(void * self, int32_t index);
 
 void * kotlin_BooleanArray_iterator(void * self);
 
-void kotlin_BooleanArray_set__TypesOfArguments__Swift_Int32_Swift_Bool__(void * self, int32_t index, _Bool value);
+_Bool kotlin_BooleanArray_set__TypesOfArguments__Swift_Int32_Swift_Bool__(void * self, int32_t index, _Bool value);
 
 int32_t kotlin_BooleanArray_size_get(void * self);
 
@@ -15,7 +33,7 @@ int32_t kotlin_IntArray_get__TypesOfArguments__Swift_Int32__(void * self, int32_
 
 void * kotlin_IntArray_iterator(void * self);
 
-void kotlin_IntArray_set__TypesOfArguments__Swift_Int32_Swift_Int32__(void * self, int32_t index, int32_t value);
+_Bool kotlin_IntArray_set__TypesOfArguments__Swift_Int32_Swift_Int32__(void * self, int32_t index, int32_t value);
 
 int32_t kotlin_IntArray_size_get(void * self);
 

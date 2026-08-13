@@ -5,22 +5,16 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.serialization.IrKlibBytesSource
-import org.jetbrains.kotlin.backend.common.serialization.IrLibraryFileFromBytes
-import org.jetbrains.kotlin.backend.common.serialization.codedInputStream
-import org.jetbrains.kotlin.backend.common.serialization.deserializeFileEntryName
-import org.jetbrains.kotlin.backend.common.serialization.deserializeFqName
+import org.jetbrains.kotlin.backend.common.LegacyKlibDependencies
+import org.jetbrains.kotlin.backend.common.serialization.*
 import org.jetbrains.kotlin.backend.konan.serialization.CacheDeserializationStrategy
 import org.jetbrains.kotlin.backend.konan.serialization.KonanPartialModuleDeserializer
 import org.jetbrains.kotlin.backend.konan.serialization.PartialCacheInfo
-import org.jetbrains.kotlin.backend.common.serialization.fileEntry
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.backend.konan.util.reportCompilationErrorAndThrow
+import org.jetbrains.kotlin.cli.CliDiagnostics
+import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.konan.config.NativeConfigurationKeys
-import org.jetbrains.kotlin.konan.config.konanLibraryToAddToCache
-import org.jetbrains.kotlin.konan.config.filesToCache
-import org.jetbrains.kotlin.konan.config.optimization
-import org.jetbrains.kotlin.konan.config.preLinkCaches
+import org.jetbrains.kotlin.konan.config.*
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.KonanTarget
@@ -30,7 +24,7 @@ import org.jetbrains.kotlin.library.metadata.resolver.KotlinLibraryResolveResult
 import org.jetbrains.kotlin.protobuf.ExtensionRegistryLite
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFile as ProtoFile
 
-class FileWithFqName(val filePath: String, val fqName: String)
+data class FileWithFqName(val filePath: String, val fqName: String)
 
 fun KotlinLibrary.getFilesWithFqNames(): List<FileWithFqName> {
     val ir = irOrFail
@@ -58,7 +52,7 @@ fun KotlinLibrary.getFileFqNames(filePaths: List<String>): List<String> {
         fileReader.deserializeFileEntryName(fileEntry) to (it.index to fileReader)
     }
     return filePaths.map { filePath ->
-        val (index, fileReader) = filePathToIndexAndReader[filePath] ?: error("No file with path $filePath is found in klib $location")
+        val [index, fileReader] = filePathToIndexAndReader[filePath] ?: error("No file with path $filePath is found in klib $location")
         fileReader.deserializeFqName(fileProtos[index].fqNameList)
     }
 }
@@ -81,13 +75,13 @@ class CacheSupport(
     private val autoCacheableFrom = configuration[NativeConfigurationKeys.AUTO_CACHEABLE_FROM]!!
             .map {
                 File(it).takeIf { it.isDirectory }
-                        ?: configuration.reportCompilationError("auto cacheable root $it is not found or is not a directory")
+                        ?: configuration.reportCompilationErrorAndThrow("auto cacheable root $it is not found or is not a directory")
             }
 
     private val implicitCacheDirectories = buildList {
         configuration[NativeConfigurationKeys.CACHE_DIRECTORIES]!!.forEach {
             add(File(it).takeIf { it.isDirectory }
-                    ?: configuration.reportCompilationError("cache directory $it is not found or is not a directory"))
+                    ?: configuration.reportCompilationErrorAndThrow("cache directory $it is not found or is not a directory"))
         }
         systemCacheDirectory.takeIf { autoCacheableFrom.isNotEmpty() || incrementalCacheDirectory != null }?.let { add(it) }
         autoCacheDirectory.takeIf { autoCacheableFrom.isNotEmpty() }?.let { add(it) }
@@ -115,9 +109,9 @@ class CacheSupport(
     internal val cachedLibraries: CachedLibraries = run {
         val explicitCacheFiles = configuration[NativeConfigurationKeys.CACHED_LIBRARIES]!!
 
-        val explicitCaches = explicitCacheFiles.entries.associate { (libraryPath, cachePath) ->
+        val explicitCaches = explicitCacheFiles.entries.associate { [libraryPath, cachePath] ->
             val library = fileToLibrary[File(libraryPath)]
-                    ?: configuration.reportCompilationError("cache not applied: library $libraryPath in $cachePath")
+                    ?: configuration.reportCompilationErrorAndThrow("cache not applied: library $libraryPath in $cachePath")
 
             library to cachePath
         }
@@ -125,7 +119,7 @@ class CacheSupport(
         val hasCachedLibs = explicitCacheFiles.isNotEmpty() || implicitCacheDirectories.isNotEmpty()
 
         if (ignoreCacheReason != null && hasCachedLibs) {
-            configuration.report(CompilerMessageSeverity.WARNING, "Cached libraries will not be used $ignoreCacheReason")
+            configuration.report(CliDiagnostics.KONAN_ARGUMENT_WARNING, "Cached libraries will not be used $ignoreCacheReason")
         }
 
         val ignoreCachedLibraries = ignoreCacheReason != null
@@ -136,7 +130,8 @@ class CacheSupport(
                 explicitCaches = if (ignoreCachedLibraries) emptyMap() else explicitCaches,
                 implicitCacheDirectories = if (ignoreCachedLibraries) emptyList() else implicitCacheDirectories,
                 autoCacheDirectory = autoCacheDirectory,
-                autoCacheableFrom = if (ignoreCachedLibraries) emptyList() else autoCacheableFrom
+                autoCacheableFrom = if (ignoreCachedLibraries) emptyList() else autoCacheableFrom,
+                libraryToCache = configuration.konanLibraryToAddToCache?.let { getLibrary(File(it)) },
         )
     }
 
@@ -149,7 +144,7 @@ class CacheSupport(
     internal val libraryToCache = configuration.konanLibraryToAddToCache?.let {
         val libraryToAddToCacheFile = File(it)
         val libraryToAddToCache = getLibrary(libraryToAddToCacheFile)
-        val libraryCache = cachedLibraries.getLibraryCache(libraryToAddToCache)
+        val libraryCache = cachedLibraries.getLibraryCache(libraryToAddToCache, allowIncomplete = true)
         if (libraryCache is CachedLibraries.Cache.Monolithic)
             null
         else {
@@ -173,26 +168,19 @@ class CacheSupport(
 
     fun checkConsistency() {
         // Ensure dependencies of every cached library are cached too:
-        resolvedLibraries.getFullList { libraries ->
-            libraries.map { library ->
-                val cache = cachedLibraries.getLibraryCache(library.library)
-                if (cache != null || library.library == libraryToCache?.klib) {
-                    library.resolvedDependencies.forEach {
-                        if (!cachedLibraries.isLibraryCached(it.library) && it.library != libraryToCache?.klib) {
-                            val description = if (cache != null) {
-                                "cached (in ${cache.path})"
-                            } else {
-                                "going to be cached"
-                            }
-                            configuration.reportCompilationError(
-                                    "${library.library.location} is $description, " +
-                                            "but its dependency isn't: ${it.library.location}"
-                            )
-                        }
+        val libraries = resolvedLibraries.getFullList()
+        val dependenciesMap = LegacyKlibDependencies(libraries)
+
+        for (library in libraries) {
+            val cache = cachedLibraries.getLibraryCache(library)
+            if (cache != null || library == libraryToCache?.klib) {
+                val dependencies = dependenciesMap.getDependenciesFor(library)
+                for (dependency in dependencies) {
+                    if (!cachedLibraries.isLibraryCached(dependency) && dependency != libraryToCache?.klib) {
+                        val description = if (cache != null) "cached (in ${cache.path})" else "going to be cached"
+                        configuration.reportCompilationErrorAndThrow("${library.location} is $description, but its dependency isn't: ${dependency.location}")
                     }
                 }
-
-                library
             }
         }
 
@@ -200,14 +188,14 @@ class CacheSupport(
         libraryToCache?.klib?.let {
             val cache = cachedLibraries.getLibraryCache(it)
             if (cache is CachedLibraries.Cache.Monolithic) {
-                configuration.reportCompilationError("can't cache library '${it.location}' " +
+                configuration.reportCompilationErrorAndThrow("can't cache library '${it.location}' " +
                         "that is already cached in '${cache.path}'")
             }
         }
 
         if ((libraryToCache != null || cachedLibraries.hasDynamicCaches || cachedLibraries.hasStaticCaches)
                 && configuration.optimization) {
-            configuration.reportCompilationError("Cache cannot be used in optimized compilation")
+            configuration.reportCompilationErrorAndThrow("Cache cannot be used in optimized compilation")
         }
     }
 }

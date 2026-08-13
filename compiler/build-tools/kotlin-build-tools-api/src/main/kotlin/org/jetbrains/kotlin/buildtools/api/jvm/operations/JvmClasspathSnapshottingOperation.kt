@@ -9,6 +9,7 @@ package org.jetbrains.kotlin.buildtools.api.jvm.operations
 
 import org.jetbrains.kotlin.buildtools.api.BuildOperation
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
+import org.jetbrains.kotlin.buildtools.api.KotlinReleaseVersion
 import org.jetbrains.kotlin.buildtools.api.internal.BaseOption
 import org.jetbrains.kotlin.buildtools.api.jvm.ClassSnapshotGranularity
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathEntrySnapshot
@@ -97,7 +98,10 @@ public interface JvmClasspathSnapshottingOperation : BuildOperation<ClasspathEnt
      * @see get
      * @see set
      */
-    public class Option<V> internal constructor(id: String) : BaseOption<V>(id)
+    public class Option<V> internal constructor(
+        id: String,
+        public val availableSinceVersion: KotlinReleaseVersion,
+    ) : BaseOption<V>(id)
 
     /**
      * Get the value for option specified by [key] if it was previously [set] or if it has a default value.
@@ -107,27 +111,18 @@ public interface JvmClasspathSnapshottingOperation : BuildOperation<ClasspathEnt
      */
     public operator fun <V> get(key: Option<V>): V
 
-    /**
-     * Set the [value] for option specified by [key], overriding any previous value for that option.
-     */
-    @Deprecated(
-        "Build operations will become immutable in an upcoming release. " +
-                "Use `JvmPlatformToolchain.classpathSnapshottingOperationBuilder` to create a mutable builder instead."
-    )
-    public operator fun <V> set(key: Option<V>, value: V)
-
     public companion object {
 
         /**
          * Determines granularity of tracking.
          */
         @JvmField
-        public val GRANULARITY: Option<ClassSnapshotGranularity> = Option("GRANULARITY")
+        public val GRANULARITY: Option<ClassSnapshotGranularity> = Option("GRANULARITY", KotlinReleaseVersion(2, 3, 0))
 
         /**
          * Enables extended snapshotting mode for inline methods and accessors.
          */
         @JvmField
-        public val PARSE_INLINED_LOCAL_CLASSES: Option<Boolean> = Option("PARSE_INLINED_LOCAL_CLASSES")
+        public val PARSE_INLINED_LOCAL_CLASSES: Option<Boolean> = Option("PARSE_INLINED_LOCAL_CLASSES", KotlinReleaseVersion(2, 3, 0))
     }
 }

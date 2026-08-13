@@ -1,2 +1,7 @@
 KtNameReferenceExpression(72,75): 'obj'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      obj: Foo
+    ]

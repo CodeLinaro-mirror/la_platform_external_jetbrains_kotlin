@@ -5,86 +5,98 @@
 
 package org.jetbrains.kotlin.konan.test.klib
 
-import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageVersion
-import org.jetbrains.kotlin.test.services.configuration.UnsupportedFeaturesTestConfigurator
-import org.jetbrains.kotlin.konan.test.Fir2IrNativeResultsConverter
-import org.jetbrains.kotlin.konan.test.NativeKlibSerializerFacade
+import org.jetbrains.kotlin.konan.test.KlibSerializerNativeCliFacade
+import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeCoreTest
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives
 import org.jetbrains.kotlin.konan.test.configuration.commonConfigurationForNativeFirstStageUpToSerialization
-import org.jetbrains.kotlin.konan.test.converters.NativePreSerializationLoweringFacade
-import org.jetbrains.kotlin.konan.test.handlers.NativeRunner
-import org.jetbrains.kotlin.test.FirParser
-import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.konan.test.handlers.NativeBoxRunner
+import org.jetbrains.kotlin.konan.test.services.CInteropTestSkipper
+import org.jetbrains.kotlin.konan.test.services.DisabledNativeTestSkipper
+import org.jetbrains.kotlin.konan.test.services.FileCheckTestTotalSkipper
+import org.jetbrains.kotlin.konan.test.services.sourceProviders.NativeLauncherAdditionalSourceProvider
 import org.jetbrains.kotlin.test.backend.handlers.KlibAbiDumpHandler
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
-import org.jetbrains.kotlin.test.builders.configureFirHandlersStep
 import org.jetbrains.kotlin.test.builders.klibArtifactsHandlersStep
 import org.jetbrains.kotlin.test.builders.nativeArtifactsHandlersStep
-import org.jetbrains.kotlin.test.configuration.commonFirHandlersForCodegenTest
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ALLOW_DANGEROUS_LANGUAGE_VERSION_TESTING
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ALLOW_MULTIPLE_API_VERSIONS_SETTING
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.API_VERSION
+import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.DISABLE_FIR_DUMP_HANDLER
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE_VERSION
-import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OPT_IN
+import org.jetbrains.kotlin.test.directives.NativeEnvironmentConfigurationDirectives
+import org.jetbrains.kotlin.test.frontend.objcinterop.ObjCInteropFacade
 import org.jetbrains.kotlin.test.klib.CustomKlibCompilerSecondStageTestSuppressor
 import org.jetbrains.kotlin.test.klib.CustomKlibCompilerTestSuppressor
-import org.jetbrains.kotlin.test.model.FrontendKinds
-import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
+import org.jetbrains.kotlin.test.klib.setupCustomLanguageVersionForKlibCompatibilityTest
 import org.jetbrains.kotlin.test.services.TargetBackendTestSkipper
-import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.NativeFirstStageEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.NativeSecondStageEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.UnsupportedFeaturesTestConfigurator
 import org.jetbrains.kotlin.utils.bind
 import org.junit.jupiter.api.Tag
 
 @Tag("custom-second-stage")
-open class AbstractCustomNativeCompilerSecondStageTest : AbstractKotlinCompilerWithTargetBackendTest(TargetBackend.NATIVE) {
+open class AbstractCustomNativeCompilerSecondStageTest : AbstractNativeCoreTest() {
     override fun configure(builder: TestConfigurationBuilder) = with(builder) {
+        super.configure(builder)
         useMetaTestConfigurators(
             ::UnsupportedFeaturesTestConfigurator,
             ::TargetBackendTestSkipper,
+            ::DisabledNativeTestSkipper,
+            ::CInteropTestSkipper,
+            ::FileCheckTestTotalSkipper,
         )
         defaultDirectives {
-            FirDiagnosticsDirectives.FIR_PARSER with FirParser.LightTree
+            +DISABLE_FIR_DUMP_HANDLER
             if (customNativeCompilerSettings.defaultLanguageVersion < LanguageVersion.LATEST_STABLE) {
-                +ALLOW_DANGEROUS_LANGUAGE_VERSION_TESTING
-                LANGUAGE_VERSION with customNativeCompilerSettings.defaultLanguageVersion
-                +ALLOW_MULTIPLE_API_VERSIONS_SETTING
-                API_VERSION with ApiVersion.createByLanguageVersion(customNativeCompilerSettings.defaultLanguageVersion)
+                // We need to set the custom LV to let `UnsupportedFeaturesTestConfigurator` skip tests with
+                // the language features that are not supported in the given custom LV.
+                setupCustomLanguageVersionForKlibCompatibilityTest(customNativeCompilerSettings.defaultLanguageVersion)
+
                 LANGUAGE with "+ExportKlibToOlderAbiVersion"
             }
+            OPT_IN with listOf(
+                "kotlin.native.internal.InternalForKotlinNative",
+                "kotlin.native.internal.InternalForKotlinNativeTests",
+                "kotlin.experimental.ExperimentalNativeApi"
+            )
         }
 
-        val customNativeHome = customNativeCompilerSettings.nativeHome.absoluteFile.takeIf {
-            customNativeCompilerSettings.defaultLanguageVersion < LanguageVersion.LATEST_STABLE
-        }
-        useConfigurators(::NativeEnvironmentConfigurator.bind(customNativeHome))
+        val nativeHomeForFirstStage = if (customNativeCompilerSettings.defaultLanguageVersion < LanguageVersion.LATEST_STABLE)
+            customNativeCompilerSettings.nativeHome // use home of downloaded distro of previous major version
+        else
+            null // Use default native home without changing it to a home within downloaded distro of latest major version
+        useConfigurators(
+            ::CommonEnvironmentConfigurator,
+            ::NativeFirstStageEnvironmentConfigurator.bind(nativeHomeForFirstStage),
+            ::NativeSecondStageEnvironmentConfigurator,
+        )
         useAdditionalSourceProviders(
             ::NativeLauncherAdditionalSourceProvider,
         )
-        commonConfigurationForNativeFirstStageUpToSerialization(
-            FrontendKinds.FIR,
-            ::FirFrontendFacade,
-            ::Fir2IrNativeResultsConverter,
-            ::NativePreSerializationLoweringFacade,
-        )
-        facadeStep(::NativeKlibSerializerFacade)
+
+        // CInterop-related tests are not that different from regular tests. That's how they work:
+        // Modules containing .def files are compiled with ObjCInteropFacade to klib artifact using the current CInterop tool with arguments targeting old ABI.
+        // The rest of the 1st stage pipeline will be skipped naturally, since further facades don't accept klibs as input artifacts.
+        facadeStep(::ObjCInteropFacade.bind(/*isForwardTest*/true, /*customClassLoader*/null))
+
+        commonConfigurationForNativeFirstStageUpToSerialization()
+        facadeStep(::KlibSerializerNativeCliFacade)
         klibArtifactsHandlersStep {
             useHandlers(::KlibAbiDumpHandler)
         }
-        configureFirHandlersStep {
-            commonFirHandlersForCodegenTest()
-        }
 
-        useDirectives(TestDirectives)
-        facadeStep(::NativeCompilerSecondStageFacade.bind(customNativeCompilerSettings))
+        useDirectives(NativeEnvironmentConfigurationDirectives, TestDirectives)
+        facadeStep(NativeCompilerSecondStageFacade::NonGrouping.bind(
+                customNativeCompilerSettings,
+                /*isCompatibilityTesting*/ true,
+            ))
 
         nativeArtifactsHandlersStep {
-            useHandlers(::NativeRunner)
+            useHandlers(::NativeBoxRunner)
         }
 
-        useAfterAnalysisCheckers(
+        useFailureSuppressors(
             // Suppress all tests that failed on the first stage if they are anyway marked as "IGNORE_BACKEND*".
             ::CustomKlibCompilerTestSuppressor,
             // Suppress failed tests having `// IGNORE_KLIB_BACKEND_ERRORS_WITH_CUSTOM_SECOND_STAGE: X.Y.Z`,

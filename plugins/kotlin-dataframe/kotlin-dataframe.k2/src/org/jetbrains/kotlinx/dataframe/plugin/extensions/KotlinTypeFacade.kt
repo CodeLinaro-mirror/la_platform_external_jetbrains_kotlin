@@ -63,7 +63,7 @@ class ColumnType private constructor(internal val coneType: ConeKotlinType) {
     }
 
     override fun toString(): String {
-        return "Marker(type=$coneType (${coneType::class}))"
+        return "ColumnType(coneType=$coneType))"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -85,6 +85,3 @@ fun ConeKotlinType.wrap(): ColumnType = ColumnType(this)
 
 // The resulting type should not be materialized as a type of a property. Only for testing
 fun ConeKotlinType.wrapUnsafe(): ColumnType = ColumnType.convertUnsafe(type = this)
-
-
-

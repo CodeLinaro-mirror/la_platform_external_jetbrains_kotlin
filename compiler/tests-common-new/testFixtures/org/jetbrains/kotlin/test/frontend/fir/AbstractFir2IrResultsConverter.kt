@@ -91,7 +91,7 @@ abstract class AbstractFir2IrResultsConverter(
         val fir2IrExtensions = createFir2IrExtensions(compilerConfiguration)
 
         val libraries: List<KotlinLibrary> = resolveLibraries(module, compilerConfiguration)
-        val (dependencies: List<ModuleDescriptor>, builtIns: KotlinBuiltIns?) = loadModuleDescriptors(
+        val [dependencies: List<ModuleDescriptor>, builtIns: KotlinBuiltIns?] = loadModuleDescriptors(
             libraries,
             compilerConfiguration.languageVersionSettings,
             testServices
@@ -124,7 +124,6 @@ abstract class AbstractFir2IrResultsConverter(
                 compilerConfiguration,
                 firResult.outputs,
                 fir2irResult,
-                exportKDoc = false,
                 produceHeaderKlib = false,
             ),
         )
@@ -164,7 +163,6 @@ abstract class AbstractFir2IrResultsConverter(
                     languageVersionSettings,
                     storageManager,
                     builtIns,
-                    packageAccessHandler = null,
                     lookupTracker = LookupTracker.DO_NOTHING
                 )
                 dependencies += moduleDescriptor

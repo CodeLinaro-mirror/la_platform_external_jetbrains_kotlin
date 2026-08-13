@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.utils.*
+import org.jetbrains.kotlin.fir.backend.utils.toIrConst
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertySetter
@@ -43,10 +44,10 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrErrorExpressionImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.*
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -133,6 +134,7 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                 isInfix = namedFunction?.isInfix == true,
                 isExternal = isEffectivelyExternal(namedFunction, irParent),
                 containerSource = namedFunction?.containerSource,
+                companionExtensionClass = function.receiverParameter?.takeIf { function.isCompanionExtension }?.typeRef?.toIrType()?.classOrFail
             ).apply {
                 metadata = FirMetadataSource.Function(function)
                 declarationStorage.withScope(symbol) {
@@ -313,6 +315,20 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                                 if (initializer is FirLiteralExpression) {
                                     val constType = initializer.resolvedType.toIrType()
                                     field.initializer = factory.createExpressionBody(initializer.toIrConst(constType))
+                                } else if (property.isConst) {
+                                    val evaluatedInitializer = property.evaluatedInitializer?.resultOrNull<FirLiteralExpression>()
+                                    // The evaluated initializer can be missing in case of an error. It will be reported as diagnostic.
+                                    val expression = if (evaluatedInitializer != null) {
+                                        evaluatedInitializer.toIrConst(evaluatedInitializer.resolvedType.toIrType())
+                                    } else {
+                                        IrErrorExpressionImpl(
+                                            startOffset = field.initializer?.startOffset ?: UNDEFINED_OFFSET,
+                                            endOffset = field.initializer?.endOffset ?: UNDEFINED_OFFSET,
+                                            type = typeToUse,
+                                            "Initializer for const property ${property.name} was not evaluated"
+                                        )
+                                    }
+                                    field.initializer = factory.createExpressionBody(expression)
                                 }
                             }
                         }
@@ -439,6 +455,7 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
             isInfix = false,
             isExternal = isEffectivelyExternal(propertyAccessor, irParent),
             containerSource = containerSource,
+            companionExtensionClass = property.receiverParameter?.takeIf { property.isCompanionExtension }?.typeRef?.toIrType()?.classOrFail
         ).apply {
             correspondingPropertySymbol = (correspondingProperty as? IrProperty)?.symbol
             if (propertyAccessor != null) {
@@ -604,9 +621,10 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
         contextParameters: List<FirValueParameter>,
         parent: IrFunction,
         result: MutableList<IrValueParameter>,
+        typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT,
     ) {
-        contextParameters.mapIndexedTo(result) { index, contextReceiver ->
-            this.declarationStorage.createAndCacheParameter(contextReceiver).apply {
+        contextParameters.mapTo(result) { contextReceiver ->
+            this.declarationStorage.createAndCacheParameter(contextReceiver, typeOrigin = typeOrigin).apply {
                 this.parent = parent
             }
         }
@@ -654,34 +672,36 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                 }
             }
 
+            val typeOrigin = if (forSetter) ConversionTypeOrigin.SETTER else ConversionTypeOrigin.DEFAULT
+
             // context parameters
             function
                 ?.contextParametersForFunctionOrContainingProperty()
-                ?.let { addContextParametersTo(it, parent, this) }
-
-            val typeOrigin = if (forSetter) ConversionTypeOrigin.SETTER else ConversionTypeOrigin.DEFAULT
+                ?.let { addContextParametersTo(it, parent, this, typeOrigin) }
 
             // extension receiver
-            val receiver: FirReceiverParameter? =
-                if (function !is FirPropertyAccessor && function != null) function.receiverParameter
-                else parentProperty?.receiverParameter
+            if (function?.isCompanionExtension != true && parentProperty?.isCompanionExtension != true) {
+                val receiver: FirReceiverParameter? =
+                    if (function !is FirPropertyAccessor && function != null) function.receiverParameter
+                    else parentProperty?.receiverParameter
 
-            if (receiver != null) {
-                this += receiver.convertWithOffsets { startOffset, endOffset ->
-                    val name = (function as? FirAnonymousFunction)?.label?.name?.let {
-                        val suffix = it.takeIf(Name::isValidIdentifier) ?: $$"$receiver"
-                        Name.identifier($$"$this$$$suffix")
-                    } ?: SpecialNames.THIS
-                    declareThisReceiverParameter(
-                        thisType = receiver.typeRef.toIrType(typeOrigin),
-                        thisOrigin = IrDeclarationOrigin.DEFINED,
-                        startOffset = startOffset,
-                        endOffset = endOffset,
-                        name = name,
-                        explicitReceiver = receiver,
-                        isAssignable = function.shouldParametersBeAssignable(c),
-                        kind = IrParameterKind.ExtensionReceiver,
-                    )
+                if (receiver != null) {
+                    this += receiver.convertWithOffsets { startOffset, endOffset ->
+                        val name = (function as? FirAnonymousFunction)?.label?.name?.let {
+                            val suffix = it.takeIf(Name::isValidIdentifier) ?: $$"$receiver"
+                            Name.identifier($$"$this$$$suffix")
+                        } ?: SpecialNames.THIS
+                        declareThisReceiverParameter(
+                            thisType = receiver.typeRef.toIrType(typeOrigin),
+                            thisOrigin = IrDeclarationOrigin.DEFINED,
+                            startOffset = startOffset,
+                            endOffset = endOffset,
+                            name = name,
+                            explicitReceiver = receiver,
+                            isAssignable = function.shouldParametersBeAssignable(c),
+                            kind = IrParameterKind.ExtensionReceiver,
+                        )
+                    }
                 }
             }
 
@@ -764,8 +784,10 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
 
                 if (!skipDefaultParameter && defaultValue != null) {
                     this.defaultValue = when {
-                        forcedDefaultValueConversion && defaultValue !is FirExpressionStub ->
-                            defaultValue.asCompileTimeIrInitializerForAnnotationParameter()
+                        forcedDefaultValueConversion && defaultValue !is FirExpressionStub -> {
+                            val valueToConvert = valueParameter.evaluatedInitializer?.resultOrNull<FirExpression>() ?: defaultValue
+                            valueToConvert.asCompileTimeIrInitializerForAnnotationParameter()
+                        }
                         useStubForDefaultValueStub || defaultValue !is FirExpressionStub ->
                             factory.createExpressionBody(
                                 IrErrorExpressionImpl(
@@ -961,13 +983,13 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
             || origin == IrDeclarationOrigin.FAKE_OVERRIDE
             // When `firAnnotationContainer` is not in a compile target file, we will not fill contents for
             // this annotation container later. Therefore, we have to set its annotations here.
-            || firAnnotationContainer.isDeclaredInFilesBeingCompiled()
+            || firAnnotationContainer.isDeclaredOutsideFilesBeingCompiled()
         ) {
             annotationGenerator.generate(this, firAnnotationContainer)
         }
     }
 
-    private fun FirAnnotationContainer.isDeclaredInFilesBeingCompiled(): Boolean {
+    private fun FirAnnotationContainer.isDeclaredOutsideFilesBeingCompiled(): Boolean {
         val filesBeingCompiled = filesBeingCompiled
         if (filesBeingCompiled == null || this !is FirDeclaration) return false
         return moduleData.session.firProvider.getContainingFile(symbol) !in filesBeingCompiled

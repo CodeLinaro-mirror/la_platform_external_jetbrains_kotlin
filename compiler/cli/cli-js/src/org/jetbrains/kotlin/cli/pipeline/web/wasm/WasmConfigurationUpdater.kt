@@ -5,16 +5,20 @@
 
 package org.jetbrains.kotlin.cli.pipeline.web.wasm
 
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageDiagnostics
 import org.jetbrains.kotlin.backend.wasm.wasmLowerings
-import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.KotlinWasmCompilerArguments
 import org.jetbrains.kotlin.cli.common.createPhaseConfig
 import org.jetbrains.kotlin.cli.common.list
+import org.jetbrains.kotlin.cli.diagnosticFactoriesStorage
 import org.jetbrains.kotlin.cli.js.initializeFinalArtifactConfiguration
 import org.jetbrains.kotlin.cli.pipeline.ArgumentsPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.ConfigurationUpdater
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.phaseConfig
 import org.jetbrains.kotlin.config.targetPlatform
+import org.jetbrains.kotlin.ir.backend.js.wasm.WasmKlibErrors
+import org.jetbrains.kotlin.ir.inline.diagnostics.IrInlinerErrors
 import org.jetbrains.kotlin.js.config.propertyLazyInitialization
 import org.jetbrains.kotlin.js.config.wasmCompilation
 import org.jetbrains.kotlin.platform.wasm.WasmPlatforms
@@ -23,12 +27,19 @@ import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.config.wasmGenerateClosedWorldMultimodule
 import org.jetbrains.kotlin.wasm.config.wasmTarget
 
-object WasmConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() {
+object WasmConfigurationUpdater : ConfigurationUpdater<KotlinWasmCompilerArguments>() {
     override fun fillConfiguration(
-        input: ArgumentsPipelineArtifact<K2JSCompilerArguments>,
+        input: ArgumentsPipelineArtifact<KotlinWasmCompilerArguments>,
         configuration: CompilerConfiguration,
     ) {
         if (!configuration.wasmCompilation) return
+
+        configuration.diagnosticFactoriesStorage?.registerDiagnosticContainers(
+            PartialLinkageDiagnostics,
+            IrInlinerErrors,
+            WasmKlibErrors,
+        )
+
         val arguments = input.arguments
         fillConfiguration(configuration, arguments)
 
@@ -40,9 +51,10 @@ object WasmConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() 
         }
     }
 
-    private fun fillConfiguration(configuration: CompilerConfiguration, arguments: K2JSCompilerArguments) {
+    private fun fillConfiguration(configuration: CompilerConfiguration, arguments: KotlinWasmCompilerArguments) {
         initializeFinalArtifactConfiguration(configuration, arguments)
         configuration.put(WasmConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS, arguments.wasmEnableArrayRangeChecks)
+        configuration.put(WasmConfigurationKeys.WASM_DISABLE_ARRAY_RANGE_CHECKS_SAFE_ELIMINATION, arguments.wasmDisableArrayRangeChecksSafeElimination)
         configuration.put(WasmConfigurationKeys.WASM_DEBUG, arguments.wasmDebug)
         configuration.put(WasmConfigurationKeys.WASM_ENABLE_ASSERTS, arguments.wasmEnableAsserts)
         configuration.put(WasmConfigurationKeys.WASM_GENERATE_WAT, arguments.wasmGenerateWat)
@@ -55,6 +67,7 @@ object WasmConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() 
             (arguments.wasmUseNewExceptionProposal ?: (wasmTarget == WasmTarget.WASI))
         )
 
+        configuration.put(WasmConfigurationKeys.WASM_USE_STACK_SWITCHING_PROPOSAL, arguments.wasmUseStackSwitchingProposal)
         configuration.put(WasmConfigurationKeys.WASM_NO_JS_TAG, arguments.wasmNoJsTag)
         configuration.put(WasmConfigurationKeys.WASM_GENERATE_DWARF, arguments.generateDwarf)
         configuration.put(WasmConfigurationKeys.WASM_FORCE_DEBUG_FRIENDLY_COMPILATION, arguments.forceDebugFriendlyCompilation)

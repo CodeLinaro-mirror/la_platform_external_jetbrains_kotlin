@@ -1,2 +1,7 @@
 KtNameReferenceExpression(66,68): 'bb'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      bb: kotlin.Int
+    ]

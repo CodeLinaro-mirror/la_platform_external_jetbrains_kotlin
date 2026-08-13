@@ -5,41 +5,62 @@
 
 package org.jetbrains.kotlin.konan.test.klib
 
+import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeCoreTest
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives
-import org.jetbrains.kotlin.konan.test.handlers.NativeRunner
+import org.jetbrains.kotlin.konan.test.handlers.NativeBoxRunner
+import org.jetbrains.kotlin.konan.test.services.CInteropTestSkipper
+import org.jetbrains.kotlin.konan.test.services.DisabledNativeTestSkipper
+import org.jetbrains.kotlin.konan.test.services.FileCheckTestTotalSkipper
+import org.jetbrains.kotlin.konan.test.services.sourceProviders.NativeLauncherAdditionalSourceProvider
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
-import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.nativeArtifactsHandlersStep
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.frontend.objcinterop.ObjCInteropFacade
 import org.jetbrains.kotlin.test.klib.CustomKlibCompilerFirstStageTestSuppressor
 import org.jetbrains.kotlin.test.klib.CustomKlibCompilerTestSuppressor
+import org.jetbrains.kotlin.test.klib.setupCustomLanguageVersionForKlibCompatibilityTest
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
-import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
 import org.jetbrains.kotlin.test.services.TargetBackendTestSkipper
-import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.NativeFirstStageEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.NativeSecondStageEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.UnsupportedFeaturesTestConfigurator
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
 import org.jetbrains.kotlin.utils.bind
 import org.junit.jupiter.api.Tag
 
 @Tag("custom-first-stage")
-open class AbstractCustomNativeCompilerFirstStageTest : AbstractKotlinCompilerWithTargetBackendTest(TargetBackend.NATIVE) {
+open class AbstractCustomNativeCompilerFirstStageTest : AbstractNativeCoreTest() {
     override fun configure(builder: TestConfigurationBuilder): Unit = with(builder) {
-        useMetaTestConfigurators(::TargetBackendTestSkipper)
+        super.configure(builder)
+        useMetaTestConfigurators(
+            ::UnsupportedFeaturesTestConfigurator,
+            ::TargetBackendTestSkipper,
+            ::DisabledNativeTestSkipper,
+            ::CInteropTestSkipper,
+            ::FileCheckTestTotalSkipper,
+        )
         globalDefaults {
-            frontend = if (customNativeCompilerSettings.defaultLanguageVersion.usesK2) FrontendKinds.FIR else FrontendKinds.ClassicFrontend
+            frontend = FrontendKinds.FIR
             targetPlatform = NativePlatforms.unspecifiedNativePlatform
             dependencyKind = DependencyKind.Binary
         }
         defaultDirectives {
+            // We need to set the custom LV to let `UnsupportedFeaturesTestConfigurator` skip tests with
+            // the language features that are not supported in the given custom LV.
+            setupCustomLanguageVersionForKlibCompatibilityTest(customNativeCompilerSettings.defaultLanguageVersion)
+
             // K/N does not have minimized stdlib for tests, so need to use the full stdlib
             +WITH_STDLIB
         }
 
         useConfigurators(
-            ::NativeEnvironmentConfigurator,
+            ::CommonEnvironmentConfigurator,
+            ::NativeFirstStageEnvironmentConfigurator.bind(customNativeCompilerSettings.nativeHome),
+            ::NativeSecondStageEnvironmentConfigurator,
         )
         useAdditionalSourceProviders(
             ::NativeLauncherAdditionalSourceProvider,
@@ -47,9 +68,14 @@ open class AbstractCustomNativeCompilerFirstStageTest : AbstractKotlinCompilerWi
             ::AdditionalDiagnosticsSourceFilesProvider,
         )
 
+        // CInterop-related tests are not that different from regular tests. That's how they work:
+        // Modules containing .def files are compiled with ObjCInteropFacade to klib artifact using the old CInterop tool.
+        // The rest of the 1st stage pipeline will be skipped naturally, since further facades don't accept klibs as input artifacts.
+        facadeStep(::ObjCInteropFacade.bind(/*isForwardTest*/false, customNativeCompilerSettings.compiler.getIsolatedClassLoader()))
+
         facadeStep(::CustomNativeCompilerFirstStageFacade)
 
-        useAfterAnalysisCheckers(
+        useFailureSuppressors(
             // Suppress all tests that have not been successfully compiled by the first stage.
             // And the limited number of tests where KLIBs generated by a specific compiler version
             // are known to have some problems that cause crash on the second stage.
@@ -57,11 +83,15 @@ open class AbstractCustomNativeCompilerFirstStageTest : AbstractKotlinCompilerWi
 
             // Suppress all tests that failed on the second stage if they are anyway marked as "IGNORE_BACKEND*".
             ::CustomKlibCompilerTestSuppressor,
+            ::CustomFirstStageCInteropTestSuppressor,
         )
         useDirectives(TestDirectives)
-        facadeStep(::NativeCompilerSecondStageFacade.bind(currentCustomNativeCompilerSettings))
+        facadeStep(NativeCompilerSecondStageFacade::NonGrouping.bind(
+                currentCustomNativeCompilerSettings,
+                /*isCompatibilityTesting*/ true,
+            ))
         nativeArtifactsHandlersStep {
-            useHandlers(::NativeRunner)
+            useHandlers(::NativeBoxRunner)
         }
     }
 }

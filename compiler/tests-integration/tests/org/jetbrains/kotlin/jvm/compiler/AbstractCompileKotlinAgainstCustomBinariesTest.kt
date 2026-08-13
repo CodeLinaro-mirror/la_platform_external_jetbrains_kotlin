@@ -26,7 +26,7 @@ import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.ModuleMapping
 import org.jetbrains.kotlin.test.MockLibraryUtil
 import org.jetbrains.kotlin.test.services.StandardLibrariesPathProviderForKotlinProject
-import org.jetbrains.kotlin.util.toJvmMetadataVersion
+import org.jetbrains.kotlin.util.toMetadataVersion
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.tree.ClassNode
 import java.io.ByteArrayInputStream
@@ -354,7 +354,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
 
     fun testMetadataVersionDerivedFromLanguage() {
         for (languageVersion in LanguageVersion.entries) {
-            if (languageVersion.isUnsupported && !languageVersion.isJvmOnly) continue
+            if (languageVersion.isUnsupported) continue
 
             compileKotlin(
                 "source.kt", tmpdir, additionalOptions = listOf(CommonCompilerArguments::languageVersion.cliArgument, languageVersion.versionString),
@@ -366,7 +366,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
             val expectedMajor = if (languageVersion.usesK2) 2 else 1
             val expectedMinor = if (languageVersion < LanguageVersion.KOTLIN_1_4) 1 else languageVersion.minor
 
-            val topLevelClass = LocalFileKotlinClass.create(File(tmpdir.absolutePath, "Foo.class"), languageVersion.toJvmMetadataVersion())!!
+            val topLevelClass = LocalFileKotlinClass.create(File(tmpdir.absolutePath, "Foo.class"), languageVersion.toMetadataVersion())!!
             val classVersion = topLevelClass.classHeader.metadataVersion
             assertEquals("Actual version: $classVersion", expectedMajor, classVersion.major)
             assertEquals("Actual version: $classVersion", expectedMinor, classVersion.minor)
@@ -437,7 +437,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
 
         inlineFunClass.writeBytes(cw.toByteArray())
 
-        val (_, exitCode) = compileKotlin("shouldNotCompile.kt", tmpdir, listOf(tmpdir))
+        val [_, exitCode] = compileKotlin("shouldNotCompile.kt", tmpdir, listOf(tmpdir))
         assertEquals(1, exitCode.code) // double-check that we failed :) output.txt also says so
     }
 
@@ -578,7 +578,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         val library = compileLibrary(
             "library",
             additionalOptions = listOf(
-                CommonCompilerArguments::languageVersion.cliArgument, "1.9",
+                CommonCompilerArguments::languageVersion.cliArgument, "2.1",
                 CommonCompilerArguments::suppressVersionWarnings.cliArgument,
             )
         )
@@ -587,7 +587,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         val library2 = compileLibrary(
             "library",
             additionalOptions = listOf(
-                CommonCompilerArguments::languageVersion.cliArgument, "1.9",
+                CommonCompilerArguments::languageVersion.cliArgument, "2.1",
                 CommonCompilerArguments::suppressVersionWarnings.cliArgument,
                 K2JVMCompilerArguments::abiStability.cliArgument("stable")
             )
@@ -615,7 +615,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         val library = compileLibrary(
             "library",
             additionalOptions = listOf(
-                CommonCompilerArguments::languageVersion.cliArgument, "1.9",
+                CommonCompilerArguments::languageVersion.cliArgument, "2.1",
                 CommonCompilerArguments::suppressVersionWarnings.cliArgument,
                 K2JVMCompilerArguments::abiStability.cliArgument("unstable")
             )
@@ -638,7 +638,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         ))
         compileKotlin(
             "source.kt", tmpdir, listOf(library), additionalOptions = listOf(
-                CommonCompilerArguments::languageVersion.cliArgument, "1.9",
+                CommonCompilerArguments::languageVersion.cliArgument, "2.1",
                 CommonCompilerArguments::suppressVersionWarnings.cliArgument,
                 CommonCompilerArguments::skipPrereleaseCheck.cliArgument,
             )
@@ -657,12 +657,12 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
     }
 
     fun testUnreachableExtensionVarPropertyDeclaration() {
-        val (output, exitCode) = compileKotlin("source.kt", tmpdir, expectedFileName = null)
+        val [output, exitCode] = compileKotlin("source.kt", tmpdir, expectedFileName = null)
         assertEquals("Output:\n$output", ExitCode.COMPILATION_ERROR, exitCode)
     }
 
     fun testUnreachableExtensionValPropertyDeclaration() {
-        val (output, exitCode) = compileKotlin("source.kt", tmpdir, expectedFileName = null)
+        val [output, exitCode] = compileKotlin("source.kt", tmpdir, expectedFileName = null)
         assertEquals("Output:\n$output", ExitCode.COMPILATION_ERROR, exitCode)
     }
 

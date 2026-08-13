@@ -2,6 +2,9 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     kotlin("jvm")
+    id("java-test-fixtures")
+    id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -15,11 +18,14 @@ dependencies {
     implementation(intellijCore())
     implementation(libs.opentelemetry.api)
     implementation(libs.caffeine)
-}
 
-sourceSets {
-    "main" { projectDefault() }
-    "test" { none() }
+    testFixturesApi(kotlinTest("junit"))
+    testFixturesApi(platform(libs.junit.bom))
+    testFixturesApi(libs.junit.jupiter.api)
+    testFixturesApi(testFixtures(project(":analysis:analysis-test-framework")))
+    testRuntimeOnly(libs.junit.jupiter.engine)
+
+    testImplementation(testFixtures(project(":compiler:psi:psi-api")))
 }
 
 kotlin {
@@ -31,8 +37,7 @@ kotlin {
 
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
-        enabled.set(true)
-        legacyDump.referenceDumpDir = File("api-unstable")
+        referenceDumpDir = File("api-unstable")
 
         filters {
             exclude.annotatedWith.addAll(
@@ -40,4 +45,13 @@ kotlin {
             )
         }
     }
+}
+
+sourceSets {
+    "main" { projectDefault() }
+    "test" { none() }
+}
+
+projectTests {
+    testCodebaseTask(dumpDirs = listOf("api", "api-unstable"))
 }

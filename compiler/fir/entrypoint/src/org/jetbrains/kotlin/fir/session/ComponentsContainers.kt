@@ -13,6 +13,8 @@ import org.jetbrains.kotlin.diagnostics.KtRegisteredDiagnosticFactoriesStorage
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.CheckersComponent
 import org.jetbrains.kotlin.fir.analysis.checkers.FirInlineCheckerPlatformSpecificComponent
+import org.jetbrains.kotlin.fir.analysis.checkers.FirPlatformSpecificCastChecker
+import org.jetbrains.kotlin.fir.analysis.checkers.FirPlatformSpecificEqualityChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.FirPrimaryConstructorSuperTypeCheckerPlatformComponent
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirNameConflictsTrackerImpl
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirGenericArrayClassLiteralSupport
@@ -25,6 +27,7 @@ import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmPrimaryConstructorSu
 import org.jetbrains.kotlin.fir.caches.FirCachesFactory
 import org.jetbrains.kotlin.fir.caches.FirThreadUnsafeCachesFactory
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.expressions.FirInlineConstTrackerComponent
 import org.jetbrains.kotlin.fir.extensions.*
 import org.jetbrains.kotlin.fir.java.FirJavaVisibilityChecker
 import org.jetbrains.kotlin.fir.java.FirSyntheticPropertiesStorage
@@ -51,6 +54,7 @@ import org.jetbrains.kotlin.fir.scopes.FirDefaultImportsProviderHolder
 import org.jetbrains.kotlin.fir.scopes.FirLookupDefaultStarImportsInSourcesSettingHolder
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirOverrideService
+import org.jetbrains.kotlin.fir.scopes.SubstitutionScopeKeyFactory
 import org.jetbrains.kotlin.fir.scopes.impl.*
 import org.jetbrains.kotlin.fir.scopes.jvm.FirJvmDelegatedMembersFilter
 import org.jetbrains.kotlin.fir.scopes.jvm.JvmMappedScope.FirMappedSymbolStorage
@@ -60,6 +64,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.ICFileMappingTracker
 import org.jetbrains.kotlin.incremental.components.ImportTracker
+import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.load.java.JavaTypeEnhancementState
 import org.jetbrains.kotlin.resolve.jvm.JvmConstants
@@ -95,9 +100,11 @@ fun FirSession.registerCommonComponents(languageVersionSettings: LanguageVersion
     register(FirGenericArrayClassLiteralSupport::class, FirGenericArrayClassLiteralSupport.Disabled)
     register(FirMissingDependencyStorage::class, FirMissingDependencyStorage(this))
     register(FirPlatformSpecificCastChecker::class, FirPlatformSpecificCastChecker.Default)
+    register(FirPlatformSpecificEqualityChecker::class, FirPlatformSpecificEqualityChecker.Default)
     register(FirMustUseReturnValueStatusComponent::class, FirMustUseReturnValueStatusComponent.create(languageVersionSettings))
     register(FirInlineCheckerPlatformSpecificComponent::class, FirInlineCheckerPlatformSpecificComponent.NonJvmDefault)
     register(FirExpectActualMappingStorage::class, FirExpectActualMappingStorage(this))
+    register(FirInlineConstTrackerComponent::class, FirInlineConstTrackerComponent.Default)
 }
 
 @OptIn(SessionConfiguration::class)
@@ -129,6 +136,8 @@ fun FirSession.registerCliCompilerAndCommonComponents(languageVersionSettings: L
 
     @OptIn(FirImplementationDetail::class)
     register(FirJumpingPhaseComputationSessionForLocalClassesProvider::class, FirCliJumpingPhaseComputationSessionForLocalClassesProvider)
+
+    register(SubstitutionScopeKeyFactory::class, SubstitutionScopeKeyFactory.Default)
 }
 
 class FirSharableJavaComponents(
@@ -148,6 +157,7 @@ fun FirSession.registerJavaComponents(
     javaModuleResolver: JavaModuleResolver,
     predefinedComponents: FirSharableJavaComponents? = null,
     registerJvmDeserializationExtension: Boolean = true,
+    inlineConstTracker: InlineConstTracker? = null,
 ) {
     register(FirJavaModuleResolverProvider::class, FirJavaModuleResolverProvider(javaModuleResolver))
     val jsr305State =
@@ -183,6 +193,7 @@ fun FirSession.registerJavaComponents(
     register(FirJavaNullabilityWarningUpperBoundsProvider(this))
     register(FirDefaultImportsProviderHolder.of(FirJvmDefaultImportsProvider))
     register(FirDeclarationNameInvalidCharsProvider::class, FirDeclarationNameInvalidCharsProvider.of(JvmConstants.INVALID_CHARS))
+    register(FirInlineConstTrackerComponent::class, FirInlineConstTrackerComponent(inlineConstTracker))
 }
 
 // -------------------------- Resolve components --------------------------

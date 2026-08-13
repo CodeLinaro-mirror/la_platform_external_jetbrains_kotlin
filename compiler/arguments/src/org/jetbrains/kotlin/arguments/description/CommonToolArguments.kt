@@ -15,7 +15,8 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         shortName = "h"
         description = "Print a synopsis of standard options.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
+        affectsCompilationOutcome = false
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_0_0,
@@ -28,7 +29,8 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         compilerName = "extraHelp"
         description = "Print a synopsis of advanced options.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
+        affectsCompilationOutcome = false
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_0_0,
@@ -40,7 +42,8 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         name = "version"
         description = "Display the compiler version.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
+        affectsCompilationOutcome = false
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_0_0,
@@ -52,7 +55,8 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         name = "verbose"
         description = "Enable verbose logging output.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
+        affectsCompilationOutcome = false
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_0_0,
@@ -65,7 +69,8 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         compilerName = "suppressWarnings"
         description = "Don't generate any warnings.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
+        affectsCompilationOutcome = false
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_0_0,
@@ -78,7 +83,7 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         compilerName = "allWarningsAsErrors"
         description = "Report an error if there are any warnings.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v1_2_0,
@@ -91,7 +96,7 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         compilerName = "extraWarnings"
         description = "Enable extra checkers for K2.".asReleaseDependent()
 
-        argumentType = BooleanType.defaultFalse
+        valueType = BooleanType.defaultFalse
 
         lifecycle(
             introducedVersion = KotlinReleaseVersion.v2_1_0,

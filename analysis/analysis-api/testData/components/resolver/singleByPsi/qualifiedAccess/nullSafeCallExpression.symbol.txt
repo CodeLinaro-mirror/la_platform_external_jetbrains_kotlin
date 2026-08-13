@@ -1,2 +1,7 @@
 KtNameReferenceExpression(50,52): 'aa'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val aa: A?
+    ]

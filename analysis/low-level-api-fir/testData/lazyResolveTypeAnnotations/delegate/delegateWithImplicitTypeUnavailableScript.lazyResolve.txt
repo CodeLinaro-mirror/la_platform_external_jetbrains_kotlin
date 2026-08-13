@@ -16,7 +16,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -61,7 +61,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -106,7 +106,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -151,7 +151,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -173,7 +173,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
                 private final const [ResolvedTo(STATUS)] val prop: <implicit> = LAZY_EXPRESSION
                     private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
 
-                private final [ResolvedTo(CONTRACTS)] fun explicitType(): R|@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/Int>>| { LAZY_BLOCK }
+                private final [ResolvedTo(STATUS)] fun explicitType(): R|@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/Int>>| { LAZY_BLOCK }
 
             }
 
@@ -198,7 +198,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -220,7 +220,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
                 private final const [ResolvedTo(STATUS)] val prop: <implicit> = LAZY_EXPRESSION
                     private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
 
-                private final [ResolvedTo(CONTRACTS)] fun explicitType(): R|@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/Int>>| { LAZY_BLOCK }
+                private final [ResolvedTo(STATUS)] fun explicitType(): R|@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/collections/List<@R|Anno|(LAZY_EXPRESSION)  kotlin/Int>>| { LAZY_BLOCK }
 
             }
 
@@ -245,7 +245,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -292,7 +292,7 @@ FILE: [ResolvedTo(IMPORTS)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(STATUS)] [ContainingClassKey=Derived] constructor([ResolvedTo(STATUS)] i: R|OriginalInterface|): R|Derived| {
                 LAZY_super<<implicit>>
             }
@@ -337,7 +337,7 @@ FILE: [ResolvedTo(BODY_RESOLVE)] delegateWithImplicitTypeUnavailableScript.kts
 
         }
 
-        public final [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=FirFieldSymbol /Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
+        public final [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol <script-delegateWithImplicitTypeUnavailableScript.kts>, DelegateFieldsMapKey={0=/Derived.$$delegate_0}, ScriptTopLevelDeclaration=true] class Derived : R|OriginalInterface| {
             public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Derived] constructor([ResolvedTo(BODY_RESOLVE)] i: R|OriginalInterface|): R|Derived| {
                 super<R|kotlin/Any|>()
             }
@@ -366,4 +366,3 @@ FILE: [ResolvedTo(BODY_RESOLVE)] delegateWithImplicitTypeUnavailableScript.kts
             }
 
         }
-

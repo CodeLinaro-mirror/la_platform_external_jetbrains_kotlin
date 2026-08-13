@@ -176,11 +176,6 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.NAME_OF_NAMED_ARGUMENT
     )
 
-    val VALUE_ARGUMENTS = SourceElementPositioningStrategy(
-        LightTreePositioningStrategies.VALUE_ARGUMENTS,
-        PositioningStrategies.VALUE_ARGUMENTS
-    )
-
     val VALUE_ARGUMENTS_LIST = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.VALUE_ARGUMENTS_LIST,
         PositioningStrategies.VALUE_ARGUMENTS_LIST
@@ -209,6 +204,15 @@ object SourceElementPositioningStrategies {
     val REFERENCED_NAME_BY_QUALIFIED = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.REFERENCED_NAME_BY_QUALIFIED,
         PositioningStrategies.REFERENCED_NAME_BY_QUALIFIED
+    )
+
+    /**
+     * NB! The whole receiver including parentheses is marked, which is not true if we use the FIR source of the receiver
+     * element with [DEFAULT] positioning.
+     */
+    val RECEIVER_OF_DOT_QUALIFIED = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.RECEIVER_OF_DOT_QUALIFIED,
+        PositioningStrategies.RECEIVER_OF_DOT_QUALIFIED
     )
 
     val DEPRECATION = SourceElementPositioningStrategy(

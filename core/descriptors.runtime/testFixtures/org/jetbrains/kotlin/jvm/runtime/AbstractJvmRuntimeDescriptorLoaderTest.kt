@@ -72,6 +72,7 @@ abstract class AbstractJvmRuntimeDescriptorLoaderTest : TestCaseWithTmpdir() {
         val text = FileUtil.loadFile(file, true)
 
         if (InTextDirectivesUtils.isDirectiveDefined(text, "SKIP_IN_RUNTIME_TEST")) return
+        if (InTextDirectivesUtils.isDirectiveDefined(text, "IGNORE_FIR_METADATA_LOADING_K1")) return
 
         val jdkKind =
             if (InTextDirectivesUtils.isDirectiveDefined(text, "FULL_JDK")) TestJdkKind.FULL_JDK
@@ -88,7 +89,7 @@ abstract class AbstractJvmRuntimeDescriptorLoaderTest : TestCaseWithTmpdir() {
             /* checkPropertyAccessors = */ true,
             /* includeMethodsOfKotlinAny = */ false,
             /* renderDeclarationsFromOtherModules = */ true,
-            /* checkFunctionContract = */ false,
+            /* checkFunctionContracts = */ false,
             // Skip Java annotation constructors because order of their parameters is not retained at runtime
             { descriptor -> !descriptor!!.isJavaAnnotationConstructor() },
             errorTypesForbidden(), renderer

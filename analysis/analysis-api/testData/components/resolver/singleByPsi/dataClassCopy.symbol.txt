@@ -1,2 +1,8 @@
 KtNameReferenceExpression(82,86): 'copy'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Data.copy(<dispatch receiver>: Data, aaa: kotlin.Int): Data
+    ]
+  PSI class names: KtPrimaryConstructor

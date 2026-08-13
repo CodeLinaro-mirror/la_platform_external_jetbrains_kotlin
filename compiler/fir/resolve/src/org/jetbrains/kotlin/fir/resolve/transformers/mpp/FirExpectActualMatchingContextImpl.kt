@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.types.model.TypeSubstitutorMarker
 import org.jetbrains.kotlin.types.model.TypeSystemContext
 import org.jetbrains.kotlin.utils.zipIfSizesAreEqual
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 
 class FirExpectActualMatchingContextImpl private constructor(
     private val actualSession: FirSession,
@@ -200,7 +199,7 @@ class FirExpectActualMatchingContextImpl private constructor(
             for (name in scope.getClassifierNames()) {
                 scope.processClassifiersByName(name) {
                     // We should skip nested class like declarations from supertypes here
-                    if (it is FirClassLikeSymbol<*> && it.classId.parentClassId == symbol.classId) {
+                    if (it is FirClassLikeSymbol<*> && it.classId.outerClassId == symbol.classId) {
                         add(it)
                     }
                 }
@@ -457,7 +456,7 @@ class FirExpectActualMatchingContextImpl private constructor(
         }
         val symbol = asSymbol()
         val classSymbol = containingExpectClass.asSymbol()
-        if (symbol !is FirConstructorSymbol && symbol.dispatchReceiverType?.classId != classSymbol.classId) {
+        if (symbol !is FirConstructorSymbol && symbol.dispatchReceiverType.let { it != null && it.classId != classSymbol.classId }) {
             return true
         }
         return symbol.isSubstitutionOrIntersectionOverride
@@ -553,7 +552,7 @@ class FirExpectActualMatchingContextImpl private constructor(
     ) {
         if (containingExpectClassSymbol == null || containingActualClassSymbol == null) return
 
-        for ((incompatibility, actualSymbols) in actualSymbolsByIncompatibility.entries) {
+        for ([incompatibility, actualSymbols] in actualSymbolsByIncompatibility.entries) {
             for (actualSymbol in actualSymbols) {
                 containingActualClassSymbol.asSymbol().addMemberExpectForActualMapping(
                     expectSymbol.asSymbol(),
@@ -646,11 +645,11 @@ class FirExpectActualMatchingContextImpl private constructor(
             expectDelegatedTypeRef is FirUserTypeRef && actualDelegatedTypeRef is FirUserTypeRef -> {
                 val expectQualifier = expectDelegatedTypeRef.qualifier
                 val actualQualifier = actualDelegatedTypeRef.qualifier
-                for ((expectPart, actualPart) in expectQualifier.zipIfSizesAreEqual(actualQualifier).orEmpty()) {
+                for ([expectPart, actualPart] in expectQualifier.zipIfSizesAreEqual(actualQualifier).orEmpty()) {
                     val expectPartTypeArguments = expectPart.typeArgumentList.typeArguments
                     val actualPartTypeArguments = actualPart.typeArgumentList.typeArguments
                     val zippedArgs = expectPartTypeArguments.zipIfSizesAreEqual(actualPartTypeArguments).orEmpty()
-                    for ((expectTypeArgument, actualTypeArgument) in zippedArgs) {
+                    for ([expectTypeArgument, actualTypeArgument] in zippedArgs) {
                         if (expectTypeArgument !is FirTypeProjectionWithVariance || actualTypeArgument !is FirTypeProjectionWithVariance) {
                             continue
                         }
@@ -673,10 +672,18 @@ class FirExpectActualMatchingContextImpl private constructor(
 
                 val expectParams = expectDelegatedTypeRef.parameters
                 val actualParams = actualDelegatedTypeRef.parameters
-                for ((expectParam, actualParam) in expectParams.zipIfSizesAreEqual(actualParams).orEmpty()) {
+                for ([expectParam, actualParam] in expectParams.zipIfSizesAreEqual(actualParams).orEmpty()) {
                     checkAnnotationsOnTypeRefAndArgumentsImpl(
                         expectContainingSymbol, actualContainingSymbol,
                         expectParam.returnTypeRef, actualParam.returnTypeRef, checker
+                    )
+                }
+                val expectContextParameters = expectDelegatedTypeRef.contextParameterTypeRefs
+                val actualContextParameters = actualDelegatedTypeRef.contextParameterTypeRefs
+                for ([expectParam, actualParam] in expectContextParameters.zipIfSizesAreEqual(actualContextParameters).orEmpty()) {
+                    checkAnnotationsOnTypeRefAndArgumentsImpl(
+                        expectContainingSymbol, actualContainingSymbol,
+                        expectParam, actualParam, checker
                     )
                 }
             }

@@ -1,6 +1,7 @@
+// IGNORE_KLIB_BACKEND_ERRORS_WITH_CUSTOM_SECOND_STAGE: Native:2.3
+// ^^^ KT-86026 TODO: Rework testdata to move functions/globals definitions from .def/.h into separate source files
+
 // TARGET_BACKEND: NATIVE
-// IGNORE_BACKEND_K1: NATIVE
-// ^ K1 does not support coercing assigment to Any?
 // MODULE: cinterop
 // FILE: cstructs.def
 nonStrictEnums = NonStrict

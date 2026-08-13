@@ -11,15 +11,16 @@ import org.gradle.kotlin.dsl.version
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsProjectExtension
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
 import org.jetbrains.kotlin.gradle.uklibs.applyMultiplatform
+import org.jetbrains.kotlin.gradle.uklibs.includeBuild
 import org.jetbrains.kotlin.gradle.util.filterBackwardCompatibilityKotlinFusFiles
 import org.jetbrains.kotlin.gradle.util.filterKotlinFusFiles
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.swiftExportEmbedAndSignEnvVariables
+import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.statistics.metrics.StringAnonymizationPolicy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
@@ -197,36 +198,7 @@ class FusStatisticsIT : KGPBaseTest() {
                 build("linkDebugExecutableHost", "-Pkotlin.session.logger.root.path=$projectPath") {
                     assertOutputDoesNotContainFusErrors()
                     fusStatisticsDirectory.assertFusReportContains("KOTLIN_INCREMENTAL_NATIVE_ENABLED=true")
-                }
-            }
-        }
-    }
-
-    @JsGradlePluginTests
-    @DisplayName("Verify that the metric for applying the Kotlin JS plugin is being collected")
-    @GradleTest
-    @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_8_2],
-    )
-    fun testMetricCollectingOfApplyingKotlinJsPlugin(gradleVersion: GradleVersion) {
-        project(
-            "empty",
-            gradleVersion,
-            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = IsolatedProjectsMode.DISABLED),
-        ) {
-            plugins {
-                kotlin("js")
-            }
-            buildScriptInjection {
-                (project.extensions.getByName("kotlin") as KotlinJsProjectExtension).apply {
-                    js()
-                }
-            }
-            assertNoErrorFilesCreated {
-                build("assemble", "-Pkotlin.session.logger.root.path=$projectPath") {
-                    assertOutputDoesNotContainFusErrors()
-                    fusStatisticsDirectory.assertFusReportContains("KOTLIN_JS_PLUGIN_ENABLED=true")
+                    fusStatisticsDirectory.assertFusReportContainsMetricWithValues("MPP_PLATFORMS", listOf("common", HostManager.host.name))
                 }
             }
         }
@@ -777,7 +749,7 @@ class FusStatisticsIT : KGPBaseTest() {
     @GradleTest
     @JvmGradlePluginTests
     fun testCompilerExecutionSettings(gradleVersion: GradleVersion) {
-        val kotlinVersion = StringAnonymizationPolicy.ComponentVersionAnonymizer().anonymize(KOTLIN_VERSION)
+        val kotlinVersion = StringAnonymizationPolicy.ComponentVersionAnonymizer().anonymize(KOTLIN_VERSION, ";")
         project("simpleProject", gradleVersion) {
             assertNoErrorFilesCreated {
                 build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
@@ -833,6 +805,30 @@ class FusStatisticsIT : KGPBaseTest() {
         return expectedFiles
     }
 
+    @DisplayName("FUS should not break project configuration for included build")
+    @GradleTest
+    @MppGradlePluginTests
+    fun testProjectConfiguration(gradleVersion: GradleVersion) {
+        project("empty", gradleVersion) {
+            val included = project("empty", gradleVersion) {
+                plugins {
+                    kotlin("multiplatform")
+                }
+                buildScriptInjection {
+                    project.applyMultiplatform {
+                        iosArm64()
+                        iosSimulatorArm64()
+                    }
+                }
+            }
+            includeBuild(included)
+
+            build("help", "-Pkotlin.session.logger.root.path=$projectPath") {
+                assertOutputDoesNotContainFusErrors()
+            }
+        }
+    }
+
     private fun TestProject.applyDokka(version: String) {
         buildGradle.replaceText(
             "plugins {",
@@ -865,4 +861,9 @@ private fun Path.assertFusReportDoesNotContain(vararg expectedMetrics: String) {
 private fun BuildResult.assertOutputDoesNotContainFusErrors() {
     assertOutputDoesNotContain("finish-profile already exists")
     assertOutputDoesNotContain("Unable to collect finish file for build")
+}
+
+private fun Path.assertFusReportContainsMetricWithValues(metricName: String, expectedValues: List<String>) {
+    assertFilesCombinedContains(filterKotlinFusFiles(), "$metricName=${expectedValues.joinToString(",")}")
+    assertFilesCombinedContains(filterBackwardCompatibilityKotlinFusFiles(), "$metricName=${expectedValues.joinToString(";")}")
 }

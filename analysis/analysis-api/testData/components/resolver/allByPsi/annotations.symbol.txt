@@ -5,7 +5,12 @@ KtPackageDirective(16,27): 'package one'
   null
 
 KtNameReferenceExpression(24,27): 'one'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one
+    ]
 
 KtImportList(29,57): 'import kotlin.reflect.KClass'
   null
@@ -20,13 +25,28 @@ KtDotQualifiedExpression(36,50): 'kotlin.reflect'
   null
 
 KtNameReferenceExpression(36,42): 'kotlin'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin
+    ]
 
 KtNameReferenceExpression(43,50): 'reflect'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin.reflect
+    ]
 
 KtNameReferenceExpression(51,57): 'KClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtClass(59,120): '@Repeatable'
   null
@@ -41,16 +61,30 @@ KtAnnotationEntry(59,70): '@Repeatable'
     ]
 
 KtConstructorCalleeExpression(60,70): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): kotlin.annotation.Repeatable
+    ]
 
 KtTypeReference(60,70): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtUserType(60,70): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtNameReferenceExpression(60,70): 'Repeatable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtPrimaryConstructor(101,120): '(val arr: IntArray)'
   null
@@ -62,13 +96,24 @@ KtParameter(102,119): 'val arr: IntArray'
   null
 
 KtTypeReference(111,119): 'IntArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/IntArray
+    ]
 
 KtUserType(111,119): 'IntArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/IntArray
+    ]
 
 KtNameReferenceExpression(111,119): 'IntArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/IntArray
+    ]
 
 KtClass(122,183): '@Repeatable'
   null
@@ -83,16 +128,30 @@ KtAnnotationEntry(122,133): '@Repeatable'
     ]
 
 KtConstructorCalleeExpression(123,133): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): kotlin.annotation.Repeatable
+    ]
 
 KtTypeReference(123,133): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtUserType(123,133): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtNameReferenceExpression(123,133): 'Repeatable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtPrimaryConstructor(165,183): '(val k: KClass<*>)'
   null
@@ -104,13 +163,24 @@ KtParameter(166,182): 'val k: KClass<*>'
   null
 
 KtTypeReference(173,182): 'KClass<*>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtUserType(173,182): 'KClass<*>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtNameReferenceExpression(173,179): 'KClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtTypeArgumentList(179,182): '<*>'
   null
@@ -131,16 +201,30 @@ KtAnnotationEntry(185,196): '@Repeatable'
     ]
 
 KtConstructorCalleeExpression(186,196): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): kotlin.annotation.Repeatable
+    ]
 
 KtTypeReference(186,196): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtUserType(186,196): 'Repeatable'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtNameReferenceExpression(186,196): 'Repeatable'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/annotation/Repeatable
+    ]
 
 KtPrimaryConstructor(235,260): '(val a: Array<KClass<*>>)'
   null
@@ -152,13 +236,24 @@ KtParameter(236,259): 'val a: Array<KClass<*>>'
   null
 
 KtTypeReference(243,259): 'Array<KClass<*>>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtUserType(243,259): 'Array<KClass<*>>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtNameReferenceExpression(243,248): 'Array'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtTypeArgumentList(248,259): '<KClass<*>>'
   null
@@ -167,13 +262,24 @@ KtTypeProjection(249,258): 'KClass<*>'
   null
 
 KtTypeReference(249,258): 'KClass<*>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtUserType(249,258): 'KClass<*>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtNameReferenceExpression(249,255): 'KClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/reflect/KClass
+    ]
 
 KtTypeArgumentList(255,258): '<*>'
   null
@@ -197,13 +303,24 @@ KtParameter(305,338): 'val another: Array<AnnoWithArray>'
   null
 
 KtTypeReference(318,338): 'Array<AnnoWithArray>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtUserType(318,338): 'Array<AnnoWithArray>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtNameReferenceExpression(318,323): 'Array'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Array
+    ]
 
 KtTypeArgumentList(323,338): '<AnnoWithArray>'
   null
@@ -212,13 +329,24 @@ KtTypeProjection(324,337): 'AnnoWithArray'
   null
 
 KtTypeReference(324,337): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtUserType(324,337): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtNameReferenceExpression(324,337): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtClass(341,389): 'annotation class AnnoWithString(val str: String)'
   null
@@ -236,13 +364,24 @@ KtParameter(373,388): 'val str: String'
   null
 
 KtTypeReference(382,388): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(382,388): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(382,388): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtProperty(391,421): 'const val stringConstant = "s"'
   null
@@ -269,16 +408,30 @@ KtAnnotationEntry(423,448): '@AnnoWithArray([1, 2, 3])'
     ]
 
 KtConstructorCalleeExpression(424,437): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(arr: kotlin.IntArray): one.AnnoWithArray
+    ]
 
 KtTypeReference(424,437): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtUserType(424,437): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtNameReferenceExpression(424,437): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtValueArgumentList(437,448): '([1, 2, 3])'
   null
@@ -308,16 +461,30 @@ KtAnnotationEntry(449,480): '@AnnoWithArray(arr = [4, 5, 6])'
     ]
 
 KtConstructorCalleeExpression(450,463): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(arr: kotlin.IntArray): one.AnnoWithArray
+    ]
 
 KtTypeReference(450,463): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtUserType(450,463): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtNameReferenceExpression(450,463): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtValueArgumentList(463,480): '(arr = [4, 5, 6])'
   null
@@ -329,7 +496,12 @@ KtValueArgumentName(464,467): 'arr'
   null
 
 KtNameReferenceExpression(464,467): 'arr'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      arr: kotlin.IntArray
+    ]
 
 KtCollectionLiteralExpression(470,479): '[4, 5, 6]'
   KaSymbolResolutionSuccess:
@@ -353,16 +525,30 @@ KtAnnotationEntry(481,516): '@AnnoWithArray(intArrayOf(7, 8, 9))'
     ]
 
 KtConstructorCalleeExpression(482,495): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(arr: kotlin.IntArray): one.AnnoWithArray
+    ]
 
 KtTypeReference(482,495): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtUserType(482,495): 'AnnoWithArray'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtNameReferenceExpression(482,495): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtValueArgumentList(495,516): '(intArrayOf(7, 8, 9))'
   null
@@ -377,7 +563,12 @@ KtCallExpression(496,515): 'intArrayOf(7, 8, 9)'
     ]
 
 KtNameReferenceExpression(496,506): 'intArrayOf'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/intArrayOf(vararg elements: kotlin.Int): kotlin.IntArray
+    ]
 
 KtValueArgumentList(506,515): '(7, 8, 9)'
   null
@@ -407,16 +598,30 @@ KtAnnotationEntry(517,555): '@AnnoWithKClass(AnnoWithKClass::class)'
     ]
 
 KtConstructorCalleeExpression(518,532): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(k: kotlin.reflect.KClass<*>): one.AnnoWithKClass
+    ]
 
 KtTypeReference(518,532): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtUserType(518,532): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtNameReferenceExpression(518,532): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtValueArgumentList(532,555): '(AnnoWithKClass::class)'
   null
@@ -425,10 +630,18 @@ KtValueArgument(533,554): 'AnnoWithKClass::class'
   null
 
 KtClassLiteralExpression(533,554): 'AnnoWithKClass::class'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtNameReferenceExpression(533,547): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtAnnotation(556,600): '@[AnnoWithKClass(one.AnnoWithKClass::class)]'
   null
@@ -440,16 +653,30 @@ KtAnnotationEntry(558,599): 'AnnoWithKClass(one.AnnoWithKClass::class)'
     ]
 
 KtConstructorCalleeExpression(558,572): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(k: kotlin.reflect.KClass<*>): one.AnnoWithKClass
+    ]
 
 KtTypeReference(558,572): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtUserType(558,572): 'AnnoWithKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtNameReferenceExpression(558,572): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtValueArgumentList(572,599): '(one.AnnoWithKClass::class)'
   null
@@ -464,10 +691,20 @@ KtDotQualifiedExpression(573,591): 'one.AnnoWithKClass'
   null
 
 KtNameReferenceExpression(573,576): 'one'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one
+    ]
 
 KtNameReferenceExpression(577,591): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtAnnotationEntry(601,675): '@AnnoWithArrayOfKClass([AnnoWithKClass::class, one.AnnoWithKClass::class])'
   KaSymbolResolutionSuccess:
@@ -476,16 +713,30 @@ KtAnnotationEntry(601,675): '@AnnoWithArrayOfKClass([AnnoWithKClass::class, one.
     ]
 
 KtConstructorCalleeExpression(602,623): 'AnnoWithArrayOfKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(a: kotlin.Array<kotlin.reflect.KClass<*>>): one.AnnoWithArrayOfKClass
+    ]
 
 KtTypeReference(602,623): 'AnnoWithArrayOfKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArrayOfKClass
+    ]
 
 KtUserType(602,623): 'AnnoWithArrayOfKClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArrayOfKClass
+    ]
 
 KtNameReferenceExpression(602,623): 'AnnoWithArrayOfKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArrayOfKClass
+    ]
 
 KtValueArgumentList(623,675): '([AnnoWithKClass::class, one.AnnoWithKClass::class])'
   null
@@ -500,10 +751,18 @@ KtCollectionLiteralExpression(624,674): '[AnnoWithKClass::class, one.AnnoWithKCl
     ]
 
 KtClassLiteralExpression(625,646): 'AnnoWithKClass::class'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtNameReferenceExpression(625,639): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtClassLiteralExpression(648,673): 'one.AnnoWithKClass::class'
   null
@@ -512,10 +771,20 @@ KtDotQualifiedExpression(648,666): 'one.AnnoWithKClass'
   null
 
 KtNameReferenceExpression(648,651): 'one'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one
+    ]
 
 KtNameReferenceExpression(652,666): 'AnnoWithKClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithKClass
+    ]
 
 KtAnnotationEntry(676,783): '@AnnoWithAnotherAnnotation(arrayOf(one.AnnoWithArray([10, 11, 12]), AnnoWithArray(intArrayOf(13, 14, 15))))'
   KaSymbolResolutionSuccess:
@@ -524,16 +793,30 @@ KtAnnotationEntry(676,783): '@AnnoWithAnotherAnnotation(arrayOf(one.AnnoWithArra
     ]
 
 KtConstructorCalleeExpression(677,702): 'AnnoWithAnotherAnnotation'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(another: kotlin.Array<one.AnnoWithArray>): one.AnnoWithAnotherAnnotation
+    ]
 
 KtTypeReference(677,702): 'AnnoWithAnotherAnnotation'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithAnotherAnnotation
+    ]
 
 KtUserType(677,702): 'AnnoWithAnotherAnnotation'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithAnotherAnnotation
+    ]
 
 KtNameReferenceExpression(677,702): 'AnnoWithAnotherAnnotation'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithAnotherAnnotation
+    ]
 
 KtValueArgumentList(702,783): '(arrayOf(one.AnnoWithArray([10, 11, 12]), AnnoWithArray(intArrayOf(13, 14, 15))))'
   null
@@ -548,7 +831,12 @@ KtCallExpression(703,782): 'arrayOf(one.AnnoWithArray([10, 11, 12]), AnnoWithArr
     ]
 
 KtNameReferenceExpression(703,710): 'arrayOf'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/arrayOf(vararg elements: T): kotlin.Array<T>
+    ]
 
 KtValueArgumentList(710,782): '(one.AnnoWithArray([10, 11, 12]), AnnoWithArray(intArrayOf(13, 14, 15)))'
   null
@@ -557,10 +845,18 @@ KtValueArgument(711,742): 'one.AnnoWithArray([10, 11, 12])'
   null
 
 KtDotQualifiedExpression(711,742): 'one.AnnoWithArray([10, 11, 12])'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(arr: kotlin.IntArray): one.AnnoWithArray
+    ]
 
 KtNameReferenceExpression(711,714): 'one'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one
+    ]
 
 KtCallExpression(715,742): 'AnnoWithArray([10, 11, 12])'
   KaSymbolResolutionSuccess:
@@ -569,7 +865,12 @@ KtCallExpression(715,742): 'AnnoWithArray([10, 11, 12])'
     ]
 
 KtNameReferenceExpression(715,728): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtValueArgumentList(728,742): '([10, 11, 12])'
   null
@@ -602,7 +903,12 @@ KtCallExpression(744,781): 'AnnoWithArray(intArrayOf(13, 14, 15))'
     ]
 
 KtNameReferenceExpression(744,757): 'AnnoWithArray'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithArray
+    ]
 
 KtValueArgumentList(757,781): '(intArrayOf(13, 14, 15))'
   null
@@ -617,7 +923,12 @@ KtCallExpression(758,780): 'intArrayOf(13, 14, 15)'
     ]
 
 KtNameReferenceExpression(758,768): 'intArrayOf'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/intArrayOf(vararg elements: kotlin.Int): kotlin.IntArray
+    ]
 
 KtValueArgumentList(768,780): '(13, 14, 15)'
   null
@@ -647,16 +958,30 @@ KtAnnotationEntry(784,826): '@AnnoWithString(stringConstant + " 1.2.3")'
     ]
 
 KtConstructorCalleeExpression(785,799): 'AnnoWithString'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(str: kotlin.String): one.AnnoWithString
+    ]
 
 KtTypeReference(785,799): 'AnnoWithString'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithString
+    ]
 
 KtUserType(785,799): 'AnnoWithString'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithString
+    ]
 
 KtNameReferenceExpression(785,799): 'AnnoWithString'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      one/AnnoWithString
+    ]
 
 KtValueArgumentList(799,826): '(stringConstant + " 1.2.3")'
   null
@@ -665,13 +990,26 @@ KtValueArgument(800,825): 'stringConstant + " 1.2.3"'
   null
 
 KtBinaryExpression(800,825): 'stringConstant + " 1.2.3"'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String.plus(<dispatch receiver>: kotlin.String, other: kotlin.Any?): kotlin.String
+    ]
 
 KtNameReferenceExpression(800,814): 'stringConstant'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val stringConstant: kotlin.String
+    ]
 
 KtOperationReferenceExpression(815,816): '+'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String.plus(<dispatch receiver>: kotlin.String, other: kotlin.Any?): kotlin.String
+    ]
 
 KtStringTemplateExpression(817,825): '" 1.2.3"'
   null

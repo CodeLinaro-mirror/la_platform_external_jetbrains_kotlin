@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.js.testOld.klib
 
+import org.jetbrains.kotlin.cli.common.arguments.CommonKlibBasedCompilerArguments
 import org.jetbrains.kotlin.js.testOld.utils.runJsCompiler
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.AbstractKlibLoaderTest
@@ -35,24 +36,21 @@ class JsKlibLoaderTest : AbstractKlibLoaderTest() {
         )
 
     override fun compileKlib(
-        asFile: Boolean,
-        sourceFile: File,
-        klibLocation: File,
-        abiVersion: KotlinAbiVersion,
+        parameters: CompilationParameters
     ) {
         runJsCompiler {
-            if (asFile) {
-                irProduceKlibFile = true
-                outputDir = klibLocation.parent
+            if (parameters.asFile) {
+                outputDir = parameters.klibLocation.parent
             } else {
-                irProduceKlibDir = true
-                outputDir = klibLocation.path
+                nopack = true
+                outputDir = parameters.klibLocation.path
             }
             libraries = stdlib
-            moduleName = sourceFile.nameWithoutExtension
-            irModuleName = sourceFile.nameWithoutExtension
-            customKlibAbiVersion = abiVersion.toString()
-            freeArgs = listOf(sourceFile.absolutePath)
+            moduleName = parameters.sourceFile.nameWithoutExtension
+            irModuleName = parameters.sourceFile.nameWithoutExtension
+            customKlibAbiVersion = parameters.abiVersion.toString()
+            freeArgs = listOf(parameters.sourceFile.absolutePath)
+            if (parameters.withCompanionBlocksAndExtensionsFeature) companionBlocksAndExtensions = true
         }
     }
 }

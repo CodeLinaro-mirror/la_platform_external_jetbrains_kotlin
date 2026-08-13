@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinIrJsGeneratedTSValidation
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProjectModules
-import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
+import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependenciesTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.utils.getFile
 import javax.inject.Inject
@@ -60,20 +60,7 @@ internal constructor(
     final override val compilation: KotlinJsIrCompilation,
     private val objects: ObjectFactory,
     private val execOps: ExecOperations,
-) : DefaultTask(), RequiresNpmDependencies {
-
-    @Deprecated(
-        "Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.",
-        level = DeprecationLevel.ERROR,
-    )
-    @Suppress("UNUSED_PARAMETER", "UNREACHABLE_CODE")
-    constructor(
-        compilation: KotlinJsIrCompilation,
-    ) : this(
-        compilation = throw UnsupportedOperationException(),
-        objects = throw UnsupportedOperationException(),
-        execOps = throw UnsupportedOperationException(),
-    )
+) : DefaultTask(), RequiresNpmDependenciesTask {
 
     private val npmProject: NpmProject = compilation.npmProject
 

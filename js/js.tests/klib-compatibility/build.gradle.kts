@@ -111,7 +111,7 @@ fun Project.customFirstStageTest(
         tag = "custom-first-stage"
     ) {
         if (addWritePermissionsForAllProperties)
-            extensions.configure<TestInputsCheckExtension> {
+            testInputsCheck {
                 // compiler version 2.1.20 and earlier needs `write` permissions to all system properties. This was fixed in commit 7473dc76
                 // So to invoke older compilers, more permissions are given.
                 extraPermissions.add("""permission java.util.PropertyPermission "*", "write";""")
@@ -123,7 +123,7 @@ fun Project.customFirstStageTest(
                 // `write` file permission is weirdly needed within `com.sun.nio.zipfs.ZipFileSystem.<init>` to check whether a `kotlin-test-js-1.9.20.jar` is writable
                 // See invocation of `if (!Files.isWritable(zfpath))`, which throws `java.security.AccessControlException` in case of no `write` permission
                 //   in https://github.com/corretto/corretto-8/blob/8dc02d99b636df3812f38e1014821ceb2926b3c4/jdk/src/share/demo/nio/zipfs/src/com/sun/nio/zipfs/ZipFileSystem.java#L128
-                extensions.configure<TestInputsCheckExtension> {
+                testInputsCheck {
                     val kotlinTestJsGradleCache = "${File(it).absolutePath}/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-test-js/1.9.20/-"
                     extraPermissions.add("""permission java.io.FilePermission "$kotlinTestJsGradleCache", "read, write";""")
                 }
@@ -155,11 +155,13 @@ customFirstStageTest("2.0.0", addWritePermissionsForAllProperties = true)
 customFirstStageTest("2.1.0", addWritePermissionsForAllProperties = true)
 customFirstStageTest("2.2.0")
 customFirstStageTest("2.3.0")
+customFirstStageTest("2.4.0-Beta2")
 // TODO: Add a new task for the "custom-first-stage" test here.
 
 /* Custom-second-stage test task for the two compiler major versions: previous one and the latest one . */
 // TODO: Keep updating the following compiler versions to be the previous one and latest one(as as soon it's released).
 customSecondStageTest("2.3.0")
+customSecondStageTest("2.4.0-Beta2")
 
 // TODO: Keep updating the following compiler versions to be the previous major one.
 customStagesAggregateTest("2.3.0")

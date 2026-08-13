@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.konan.test.dump
 
-import org.jetbrains.kotlin.backend.konan.serialization.loadNativeKlibsInTestPipeline
+import org.jetbrains.kotlin.backend.konan.serialization.loadNativeKlibs
 import org.jetbrains.kotlin.cli.common.SessionWithSources
 import org.jetbrains.kotlin.cli.common.prepareNativeSessions
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
@@ -15,10 +15,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
-import org.jetbrains.kotlin.resolve.konan.platform.NativePlatformAnalyzerServices
 import org.jetbrains.kotlin.test.AbstractLoadedMetadataDumpHandler
-import org.jetbrains.kotlin.test.frontend.fir.getTransitivesAndFriendsPaths
 import org.jetbrains.kotlin.test.model.ArtifactKinds
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.DependencyKind
@@ -32,8 +29,6 @@ class KlibNativeLoadedMetadataDumpHandler(testServices: TestServices) : Abstract
 ) {
     override val targetPlatform: TargetPlatform
         get() = NativePlatforms.unspecifiedNativePlatform
-    override val platformAnalyzerServices: PlatformDependentAnalyzerServices
-        get() = NativePlatformAnalyzerServices
     override val dependencyKind: DependencyKind
         get() = DependencyKind.Binary
 
@@ -44,12 +39,7 @@ class KlibNativeLoadedMetadataDumpHandler(testServices: TestServices) : Abstract
         moduleName: Name,
         libraryList: DependencyListForCliModule,
     ): List<SessionWithSources<KtFile>> {
-        val klibs = loadNativeKlibsInTestPipeline(
-            configuration = configuration,
-            libraryPaths = getTransitivesAndFriendsPaths(module, testServices),
-            runtimeLibraryProviders = testServices.nativeEnvironmentConfigurator.getRuntimeLibraryProviders(module),
-            nativeTarget = testServices.nativeEnvironmentConfigurator.getNativeTarget(module),
-        )
+        val klibs = loadNativeKlibs(configuration, testServices.nativeEnvironmentConfigurator.getNativeTarget(module))
 
         return prepareNativeSessions(
             files = emptyList(),

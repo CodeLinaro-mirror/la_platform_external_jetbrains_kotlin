@@ -39,6 +39,11 @@ internal object KtStubBasedElementTypes {
     val CLASS_BODY: KtStubElementType<out KotlinPlaceHolderStub<KtClassBody>, KtClassBody> =
         provider.classBodyType
 
+    @JvmField
+    @KtExperimentalApi
+    val COMPANION_BLOCK: KtStubElementType<out KotlinPlaceHolderStub<KtCompanionBlock>, KtCompanionBlock> =
+        provider.companionBlockType
+
 
     // Initializers
 
@@ -84,6 +89,10 @@ internal object KtStubBasedElementTypes {
     @JvmField
     val BACKING_FIELD: KtStubElementType<out KotlinBackingFieldStub, KtBackingField> =
         provider.backingFieldType
+
+    @JvmField
+    val DESTRUCTURING_DECLARATION: KtStubElementType<out KotlinDestructuringDeclarationStub, KtDestructuringDeclaration> =
+        provider.destructuringDeclarationType
 
     @JvmField
     val INITIALIZER_LIST: KtStubElementType<out KotlinPlaceHolderStub<KtInitializerList>, KtInitializerList> =

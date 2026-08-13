@@ -53,9 +53,15 @@ import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.fir.types.jvm.FirJavaTypeRef
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
-import org.jetbrains.kotlin.load.java.*
+import org.jetbrains.kotlin.load.java.AnnotationQualifierApplicabilityType
 import org.jetbrains.kotlin.load.java.AnnotationQualifierApplicabilityType.VALUE_PARAMETER
-import org.jetbrains.kotlin.load.java.typeEnhancement.*
+import org.jetbrains.kotlin.load.java.FakePureImplementationsProvider
+import org.jetbrains.kotlin.load.java.JavaTypeQualifiersByElementType
+import org.jetbrains.kotlin.load.java.JvmAnnotationNames
+import org.jetbrains.kotlin.load.java.typeEnhancement.AbstractSignatureParts
+import org.jetbrains.kotlin.load.java.typeEnhancement.PREDEFINED_FUNCTION_ENHANCEMENT_INFO_BY_SIGNATURE
+import org.jetbrains.kotlin.load.java.typeEnhancement.PredefinedFunctionEnhancementInfo
+import org.jetbrains.kotlin.load.java.typeEnhancement.TypeEnhancementInfo
 import org.jetbrains.kotlin.load.kotlin.SignatureBuildingComponents
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.ReturnValueStatus
@@ -149,20 +155,11 @@ class FirSignatureEnhancement(
     ): FirVariableSymbol<*> {
         when (val firElement = original.fir) {
             is FirEnumEntry -> {
-                if (firElement.returnTypeRef !is FirJavaTypeRef) return original
-                val predefinedInfo =
-                    PredefinedFunctionEnhancementInfo(
-                        TypeEnhancementInfo(0 to JavaTypeQualifiers(NullabilityQualifier.NOT_NULL, null, false)),
-                        emptyList()
-                    )
-
-                val newReturnTypeRef = enhanceReturnType(firElement, firElement.computeDefaultQualifiers(), predefinedInfo)
-
-                return buildEnumEntryCopy(firElement) {
-                    symbol = FirEnumEntrySymbol(firElement.symbol.callableId)
-                    returnTypeRef = newReturnTypeRef
-                    origin = FirDeclarationOrigin.Enhancement
-                }.symbol
+                // See org.jetbrains.kotlin.fir.java.FirJavaFacadeKt.convertJavaFieldToFir
+                check(firElement.returnTypeRef is FirResolvedTypeRef) {
+                    "For Java enum entries we expect its type to be resolved, but got ${firElement.returnTypeRef::class.simpleName}"
+                }
+                return original
             }
             is FirField -> {
                 if (firElement.returnTypeRef !is FirJavaTypeRef) return original
@@ -315,7 +312,7 @@ class FirSignatureEnhancement(
         val defaultQualifiers = firMethod.computeDefaultQualifiers()
         val overriddenMembers = precomputedOverridden ?: (firMethod as? FirNamedFunction)?.overridden().orEmpty()
 
-        val (newReturnTypeRef, deferredCalc) = if (firMethod is FirNamedFunction) {
+        val [newReturnTypeRef, deferredCalc] = if (firMethod is FirNamedFunction) {
             enhanceReturnType(firMethod, overriddenMembers, defaultQualifiers, predefinedEnhancementInfo)
         } else {
             firMethod.returnTypeRef to null
@@ -334,7 +331,7 @@ class FirSignatureEnhancement(
         val enhancedContextParameterTypes = mutableListOf<FirResolvedTypeRef>()
         val enhancedValueParameterTypes = mutableListOf<FirResolvedTypeRef>()
 
-        for ((index, valueParameter) in firMethod.valueParameters.withIndex()) {
+        for ([index, valueParameter] in firMethod.valueParameters.withIndex()) {
             val enhancedType = enhanceValueParameterType(
                 ownerFunction = firMethod,
                 overriddenMembers = overriddenMembers,
@@ -1111,16 +1108,6 @@ private class EnhancementSignatureParts(
         // If 'annotations' is empty or any annotation should propagate nullability, the type should propagate bound nullness.
         // The use of 'none { !... }' is a little ugly, but it seems the only way to achieve the correct empty case.
         get() = annotations.none { !annotationTypeQualifierResolver.shouldPropagateNullability(it) }
-
-    override fun getDefaultNullability(
-        referencedParameterBoundsNullability: NullabilityQualifierWithMigrationStatus?,
-        defaultTypeQualifiers: JavaDefaultQualifiers?,
-    ): NullabilityQualifierWithMigrationStatus? {
-        val defaultNullability = defaultTypeQualifiers?.nullabilityQualifier
-        return defaultNullability?.takeIf { defaultTypeQualifiers.preferQualifierOverBound }
-            ?: referencedParameterBoundsNullability?.takeIf { it.qualifier == NullabilityQualifier.NOT_NULL }
-            ?: defaultNullability
-    }
 }
 
 class FirEnhancedSymbolsStorage(private val cachesFactory: FirCachesFactory) : FirSessionComponent {
@@ -1150,7 +1137,7 @@ class FirEnhancedSymbolsStorage(private val cachesFactory: FirCachesFactory) : F
 
         @OptIn(PrivateForInline::class)
         val enhancedVariables: FirCache<FirVariableSymbol<*>, FirVariableSymbol<*>, Pair<FirSignatureEnhancement, Name>> =
-            cachesFactory.createCache { original, (enhancement, name) ->
+            cachesFactory.createCache { original, [enhancement, name] ->
                 enhancement.enhance(original, name)
             }
     }

@@ -5,6 +5,7 @@
 
 package kotlin.reflect.jvm.internal
 
+import org.jetbrains.kotlin.descriptors.runtime.structure.safeClassLoader
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.metadata.KmValueParameter
 import kotlin.metadata.declaresDefaultValue
@@ -13,7 +14,7 @@ import kotlin.reflect.KType
 
 internal class KotlinKParameter(
     override val callable: KotlinKCallable<*>,
-    private val kmParameter: KmValueParameter,
+    internal val kmParameter: KmValueParameter,
     override val index: Int,
     override val kind: KParameter.Kind,
     typeParameterTable: TypeParameterTable,
@@ -22,10 +23,10 @@ internal class KotlinKParameter(
         kmParameter.name.takeUnless { it.startsWith("<") }
 
     override val type: KType by lazy(PUBLICATION) {
-        kmParameter.type.toKType(callable.container.jClass.classLoader, typeParameterTable) {
+        kmParameter.type.toKType(callable.container.jClass.safeClassLoader, typeParameterTable) {
             require(callable.container is KPackageImpl || callable.isConstructor) {
                 // For class callables, we'll also need to tweak instance receiver parameter type (see `DescriptorKParameter`).
-                "Only constructors and top-level callables are supported for now: $callable"
+                "Only constructors and top-level callables are supported for now: ${callable.container}/${callable.name} $name"
             }
             callable.caller.parameterTypes[index]
         }
@@ -35,7 +36,7 @@ internal class KotlinKParameter(
         get() {
             require(callable is KotlinKProperty<*> || callable.container is KPackageImpl || callable.isConstructor) {
                 // For class functions, we'll also need to check the flag for parameters from inherited functions.
-                "Only constructors and top-level callables are supported for now: $callable"
+                "Only constructors and top-level callables are supported for now: ${callable.container}/${callable.name} $name"
             }
             return kmParameter.declaresDefaultValue
         }

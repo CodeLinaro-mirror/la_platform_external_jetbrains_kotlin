@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.types.typeWithArguments
@@ -88,18 +87,19 @@ class TestGenerator(val context: JsCommonBackendContext) {
             this.name = Name.identifier("$name test fun")
             this.returnType = if (this@createInvocation == context.symbols.suiteFun!!) context.irBuiltIns.unitType else context.irBuiltIns.anyNType
             this.origin = JsIrBuilder.SYNTHESIZED_DECLARATION
+            this.visibility = DescriptorVisibilities.LOCAL
         }
 
         function.parent = parentFunction
         function.body = body
 
-        val refClass = context.symbols.functionN(0)
+        val refClass = context.irBuiltIns.functionN(0)
         val testFunReference = IrRichFunctionReferenceImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = refClass.typeWith(function.returnType),
             reflectionTargetSymbol = null,
-            overriddenFunctionSymbol = refClass.owner.selectSAMOverriddenFunction().symbol,
+            overriddenFunctionSymbol = refClass.selectSAMOverriddenFunction().symbol,
             invokeFunction = function,
             origin = null,
             isRestrictedSuspension = false,
@@ -197,7 +197,7 @@ class TestGenerator(val context: JsCommonBackendContext) {
             JsIrBuilder.buildCall(testFun.symbol).apply {
                 dispatchReceiver = JsIrBuilder.buildGetValue(classVal.symbol)
             },
-            context.irBuiltIns.unitType
+            context.irBuiltIns.nothingType
         )
 
         if (afterFuns.isEmpty()) {
@@ -225,6 +225,7 @@ class TestGenerator(val context: JsCommonBackendContext) {
                 this.name = Name.identifier("${irClass.name.asString()} after test fun")
                 this.returnType = context.irBuiltIns.unitType
                 this.origin = JsIrBuilder.SYNTHESIZED_DECLARATION
+                this.visibility = DescriptorVisibilities.LOCAL
             }.apply {
                 parent = fn
                 this.body = context.irFactory.createBlockBody(
@@ -238,13 +239,13 @@ class TestGenerator(val context: JsCommonBackendContext) {
                 )
             }
 
-            val refClass = context.symbols.functionN(0)
+            val refClass = context.irBuiltIns.functionN(0)
             val finallyLambda = IrRichFunctionReferenceImpl(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
                 type = refClass.typeWith(afterFunction.returnType),
                 reflectionTargetSymbol = null,
-                overriddenFunctionSymbol = refClass.owner.selectSAMOverriddenFunction().symbol,
+                overriddenFunctionSymbol = refClass.selectSAMOverriddenFunction().symbol,
                 invokeFunction = afterFunction,
                 origin = null,
                 isRestrictedSuspension = false,
@@ -263,7 +264,7 @@ class TestGenerator(val context: JsCommonBackendContext) {
             body.statements += JsIrBuilder.buildReturn(
                 fn.symbol,
                 returnValue,
-                fn.returnType
+                context.irBuiltIns.nothingType
             )
 
             return
@@ -309,7 +310,7 @@ class TestGenerator(val context: JsCommonBackendContext) {
         get() = hasAnnotation("kotlin.test.AfterTest")
 
     private fun IrAnnotationContainer.hasAnnotation(fqName: String) =
-        annotations.any { it.symbol.owner.fqNameWhenAvailable?.parent()?.asString() == fqName }
+        annotations.any { it.classSymbol.owner.fqNameWhenAvailable?.asString() == fqName }
 
     private val IrSimpleType.isPromise: Boolean
         get() {

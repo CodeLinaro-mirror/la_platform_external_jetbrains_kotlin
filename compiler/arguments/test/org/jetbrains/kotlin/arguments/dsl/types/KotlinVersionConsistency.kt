@@ -59,7 +59,7 @@ class KotlinVersionConsistency {
     @Test
     fun versionIsRemoved() {
         LanguageVersion.entries
-            .filter { it.isUnsupported && !it.isJvmOnly }
+            .filter { it.isUnsupported }
             .forEach { languageVersion ->
                 languageVersion.toKotlinVersionOrNull()?.let {
                     assertTrue(
@@ -84,6 +84,6 @@ class KotlinVersionConsistency {
             }
     }
 
-    private fun LanguageVersion.toKotlinVersion() = kotlinVersions.single { it.versionName == versionString }
-    private fun LanguageVersion.toKotlinVersionOrNull() = kotlinVersions.singleOrNull { it.versionName == versionString }
+    private fun LanguageVersion.toKotlinVersion() = kotlinVersions.values.single { it.versionName == versionString }
+    private fun LanguageVersion.toKotlinVersionOrNull() = kotlinVersions.values.singleOrNull { it.versionName == versionString }
 }

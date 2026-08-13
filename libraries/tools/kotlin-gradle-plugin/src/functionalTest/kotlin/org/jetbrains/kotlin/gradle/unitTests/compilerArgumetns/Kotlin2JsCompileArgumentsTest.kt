@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.gradle.plugin.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.ArgumentType.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.default
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.lenient
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType.IR
 import org.jetbrains.kotlin.gradle.util.buildProjectWithMPP
 import org.jetbrains.kotlin.gradle.util.main
 import kotlin.test.Test
@@ -25,10 +24,8 @@ class Kotlin2JsCompileArgumentsTest {
     @Test
     fun `test - simple project - old CompilerArgumentsAware and new CompilerArgumentsProducer - return same arguments`() {
         val project = buildProjectWithMPP()
-        project.repositories.mavenLocal()
-
         val kotlin = project.multiplatformExtension
-        val jsTarget = kotlin.js(IR)
+        val jsTarget = kotlin.js()
         val jsMainCompilation = jsTarget.compilations.main
         project.evaluate()
 
@@ -67,7 +64,7 @@ class Kotlin2JsCompileArgumentsTest {
         val kotlin = project.multiplatformExtension
         kotlin.jvm()
         kotlin.linuxX64()
-        val jsTarget = kotlin.js(IR) { nodejs() }
+        val jsTarget = kotlin.js { nodejs() }
 
         kotlin.sourceSets.configureEach { sourceSet ->
             sourceSet.languageSettings.apiVersion = "1.7"

@@ -5,7 +5,12 @@ KtPackageDirective(0,9): 'package r'
   null
 
 KtNameReferenceExpression(8,9): 'r'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r
+    ]
 
 KtImportList(9,9): ''
   null
@@ -26,10 +31,18 @@ KtParameterList(50,52): '()'
   null
 
 KtThisExpression(55,59): 'this'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtNameReferenceExpression(55,59): 'this'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtNamedFunction(65,82): 'fun self() = this'
   null
@@ -38,10 +51,18 @@ KtParameterList(73,75): '()'
   null
 
 KtThisExpression(78,82): 'this'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtNameReferenceExpression(78,82): 'this'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtNamedFunction(86,104): 'fun foo(): Int = 1'
   null
@@ -50,13 +71,24 @@ KtParameterList(93,95): '()'
   null
 
 KtTypeReference(97,100): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(97,100): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(97,100): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtConstantExpression(103,104): '1'
   null
@@ -65,13 +97,24 @@ KtProperty(105,133): 'val foo: MyClass = MyClass()'
   null
 
 KtTypeReference(114,121): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtUserType(114,121): 'MyClass'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtNameReferenceExpression(114,121): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtCallExpression(124,133): 'MyClass()'
   KaSymbolResolutionSuccess:
@@ -80,7 +123,12 @@ KtCallExpression(124,133): 'MyClass()'
     ]
 
 KtNameReferenceExpression(124,131): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtValueArgumentList(131,133): '()'
   null
@@ -101,7 +149,12 @@ KtCallExpression(156,165): 'MyClass()'
     ]
 
 KtNameReferenceExpression(156,163): 'MyClass'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass
+    ]
 
 KtValueArgumentList(163,165): '()'
   null
@@ -122,16 +175,29 @@ KtCallExpression(186,191): 'foo()'
     ]
 
 KtNameReferenceExpression(186,189): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/foo(): kotlin.Int
+    ]
 
 KtValueArgumentList(189,191): '()'
   null
 
 KtNameReferenceExpression(196,199): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val foo: r.MyClass
+    ]
 
 KtDotQualifiedExpression(204,226): '(((foo)())()).invoke()'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass.invoke(<dispatch receiver>: r.MyClass): r.MyClass
+    ]
 
 KtParenthesizedExpression(204,217): '(((foo)())())'
   null
@@ -155,7 +221,12 @@ KtParenthesizedExpression(206,211): '(foo)'
   null
 
 KtNameReferenceExpression(207,210): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val foo: r.MyClass
+    ]
 
 KtValueArgumentList(211,213): '()'
   null
@@ -170,16 +241,29 @@ KtCallExpression(218,226): 'invoke()'
     ]
 
 KtNameReferenceExpression(218,224): 'invoke'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass.invoke(<dispatch receiver>: r.MyClass): r.MyClass
+    ]
 
 KtValueArgumentList(224,226): '()'
   null
 
 KtDotQualifiedExpression(231,243): 'foo.invoke()'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass.invoke(<dispatch receiver>: r.MyClass): r.MyClass
+    ]
 
 KtNameReferenceExpression(231,234): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val foo: r.MyClass
+    ]
 
 KtCallExpression(235,243): 'invoke()'
   KaSymbolResolutionSuccess:
@@ -188,7 +272,12 @@ KtCallExpression(235,243): 'invoke()'
     ]
 
 KtNameReferenceExpression(235,241): 'invoke'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      r/MyClass.invoke(<dispatch receiver>: r.MyClass): r.MyClass
+    ]
 
 KtValueArgumentList(241,243): '()'
   null
@@ -200,7 +289,12 @@ KtCallExpression(248,258): 'property()'
     ]
 
 KtNameReferenceExpression(248,256): 'property'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val property: r.MyClass
+    ]
 
 KtValueArgumentList(256,258): '()'
   null

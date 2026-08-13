@@ -12,7 +12,8 @@ import com.intellij.psi.tree.TokenSet
 import org.jetbrains.kotlin.lang.BinaryOperationPrecedence
 import org.jetbrains.kotlin.lexer.KtSingleValueToken
 import org.jetbrains.kotlin.psi.stubs.elements.KtTokenSets
-import org.jetbrains.kotlin.types.expressions.OperatorConventions
+import org.jetbrains.kotlin.psi.utils.OperatorTokens
+import org.jetbrains.kotlin.resolution.KtResolvableCall
 
 /**
  * Represents an operator symbol in an expression.
@@ -23,8 +24,54 @@ import org.jetbrains.kotlin.types.expressions.OperatorConventions
  * val sum = a + b
  * //          ^
  * ```
+ *
+ * ### Analysis API Resolver Notes:
+ *
+ * #### Note 1:
+ *
+ * The result of the call resolution is exactly the same as if it was called on the parent element.
+ *
+ * #### Note 2:
+ *
+ * **The resolver targets symbols contributed by the operation reference itself.**
+ *
+ * For compound cases, this includes the
+ * symbols corresponding to the resulting update, but not the symbols used only for intermediate reads.
+ *
+ * For instance, in compound array assignments this includes the operator symbol (e.g., `plus`)
+ * and the writing accessor (`set`), but not the reading accessor (`get`).
+ *
+ * #### Example
+ *
+ * ```kotlin
+ * interface MyList {
+ *     operator fun get(index: Int): String
+ *     operator fun set(index: Int, value: String)
+ * }
+ *
+ * fun test(list: MyList) {
+ *     list[10] += "value"
+ * }
+ * ```
+ *
+ * `list[10] += "value"` desugars into something like
+ *
+ * ```kotlin
+ * val oldValue = list.get(10)
+ * val newValue = oldValue.plus("value")
+ * list.set(10, newValue)
+ * ```
+ *
+ * And the result will include symbols for the `plus` and `set` operators, but not for `get`.
+ *
+ * If the reading symbol is also needed, the API should be called on the parent expression
+ * (e.g., [KtBinaryExpression] or [KtUnaryExpression]).
+ *
+ * @see KtBinaryExpression
+ * @see KtUnaryExpression
  */
-class KtOperationReferenceExpression(node: ASTNode) : KtSimpleNameExpressionImpl(node) {
+@OptIn(KtExperimentalApi::class)
+class KtOperationReferenceExpression(node: ASTNode) : KtSimpleNameExpressionImpl(node), KtResolvableCall {
     private companion object {
         private val OPERATION_TOKENS: TokenSet = TokenSet.create(*buildList {
             addAll(KtTokenSets.POSTFIX_OPERATIONS.types)
@@ -42,6 +89,6 @@ class KtOperationReferenceExpression(node: ASTNode) : KtSimpleNameExpressionImpl
 
     fun isConventionOperator(): Boolean {
         val tokenType = operationSignTokenType ?: return false
-        return OperatorConventions.getNameForOperationSymbol(tokenType) != null
+        return OperatorTokens.operationName(tokenType) != null
     }
 }

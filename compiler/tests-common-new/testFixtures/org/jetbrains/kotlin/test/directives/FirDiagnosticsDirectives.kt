@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.test.directives
 import org.jetbrains.kotlin.cli.pipeline.FrontendFilesForPluginsGenerationPipelinePhase
 import org.jetbrains.kotlin.config.InferenceLogsFormat
 import org.jetbrains.kotlin.test.FirParser
-import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.builders.TestConfigurationBuilderBase
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_PARSER
 import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability.Global
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
@@ -60,22 +60,10 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val FIR_IDENTICAL by directive(
-        description = "Contents of fir test data file and FE 1.0 are identical",
-        applicability = Global
-    )
-
     val LATEST_LV_DIFFERENCE by directive(
         description = """
             Diagnostics differs between latest stable and latest language version
             Separate file for latest LV should be checked
-        """.trimIndent()
-    )
-
-    val TEST_ALONGSIDE_K1_TESTDATA by directive(
-        description = """
-            This directive indicates that the test is run on the testdata,
-            which is also used for K1 tests
         """.trimIndent()
     )
 
@@ -171,6 +159,10 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
     val DISABLE_WITH_PARSER by enumDirective<FirParser>(
         description = "Disables the test if it's analyzed with specified parser"
     )
+
+    val HAS_CUSTOM_EXTENSION_FILES by directive(
+        description = "Some module files have custom extensions and shouldn't be filtered out by kt/kts check"
+    )
 }
 
 object DumpCfgOption {
@@ -178,7 +170,7 @@ object DumpCfgOption {
     const val FLOW = "FLOW"
 }
 
-fun TestConfigurationBuilder.configureFirParser(parser: FirParser) {
+fun TestConfigurationBuilderBase<*, *>.configureFirParser(parser: FirParser) {
     defaultDirectives {
         FIR_PARSER with parser
     }

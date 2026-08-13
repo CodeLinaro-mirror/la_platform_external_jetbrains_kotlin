@@ -11,20 +11,19 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
-import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
 import org.gradle.workers.WorkQueue
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.build.report.metrics.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.compilerRunner.btapi.BtaToolchain
 import org.jetbrains.kotlin.compilerRunner.btapi.BuildSessionService
 import org.jetbrains.kotlin.compilerRunner.btapi.GradleBuildToolsApiCompilerRunner
 import org.jetbrains.kotlin.daemon.client.CompileServiceSession
 import org.jetbrains.kotlin.daemon.common.CompilerId
 import org.jetbrains.kotlin.daemon.common.configureDaemonJVMOptions
 import org.jetbrains.kotlin.daemon.common.filterExtractProps
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
@@ -75,25 +74,25 @@ internal fun createGradleCompilerRunner(
     diagnosticsReporter: UsesKotlinToolingDiagnostics,
 ): GradleCompilerRunner {
     if (runViaBuildToolsApi) {
-        @Suppress("DEPRECATION")
-        if (compilerExecutionSettings.strategy != KotlinCompilerExecutionStrategy.OUT_OF_PROCESS) {
-            return GradleBuildToolsApiCompilerRunner(
-                taskProvider,
-                toolsJar,
-                compilerExecutionSettings,
-                buildMetricsReporter,
-                workerExecutor,
-                cachedClassLoadersService,
-                buildFinishedListenerService,
-                buildIdService,
-                buildSessionService,
-                fusMetricsConsumer
-            )
-        } else {
-            diagnosticsReporter.reportDiagnostic(KotlinToolingDiagnostics.UsingOutOfProcessDisablesBuildToolsApi())
-        }
+        return GradleBuildToolsApiCompilerRunner(
+            taskProvider,
+            toolsJar,
+            compilerExecutionSettings,
+            buildMetricsReporter,
+            workerExecutor,
+            cachedClassLoadersService,
+            buildFinishedListenerService,
+            buildIdService,
+            buildSessionService,
+            fusMetricsConsumer
+        )
     } else if (compilerExecutionSettings.generateCompilerRefIndex) {
-        diagnosticsReporter.reportDiagnostic(KotlinToolingDiagnostics.GeneratingCompilerRefIndexWithoutBuildToolsApi())
+        diagnosticsReporter.reportDiagnostic(
+            KotlinToolingDiagnostics.GeneratingCompilerRefIndexWithoutBuildToolsApi(
+                taskProvider.projectName.get(),
+                taskProvider.projectPath.get(),
+            )
+        )
     }
     return GradleCompilerRunnerWithWorkers(
         taskProvider,
@@ -123,7 +122,7 @@ internal open class GradleCompilerRunner(
     internal val buildDirProvider = taskProvider.buildDir.get().asFile
     internal val projectDirProvider = taskProvider.projectDir.get()
     internal val sessionDirProvider = taskProvider.sessionsDir.get()
-    internal val projectNameProvider = taskProvider.projectName.get()
+    internal val rootProjectNameProvider = taskProvider.rootProjectName.get()
     internal val incrementalModuleInfoProvider = taskProvider.buildModulesInfo
     internal val errorsFiles = taskProvider.errorsFiles.get()
 
@@ -152,6 +151,18 @@ internal open class GradleCompilerRunner(
         taskOutputsBackup: TaskOutputsBackup?,
     ): WorkQueue? {
         return runCompilerAsync(KotlinCompilerClass.JS, args, environment, taskOutputsBackup)
+    }
+
+    /**
+     * Compiler might be executed asynchronously. Do not do anything requiring end of compilation after this function is called.
+     * @see [GradleKotlinCompilerWork]
+     */
+    fun runWasmCompilerAsync(
+        args: KotlinWasmCompilerArguments,
+        environment: GradleCompilerEnvironment,
+        taskOutputsBackup: TaskOutputsBackup?,
+    ): WorkQueue? {
+        return runCompilerAsync(KotlinCompilerClass.WASM, args, environment, taskOutputsBackup)
     }
 
     /**
@@ -192,7 +203,7 @@ internal open class GradleCompilerRunner(
                 loggerProvider,
                 projectDirProvider,
                 buildDirProvider,
-                projectNameProvider,
+                rootProjectNameProvider,
                 sessionDirProvider
             ),
             compilerFullClasspath = environment.compilerFullClasspath(jdkToolsJar),
@@ -212,12 +223,30 @@ internal open class GradleCompilerRunner(
             //no need to log warnings in MessageCollector hear it will be logged by compiler
             kotlinLanguageVersion = compilerArgs.languageVersion?.let { v -> KotlinVersion.fromVersion(v) } ?: KotlinVersion.DEFAULT,
             compilerArgumentsLogLevel = environment.compilerArgumentsLogLevel,
+            btaToolchain = toBtaToolchain(compilerClassName, compilerArgs),
         )
         TaskLoggers.put(pathProvider, loggerProvider)
         return runCompilerAsync(
             workArgs,
             taskOutputsBackup
         )
+    }
+
+    private fun toBtaToolchain(
+        compilerClassName: String,
+        compilerArgs: CommonCompilerArguments,
+    ): BtaToolchain? = when (compilerClassName) {
+        KotlinCompilerClass.JVM -> BtaToolchain.JVM
+        KotlinCompilerClass.JS -> {
+            if ((compilerArgs as K2JSCompilerArguments).includes == null) BtaToolchain.JS_COMPILATION
+            else BtaToolchain.JS_LINKING
+        }
+        KotlinCompilerClass.WASM -> {
+            if ((compilerArgs as KotlinWasmCompilerArguments).includes == null) BtaToolchain.WASM_COMPILATION
+            else BtaToolchain.WASM_LINKING
+        }
+        KotlinCompilerClass.METADATA -> BtaToolchain.METADATA
+        else -> null
     }
 
     protected open fun runCompilerAsync(
@@ -324,10 +353,7 @@ internal open class GradleCompilerRunner(
                     nameToModules.getOrPut(module.name) { HashSet() }.add(module)
 
                     if (task is Kotlin2JsCompile) {
-                        (jarForJavaSourceSet(project, task.sourceSetName.get()) ?: jarForSingleTargetJs(
-                            project,
-                            task.sourceSetName.get()
-                        ))?.let {
+                        (jarForJavaSourceSet(project, task.sourceSetName.get()))?.let {
                             jarToModule[it] = module
                         }
                     }
@@ -384,7 +410,10 @@ internal open class GradleCompilerRunner(
             get() = when (this) {
                 is KotlinCompile -> compilerOptions.moduleName.get()
                 is Kotlin2JsCompile -> compilerOptions.moduleName.get()
-                is KotlinCompileCommon -> moduleName.get()
+                is KotlinCompileCommon -> {
+                    @Suppress("DEPRECATION")
+                    moduleName.get()
+                }
                 else -> throw IllegalStateException("Unknown AbstractKotlinCompile task instance: ${this::class.qualifiedName}")
             }
 
@@ -396,17 +425,6 @@ internal open class GradleCompilerRunner(
             val sourceSet = sourceSets.findByName(sourceSetName) ?: return null
 
             val jarTask = project.tasks.findByName(sourceSet.jarTaskName) as? Jar
-            return jarTask?.archiveFile?.get()?.asFile
-        }
-
-        private fun jarForSingleTargetJs(
-            project: Project,
-            sourceSetName: String,
-        ): File? {
-            if (sourceSetName != KotlinCompilation.MAIN_COMPILATION_NAME) return null
-            val jarTaskName = project.extensions.findByType<KotlinJsProjectExtension>()?.js()?.artifactsTaskName
-
-            val jarTask = jarTaskName?.let { project.tasks.findByName(jarTaskName) } as? Zip
             return jarTask?.archiveFile?.get()?.asFile
         }
 

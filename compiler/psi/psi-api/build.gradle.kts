@@ -6,6 +6,7 @@ plugins {
     id("kotlin-git.gradle-build-conventions.foreign-class-usage-checker")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -45,7 +46,6 @@ private val stableNonPublicMarkers = listOf(
 kotlin {
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
-        enabled.set(true)
         filters {
             exclude.annotatedWith.addAll(stableNonPublicMarkers)
         }
@@ -55,9 +55,9 @@ kotlin {
 testsJar()
 
 projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5) {
-        workingDir = rootDir
-    }
+    testTask(jUnitMode = JUnitMode.JUnit5)
+
+    testCodebaseTask()
 }
 
 val checkForeignClassUsage by tasks.registering(CheckForeignClassUsageTask::class) {

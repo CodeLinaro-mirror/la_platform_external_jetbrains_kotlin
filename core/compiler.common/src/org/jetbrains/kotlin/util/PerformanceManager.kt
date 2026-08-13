@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.util
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
 import org.jetbrains.kotlin.platform.isJs
+import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.stats.MarkdownReportRenderer
 import org.jetbrains.kotlin.stats.SingleReportsData
 import org.jetbrains.kotlin.stats.StatsCalculator
@@ -93,10 +94,11 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
         var irPreLoweringTime: Time? = null
         var irSerializationTime: Time? = null
         var klibWritingTime: Time? = null
+        var irLinkingTime: Time? = null
         var irLoweringTime: Time? = null
         var backendTime: Time? = null
 
-        for ((phaseType, time) in phaseMeasurements) {
+        for ([phaseType, time] in phaseMeasurements) {
             when (phaseType) {
                 PhaseType.Initialization -> initTime = time
                 PhaseType.Analysis -> analysisTime = time
@@ -104,6 +106,7 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
                 PhaseType.IrPreLowering -> irPreLoweringTime = time
                 PhaseType.IrSerialization -> irSerializationTime = time
                 PhaseType.KlibWriting -> klibWritingTime = time
+                PhaseType.IrLinking -> irLinkingTime = time
                 PhaseType.IrLowering -> irLoweringTime = time
                 PhaseType.Backend -> backendTime = time
             }
@@ -112,7 +115,7 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
         var findJavaClassStats: SideStats? = null
         var findKotlinClassStats: SideStats? = null
 
-        for ((phaseSideType, sideStats) in phaseSideMeasurements) {
+        for ([phaseSideType, sideStats] in phaseSideMeasurements) {
             when (phaseSideType) {
                 PhaseSideType.FindJavaClass -> findJavaClassStats = sideStats
                 PhaseSideType.BinaryClassFromKotlinFile -> findKotlinClassStats = sideStats
@@ -134,13 +137,14 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
             irPreLoweringTime,
             irSerializationTime,
             klibWritingTime,
+            irLinkingTime,
             irLoweringTime,
             backendTime,
-            dynamicPhaseMeasurements.map { (key, time) ->
-                val (phaseType, name) = key
+            dynamicPhaseMeasurements.map { [key, time] ->
+                val [phaseType, name] = key
                 DynamicStats(phaseType, name, time)
             },
-            klibElementStats.map { (path, size) -> KlibElementStats(path, size) },
+            klibElementStats.map { [path, size] -> KlibElementStats(path, size) },
             findJavaClassStats,
             findKotlinClassStats,
             gcMeasurements.values.toList(),
@@ -166,7 +170,7 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
             }
         }
 
-        otherUnitStats.dynamicStats?.forEach { (phaseType, name, time) ->
+        otherUnitStats.dynamicStats?.forEach { (val phaseType = parentPhaseType, val name, val time) ->
             dynamicPhaseMeasurements[phaseType to name] = (dynamicPhaseMeasurements[phaseType to name] ?: Time.ZERO) + time
         }
 
@@ -203,6 +207,7 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
             firstPlatformName.contains("JVM") -> PlatformType.JVM
             firstPlatformName.contains("Native") -> PlatformType.Native
             targetPlatform.isJs() -> PlatformType.JS
+            targetPlatform.isWasm() -> PlatformType.Wasm
             targetPlatform.isCommon() -> PlatformType.Common
             else -> error("Unexpected platform $targetPlatform")
         }
@@ -344,7 +349,7 @@ abstract class PerformanceManager(val targetPlatform: TargetPlatform, val presen
     }
 
     fun registerKlibElementStats(stats: List<Pair<String, Long>>) {
-        stats.forEach { (path, size) ->
+        stats.forEach { [path, size] ->
             klibElementStats[path] = size
         }
     }

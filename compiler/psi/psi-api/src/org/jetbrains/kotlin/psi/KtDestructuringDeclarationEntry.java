@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.psi;
 
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.TokenType;
 import com.intellij.psi.search.LocalSearchScope;
 import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -16,6 +17,8 @@ import org.jetbrains.kotlin.KtNodeTypes;
 import org.jetbrains.kotlin.lexer.KtTokens;
 import org.jetbrains.kotlin.name.FqName;
 import org.jetbrains.kotlin.psi.typeRefHelpers.TypeRefHelpersKt;
+
+import org.jetbrains.kotlin.resolution.KtResolvableCall;
 
 import java.util.Collections;
 import java.util.List;
@@ -32,7 +35,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.EQ;
  * }</pre>
  */
 @SuppressWarnings("deprecation")
-public class KtDestructuringDeclarationEntry extends KtNamedDeclarationNotStubbed implements KtVariableDeclaration {
+public class KtDestructuringDeclarationEntry extends KtNamedDeclarationNotStubbed implements KtVariableDeclaration, KtResolvableCall {
 
     public KtDestructuringDeclarationEntry(@NotNull ASTNode node) {
         super(node);
@@ -43,10 +46,15 @@ public class KtDestructuringDeclarationEntry extends KtNamedDeclarationNotStubbe
         return TypeRefHelpersKt.getTypeReference(this);
     }
 
+    /**
+     * @deprecated Use {@code org.jetbrains.kotlin.idea.base.psi.KotlinPsiModificationUtils.setDestructuringDeclarationEntryTypeReference(this, typeRef)}
+     * instead.
+     */
     @Override
     @Nullable
+    @Deprecated
     public KtTypeReference setTypeReference(@Nullable KtTypeReference typeRef) {
-        return TypeRefHelpersKt.setTypeReference(this, getNameIdentifier(), typeRef);
+        return KtPsiMutationService.getInstance().setDestructuringDeclarationEntryTypeReference(this, typeRef);
     }
 
     @Nullable
@@ -129,6 +137,11 @@ public class KtDestructuringDeclarationEntry extends KtNamedDeclarationNotStubbe
     @NotNull
     private ASTNode getParentNode() {
         ASTNode parent = getNode().getTreeParent();
+        if (parent.getElementType() == TokenType.ERROR_ELEMENT) {
+            // For top-level destructuring declarations we report an error in the parser.
+            // TODO(KT-58563): After the reporting is moved out of the parser, this workaround can be removed.
+            parent = parent.getTreeParent();
+        }
         assert parent.getElementType() == KtNodeTypes.DESTRUCTURING_DECLARATION :
                 "parent is " + parent.getElementType();
         return parent;

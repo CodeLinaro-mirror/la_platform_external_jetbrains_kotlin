@@ -17,19 +17,35 @@ KtParameter(34,52): 'javaEnum: JavaEnum'
   null
 
 KtTypeReference(44,52): 'JavaEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum
+    ]
 
 KtUserType(44,52): 'JavaEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum
+    ]
 
 KtNameReferenceExpression(44,52): 'JavaEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum
+    ]
 
 KtWhenExpression(56,106): 'when (javaEnum) {'
   null
 
 KtNameReferenceExpression(62,70): 'javaEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      javaEnum: JavaEnum
+    ]
 
 KtWhenEntry(78,88): 'FIRST -> 1'
   null
@@ -38,7 +54,12 @@ KtWhenConditionWithExpression(78,83): 'FIRST'
   null
 
 KtNameReferenceExpression(78,83): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum.FIRST
+    ]
 
 KtConstantExpression(87,88): '1'
   null
@@ -50,7 +71,12 @@ KtWhenConditionWithExpression(93,99): 'SECOND'
   null
 
 KtNameReferenceExpression(93,99): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum.SECOND
+    ]
 
 KtConstantExpression(103,104): '2'
   null

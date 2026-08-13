@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.nativeDistribution.nativeProtoDistribution
 import org.jetbrains.kotlin.resolveLlvmUtility
 import org.jetbrains.kotlin.utils.capitalized
+import org.jetbrains.kotlin.utils.reproducibilityRootsMap
 import java.io.File
 import java.time.Duration
 import javax.inject.Inject
@@ -222,10 +223,7 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
         private val nativeDependencies = project.extensions.getByType<NativeDependenciesExtension>()
 
         private val reproducibilityRootsMap: Map<File, String>
-            get() = mapOf(
-                    // This is the common root for native dependencies: sysroots, llvm, ...
-                    nativeDependencies.nativeDependenciesRoot to "NATIVE_DEPS",
-            )
+            get() = reproducibilityRootsMap(project, nativeDependencies)
 
         private val allCompilerArgs = module.compilerArgs.map {
             it + when (sanitizer) {
@@ -299,7 +297,7 @@ open class CompileToBitcodeExtension @Inject constructor(val project: Project) :
          */
         val task = project.tasks.register<LlvmLink>("llvmLink${module.name.capitalized}${name.capitalized}${_target.toString().capitalized}") {
             this.description = "Link '${module.name}' bitcode files (${this@SourceSet.name} sources) into a single bitcode file for $_target"
-            this.inputFiles.from(compileTask)
+            this.inputDirectory.set(compileTask.map { it.outputDirectory.get() })
             this.outputFile.set(this@SourceSet.outputFile)
             this.arguments.set(module.linkerArgs)
             this.reproducibilityRootsMap.set(this@SourceSet.reproducibilityRootsMap)

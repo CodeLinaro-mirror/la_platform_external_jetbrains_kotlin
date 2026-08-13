@@ -1,10 +1,11 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.util
 
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirResolvableSession
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
 import org.jetbrains.kotlin.fir.declarations.*
@@ -14,11 +15,13 @@ import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.psi.KtFile
 
+@KaImplementationDetail
 fun FirElementWithResolveState.getContainingFile(): FirFile? {
     val provider = moduleData.session.firProvider
     return when (this) {
         is FirFile -> this
         is FirScript -> provider.getFirScriptContainerFile(symbol)
+        is FirReplSnippet -> provider.getFirReplSnippetContainerFile(symbol)
         is FirTypeParameter -> containingDeclarationSymbol.fir.getContainingFile()
         is FirPropertyAccessor -> propertySymbol.fir.getContainingFile()
         is FirValueParameter -> containingDeclarationSymbol.fir.getContainingFile()

@@ -23,7 +23,6 @@ import kotlin.reflect.KProperty1
  * The entry point is [MetadataDeclarationsComparator.Companion.compare] function.
  */
 // TODO: extract to kotlinx-metadata-klib library?
-@OptIn(ExperimentalAnnotationsInMetadata::class)
 class MetadataDeclarationsComparator private constructor(private val config: Config) {
 
     interface Config {
@@ -335,7 +334,7 @@ class MetadataDeclarationsComparator private constructor(private val config: Con
             val missingInB: Boolean get() = !missingInA
 
             override fun toString() = buildString {
-                val (missing, existing) = if (missingInA) "A" to "B" else "B" to "A"
+                val [missing, existing] = if (missingInA) "A" to "B" else "B" to "A"
                 appendNameKind().appendLine(" is missing in ($missing)")
                 val existentValueText = when (val existentValue = existentValue) {
                     is KmType -> existentValue.dumpToString(dumpExtras = true)

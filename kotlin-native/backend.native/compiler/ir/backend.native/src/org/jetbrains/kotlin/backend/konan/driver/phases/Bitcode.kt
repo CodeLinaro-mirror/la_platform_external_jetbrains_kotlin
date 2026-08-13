@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.backend.konan.llvm.getFunctions
 import org.jetbrains.kotlin.backend.konan.llvm.name
 import org.jetbrains.kotlin.backend.konan.llvm.verifyModule
 import org.jetbrains.kotlin.backend.konan.optimizations.RemoveRedundantSafepointsPass
-import org.jetbrains.kotlin.backend.konan.optimizations.removeMultipleThreadDataLoads
 import org.jetbrains.kotlin.config.nativeBinaryOptions.SanitizerKind
 import org.jetbrains.kotlin.util.PerformanceManager
 import java.io.File
@@ -44,6 +43,7 @@ internal data class WriteBitcodeFileInput(
  */
 internal val WriteBitcodeFilePhase = createSimpleNamedCompilerPhase<NativeBackendPhaseContext, WriteBitcodeFileInput>(
         "WriteBitcodeFile",
+        postactions = getDefaultLlvmModuleActions(),
 ) { context, (llvmModule, outputFile) ->
     // Insert `_main` after pipeline, so we won't worry about optimizations corrupting entry point.
     insertAliasToEntryPoint(context, llvmModule)
@@ -68,17 +68,17 @@ internal val RewriteExternalCallsCheckerGlobals = createSimpleNamedCompilerPhase
 }
 
 internal class OptimizationState(
-        konanConfig: KonanConfig,
+        config: NativeSecondStageCompilationConfig,
         val llvmConfig: LlvmPipelineConfig,
         override val performanceManager: PerformanceManager?,
-) : BasicNativeBackendPhaseContext(konanConfig)
+) : BasicNativeBackendPhaseContext(config)
 
 internal fun optimizationPipelinePass(name: String, pipeline: (LlvmPipelineConfig, PerformanceManager?, LoggingContext) -> LlvmOptimizationPipeline) =
         createSimpleNamedCompilerPhase<OptimizationState, LLVMModuleRef>(
                 name = name,
                 postactions = getDefaultLlvmModuleActions(),
         ) { context, module ->
-            pipeline(context.llvmConfig, context.performanceManager, context).use {
+            pipeline(context.llvmConfig.copyConfiguringSaveIr(context, name), context.performanceManager, context).use {
                 it.execute(module)
             }
         }
@@ -132,12 +132,6 @@ internal val RemoveRedundantSafepointsPhase = createSimpleNamedCompilerPhase<Bit
         }
 )
 
-internal val OptimizeTLSDataLoadsPhase = createSimpleNamedCompilerPhase<BitcodePostProcessingContext, Unit>(
-        name = "OptimizeTLSDataLoads",
-        postactions = getDefaultLlvmModuleActions(),
-        op = { context, _ -> removeMultipleThreadDataLoads(context) }
-)
-
 internal val CStubsPhase = createSimpleNamedCompilerPhase<NativeGenerationState, Unit>(
         name = "CStubs",
         postactions = getDefaultLlvmModuleActions(),
@@ -180,7 +174,4 @@ internal fun <T : BitcodePostProcessingContext> PhaseEngine<T>.runBitcodePostPro
         }
     }
     runAndMeasurePhase(RemoveRedundantSafepointsPhase)
-    if (context.config.optimizationsEnabled) {
-        runAndMeasurePhase(OptimizeTLSDataLoadsPhase)
-    }
 }

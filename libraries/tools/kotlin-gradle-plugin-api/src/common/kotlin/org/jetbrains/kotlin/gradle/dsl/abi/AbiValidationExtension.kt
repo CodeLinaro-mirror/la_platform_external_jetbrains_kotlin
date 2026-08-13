@@ -37,16 +37,14 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginDsl
 @ExperimentalAbiValidation
 interface AbiValidationExtension {
     /**
-     * Enable ABI validation tasks.
-     *
-     * If value is `false`, then the tasks of generating, verifying, and updating the dump will do nothing.
-     *
-     * By default, all ABI validation tasks are disabled in order to perform ABI generation and verification
-     * in multi-project builds only on explicitly marked projects.
-     *
-     * `false` by default.
+     * @deprecated Property was removed, to enable ABI validation call function `abiValidation()`, `abiValidation { ... }` or read `abiValidation` property.
      */
+    @Deprecated(
+        "Property was removed, to enable ABI validation call function abiValidation(), abiValidation { ... } or read abiValidation property.",
+        level = DeprecationLevel.ERROR
+    )
     val enabled: Property<Boolean>
+        get() = error("Property 'enabled' was removed, to enable ABI validation call function abiValidation(), abiValidation { ... } or read abiValidation property.")
 
     /**
      * A set of filtering rules that restrict Application Binary Interface (ABI) declarations from being included in a dump.
@@ -150,20 +148,42 @@ interface AbiValidationExtension {
     val keepLocallyUnsupportedTargets: Property<Boolean>
 
     /**
+     * Specifies the source of the binaries to extract ABI declarations from.
+     *
+     * Refer to the [BinariesSource] for more information.
+     *
+     * The default value is [BinariesSource.MAIN_COMPILATION].
+     *
+     * @since 2.4.0
+     */
+    val binariesSource: Property<BinariesSource>
+
+    /**
      * Provides configuration for dumps stored in the old format that are used separately in the [Binary Compatibility validator plugin](https://github.com/Kotlin/binary-compatibility-validator).
      *
      * Use this property for a smooth migration from the old to the new dump format.
      *
      * @deprecated A separate property 'legacyDump' was removed. Please place all its properties on a higher level.
      */
+    @Deprecated(
+        "A separate property 'legacyDump' was removed. Please place all its properties on a higher level.",
+        level = DeprecationLevel.ERROR
+    )
+    @Suppress("DEPRECATION_ERROR")
     val legacyDump: AbiValidationLegacyDumpExtension
+        get() = error("A separate property 'legacyDump' was removed. Please place all its properties on a higher level.")
 
     /**
      * Configures the [legacyDump] with the provided configuration.
      * @deprecated A separate block 'legacyDump' was removed. Please place all its properties on a higher level.
      */
+    @Deprecated(
+        "A separate block 'legacyDump' was removed. Please place all its properties on a higher level.",
+        level = DeprecationLevel.ERROR
+    )
+    @Suppress("DEPRECATION_ERROR")
     fun legacyDump(action: Action<AbiValidationLegacyDumpExtension>) {
-        action.execute(legacyDump)
+        error("A separate block 'legacyDump' was removed. Please place all its properties on a higher level.")
     }
 
     /**
@@ -258,14 +278,14 @@ interface AbiValidationVariantSpec {
      * Left for source compatibility.
      * The @Deprecated annotation is not needed because there is no way to use it from the script.
      */
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     val legacyDump: AbiValidationLegacyDumpExtension
 
     /**
      * Left for source compatibility.
      * The @Deprecated annotation is not needed because there is no way to use it from the script.
      */
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     fun legacyDump(action: Action<AbiValidationLegacyDumpExtension>) {
         action.execute(legacyDump)
     }
@@ -280,4 +300,27 @@ interface AbiValidationVariantSpec {
         @Deprecated("Variants DSL was removed and is no longer supported.", level = DeprecationLevel.ERROR)
         const val MAIN_VARIANT_NAME = "main"
     }
+}
+
+/**
+ * Type of the source of the binaries to extract ABI declarations from.
+ */
+enum class BinariesSource {
+    /**
+     * The binaries are taken from the Maven publications of the project.
+     * To do this, the `maven-publish` plugin must be applied, the Maven publications must be created and configured correctly.
+     *
+     * Only publishable artifacts for which no classifier is specified (is null) are taken into account.
+     */
+    MAVEN_PUBLICATIONS,
+
+    /**
+     * The binaries are taken from the output of the Kotlin compilation task for main and commonMain source sets.
+     */
+    MAIN_COMPILATION,
+
+    /**
+     * The binaries are taken from the output of the Kotlin compilation tasks which do not contain the word `test` in the name in any case.
+     */
+    NON_TEST_COMPILATIONS
 }

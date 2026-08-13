@@ -23,16 +23,30 @@ KtSuperTypeList(120,126): 'Simple'
   null
 
 KtSuperTypeEntry(120,126): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtTypeReference(120,126): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtUserType(120,126): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtNameReferenceExpression(120,126): 'Simple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtClass(131,150): 'class Right: Simple'
   null
@@ -41,16 +55,30 @@ KtSuperTypeList(144,150): 'Simple'
   null
 
 KtSuperTypeEntry(144,150): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtTypeReference(144,150): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtUserType(144,150): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtNameReferenceExpression(144,150): 'Simple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtNamedFunction(154,325): 'fun testWithSubject(s: Simple) = when(s) {'
   null
@@ -62,19 +90,35 @@ KtParameter(174,183): 's: Simple'
   null
 
 KtTypeReference(177,183): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtUserType(177,183): 'Simple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtNameReferenceExpression(177,183): 'Simple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple
+    ]
 
 KtWhenExpression(187,325): 'when(s) {'
   null
 
 KtNameReferenceExpression(192,193): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: Simple
+    ]
 
 KtWhenEntry(201,225): '!is Left -> "not a left"'
   null
@@ -83,13 +127,24 @@ KtWhenConditionIsPattern(201,209): '!is Left'
   null
 
 KtTypeReference(205,209): 'Left'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple.Left
+    ]
 
 KtUserType(205,209): 'Left'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple.Left
+    ]
 
 KtNameReferenceExpression(205,209): 'Left'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Simple.Left
+    ]
 
 KtStringTemplateExpression(213,225): '"not a left"'
   null
@@ -104,13 +159,23 @@ KtWhenConditionWithExpression(230,230): ''
   null
 
 KtPrefixExpression(231,248): '!USELESS_IS_CHECK'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtOperationReferenceExpression(231,232): '!'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtNameReferenceExpression(232,248): 'USELESS_IS_CHECK'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'USELESS_IS_CHECK'.>
 
 KtWhenEntry(248,279): '!>!is Right<!> -> "not a right"'
   null
@@ -122,22 +187,38 @@ KtIsExpression(248,262): '!>!is Right<!>'
   null
 
 KtPrefixExpression(248,250): '!>'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtOperationReferenceExpression(248,249): '!'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtOperationReferenceExpression(250,253): '!is'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtTypeReference(254,262): 'Right<!>'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'Right'.>
 
 KtUserType(254,262): 'Right<!>'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'Right'.>
 
 KtNameReferenceExpression(254,259): 'Right'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'Right'.>
 
 KtTypeArgumentList(259,262): '<!>'
   null
@@ -161,13 +242,23 @@ KtWhenConditionWithExpression(284,284): ''
   null
 
 KtPrefixExpression(285,308): '!REDUNDANT_ELSE_IN_WHEN'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtOperationReferenceExpression(285,286): '!'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtNameReferenceExpression(286,308): 'REDUNDANT_ELSE_IN_WHEN'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'REDUNDANT_ELSE_IN_WHEN'.>
 
 KtWhenEntry(308,310): '!>'
   null
@@ -176,10 +267,16 @@ KtWhenConditionWithExpression(308,310): '!>'
   null
 
 KtPrefixExpression(308,310): '!>'
-  null
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtOperationReferenceExpression(308,309): '!'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'not' for operator '!'.>
 
 KtWhenEntry(310,323): 'else<!> -> ""'
   null

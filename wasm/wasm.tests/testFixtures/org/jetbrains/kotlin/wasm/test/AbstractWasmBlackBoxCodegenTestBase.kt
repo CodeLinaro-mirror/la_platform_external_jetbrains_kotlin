@@ -5,37 +5,40 @@
 
 package org.jetbrains.kotlin.wasm.test
 
+import org.jetbrains.kotlin.js.test.converters.Fir2IrCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirKlibSerializerCliWasmFacade
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
-import org.jetbrains.kotlin.test.backend.handlers.FirInterpreterDumpHandler
-import org.jetbrains.kotlin.test.backend.handlers.JsKlibInterpreterDumpHandler
 import org.jetbrains.kotlin.test.backend.handlers.KlibBackendDiagnosticsHandler
-import org.jetbrains.kotlin.test.backend.handlers.NoIrCompilationErrorsHandler
-import org.jetbrains.kotlin.test.backend.handlers.WasmIrInterpreterDumpHandler
 import org.jetbrains.kotlin.test.builders.*
-import org.jetbrains.kotlin.test.configuration.commonClassicFrontendHandlersForCodegenTest
-import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
+import org.jetbrains.kotlin.test.configuration.commonCodegenConfiguration
+import org.jetbrains.kotlin.test.configuration.commonIrHandlersForCodegenTest
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.ValueDirective
-import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgConsistencyHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgDumpHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDumpHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirResolvedTypesVerifier
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
 import org.jetbrains.kotlin.test.services.AdditionalSourceProvider
 import org.jetbrains.kotlin.test.services.LibraryProvider
+import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.WasmFirstStageEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.WasmSecondStageEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
 import org.jetbrains.kotlin.utils.bind
 import org.jetbrains.kotlin.wasm.test.converters.WasmPreSerializationLoweringFacade
-import org.jetbrains.kotlin.wasm.test.handlers.WasmIrHandler
 import org.jetbrains.kotlin.wasm.test.handlers.WasmDtsHandler
+import org.jetbrains.kotlin.wasm.test.handlers.WasmIrHandler
 import org.jetbrains.kotlin.wasm.test.handlers.WasmTypeScriptCompilationHandler
 
 abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput<I>, A : ResultingArtifact.Binary<A>>(
@@ -45,9 +48,7 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
     private val pathToTestDir: String,  // must be set to the common path prefix for all testroots provided for a certain class in GenerateWasmTests.kt
     private val testGroupOutputDirPrefix: String,
 ) : AbstractKotlinCompilerWithTargetBackendTest(targetBackend) {
-    abstract val frontendFacade: Constructor<FrontendFacade<R>>
-    abstract val frontendToBackendConverter: Constructor<Frontend2BackendConverter<R, I>>
-    abstract val backendFacade: Constructor<BackendFacade<I, A>>
+
     abstract val afterBackendFacade: Constructor<AbstractTestFacade<A, BinaryArtifacts.Wasm>>
     abstract val wasmBoxTestRunner: Constructor<AnalysisHandler<BinaryArtifacts.Wasm>>
     abstract val wasmTarget: WasmTarget
@@ -61,17 +62,16 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         customIgnoreDirective: ValueDirective<TargetBackend>? = null,
         additionalIgnoreDirectives: List<ValueDirective<TargetBackend>>? = null,
     ) {
+        commonCodegenConfiguration()
         commonConfigurationForWasmFirstStageTest(
             targetFrontend,
             targetPlatform,
             wasmTarget,
-            frontendFacade,
-            frontendToBackendConverter,
-            backendFacade,
             additionalSourceProvider,
             customIgnoreDirective,
             additionalIgnoreDirectives,
         )
+        setupStepsForWasmFirstStageUpToSerialization()
         commonConfigurationForWasmSecondStageTest(
             pathToTestDir,
             testGroupOutputDirPrefix,
@@ -82,6 +82,7 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         facadeStep(afterBackendFacade)
 
         wasmArtifactsHandlersStep {
+            useHandlers(::WasmTypeScriptCompilationHandler)
             useHandlers(wasmBoxTestRunner)
             useHandlers(::WasmIrHandler)
             useHandlers(::WasmDtsHandler)
@@ -101,29 +102,14 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         }
 
         enableMetaInfoHandler()
-        forTestsMatching("compiler/testData/codegen/box/involvesIrInterpreter/*") {
-            enableMetaInfoHandler()
-            configureFirHandlersStep {
-                useHandlers(::FirInterpreterDumpHandler)
-            }
-            configureKlibArtifactsHandlersStep {
-                useHandlers(::JsKlibInterpreterDumpHandler)
-            }
-            configureWasmArtifactsHandlersStep {
-                useHandlers(::WasmIrInterpreterDumpHandler)
-            }
-        }
     }
 }
 
 fun <R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput<I>, A : ResultingArtifact.Binary<A>>
-        TestConfigurationBuilder.commonConfigurationForWasmFirstStageTest(
+        TestConfigurationBuilderBase<*, *>.commonConfigurationForWasmFirstStageTest(
     targetFrontend: FrontendKind<R>,
     targetPlatform: TargetPlatform,
     wasmTarget: WasmTarget,
-    frontendFacade: Constructor<FrontendFacade<R>>,
-    frontendToBackendConverter: Constructor<Frontend2BackendConverter<R, I>>,
-    backendFacade: Constructor<BackendFacade<I, A>>,
     additionalSourceProvider: Constructor<AdditionalSourceProvider>?,
     customIgnoreDirective: ValueDirective<TargetBackend>? = null,
     additionalIgnoreDirectives: List<ValueDirective<TargetBackend>>? = null,
@@ -139,6 +125,7 @@ fun <R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput
     }
 
     useConfigurators(
+        ::CommonEnvironmentConfigurator,
         ::WasmFirstStageEnvironmentConfigurator.bind(wasmTarget),
     )
 
@@ -154,34 +141,45 @@ fun <R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput
 
     useAdditionalService(::LibraryProvider)
 
-    useAfterAnalysisCheckers(
+    useFailureSuppressors(
         ::BlackBoxCodegenSuppressor.bind(customIgnoreDirective, additionalIgnoreDirectives),
     )
+}
 
-    facadeStep(frontendFacade)
-
-    classicFrontendHandlersStep {
-        commonClassicFrontendHandlersForCodegenTest()
-        useHandlers(::ClassicDiagnosticsHandler)
-    }
+fun TestConfigurationBuilder.setupStepsForWasmFirstStageUpToSerialization(
+    includeBasicFirHandlers: Boolean = true,
+    includeDumpFirHandlers: Boolean = true
+) {
+    facadeStep(::FirCliWebFacade)
 
     firHandlersStep {
-        useHandlers(::FirDiagnosticsHandler)
+        if (includeBasicFirHandlers) {
+            useHandlers(
+                ::FirCfgConsistencyHandler,
+                ::FirResolvedTypesVerifier,
+                ::FirDiagnosticsHandler,
+            )
+        }
+        if (includeDumpFirHandlers) {
+            useHandlers(
+                ::FirDumpHandler,
+                ::FirCfgDumpHandler,
+            )
+        }
+
     }
 
-    facadeStep(frontendToBackendConverter)
+    facadeStep(::Fir2IrCliWebFacade)
     irHandlersStep {
-        useHandlers(::NoIrCompilationErrorsHandler)
+        commonIrHandlersForCodegenTest()
     }
 
     facadeStep(::WasmPreSerializationLoweringFacade)
     loweredIrHandlersStep {
-        useHandlers(::NoIrCompilationErrorsHandler)
+        commonIrHandlersForCodegenTest()
     }
 
-    loweredIrHandlersStep()
-
-    facadeStep(backendFacade)
+    facadeStep(::FirKlibSerializerCliWasmFacade)
     klibArtifactsHandlersStep {
         useHandlers(::KlibBackendDiagnosticsHandler)
     }

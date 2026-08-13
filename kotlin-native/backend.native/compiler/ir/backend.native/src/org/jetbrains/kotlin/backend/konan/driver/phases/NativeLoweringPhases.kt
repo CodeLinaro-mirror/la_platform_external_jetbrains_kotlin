@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.konan.driver.phases
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.ir.PreSerializationSymbols
+import org.jetbrains.kotlin.ir.util.isTypeOfIntrinsic
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.coroutines.AddContinuationToNonLocalSuspendFunctionsLowering
 import org.jetbrains.kotlin.backend.common.lower.inline.InlineCallCycleCheckerLowering
@@ -107,7 +107,7 @@ internal val validateIrAfterInliningAllFunctions = createSimpleNamedCompilerPhas
                         // No inline function call sites should remain at this stage.
                         val inlineFunction = inlineFunctionUseSite.symbol.owner
                         // it's fine to have typeOf<T>, it would be ignored by inliner and handled on the second stage of compilation
-                        if (PreSerializationSymbols.isTypeOfIntrinsic(inlineFunction.symbol)) return@check true
+                        if (inlineFunction.symbol.isTypeOfIntrinsic()) return@check true
                         return@check inlineFunction.body == null
                     }
             ).lower(module)
@@ -178,6 +178,12 @@ private val contractsDslRemovePhase = createFileLoweringPhase(
         name = "RemoveContractsDsl",
 )
 
+private val forLoopsPhase = createFileLoweringPhase(
+        ::NativeForLoopsLowering,
+        name = "ForLoops",
+        prerequisite = setOf(functionsWithoutBoundCheck)
+)
+
 private val flattenStringConcatenationPhase = createFileLoweringPhase(
         ::FlattenStringConcatenationLowering,
         name = "FlattenStringConcatenationLowering",
@@ -186,6 +192,7 @@ private val flattenStringConcatenationPhase = createFileLoweringPhase(
 private val stringConcatenationPhase = createFileLoweringPhase(
         ::StringConcatenationLowering,
         name = "StringConcatenation",
+        prerequisite = setOf(flattenStringConcatenationPhase, forLoopsPhase)
 )
 
 private val stringConcatenationTypeNarrowingPhase = createFileLoweringPhase(
@@ -258,12 +265,6 @@ private val rangeContainsLoweringPhase = createFileLoweringPhase(
         name = "RangeContains",
 )
 
-private val forLoopsPhase = createFileLoweringPhase(
-        ::NativeForLoopsLowering,
-        name = "ForLoops",
-        prerequisite = setOf(functionsWithoutBoundCheck)
-)
-
 private val dataClassesPhase = createFileLoweringPhase(
         ::DataClassOperatorsLowering,
         name = "DataClasses",
@@ -315,8 +316,8 @@ private val staticCallableReferenceOptimizationPhase = createFileLoweringPhase(
 )
 
 private val enumWhenPhase = createFileLoweringPhase(
-        ::NativeEnumWhenLowering,
         name = "EnumWhen",
+        lowering = ::NativeEnumWhenLowering,
         prerequisite = setOf(enumConstructorsPhase, functionReferencePhase)
 )
 
@@ -376,6 +377,11 @@ private val syntheticAccessorGenerationPhase = createFileLoweringPhase(
 internal val inlineAllFunctionsPhase = createFileLoweringPhase(
         lowering = ::NativeAllFunctionInlining,
         name = "InlineAllFunctions",
+)
+
+private val reifiedFunctionLowering = createFileLoweringPhase(
+        lowering = ::ReifiedFunctionLowering,
+        name = "ReifiedFunctionLowering",
 )
 
 private val typeOfProcessingLowering = createFileLoweringPhase(
@@ -441,7 +447,7 @@ private val coroutinesLivenessAnalysisPhase = createFileLoweringPhase(
             object : BodyLoweringPass {
                 override fun lower(irBody: IrBody, container: IrDeclaration) {
                     LivenessAnalysis.run(irBody) { it is IrSuspensionPoint }
-                            .forEach { (irElement, liveVariables) ->
+                            .forEach { [irElement, liveVariables] ->
                                 (irElement as IrSuspensionPoint).liveVariablesAtSuspensionPoint = liveVariables
                             }
                     context.coroutinesLivenessAnalysisPhasePerformed = true
@@ -497,6 +503,7 @@ private val lowerCastsPhase = createFileLoweringPhase(
 private val computeTypesPhase = createFileLoweringPhase(
         name = "ComputeTypes",
         lowering = { context: Context -> ComputeTypesPass(context) },
+        prerequisite = setOf(finallyBlocksPhase)
 )
 
 private val optimizeCastsPhase = createFileLoweringPhase(
@@ -525,7 +532,7 @@ private val exportInternalAbiPhase = createFileLoweringPhase(
         name = "ExportInternalAbi",
 )
 
-internal val ReturnsInsertionPhase = createFileLoweringPhase(
+private val returnsInsertionPhase = createFileLoweringPhase(
         name = "ReturnsInsertion",
         prerequisite = setOf(autoboxPhase, coroutinesPhase, enumClassPhase),
         lowering = ::ReturnsInsertionLowering,
@@ -614,7 +621,8 @@ internal fun getLoweringsUpToAndIncludingSyntheticAccessors(): LoweringList = li
         syntheticAccessorGenerationPhase,
 )
 
-internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNull(
+internal fun NativeSecondStageCompilationConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNull(
+        reifiedFunctionLowering,
         typeOfProcessingLowering,
         specializeSharedVariableBoxes,
         interopPhase,
@@ -633,10 +641,6 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         contractsDslRemovePhase,
         annotationImplementationPhase,
         rangeContainsLoweringPhase,
-        forLoopsPhase,
-        flattenStringConcatenationPhase,
-        stringConcatenationPhase,
-        stringConcatenationTypeNarrowingPhase.takeIf { this.optimizationsEnabled },
         enumConstructorsPhase,
         initializersPhase,
         inventNamesForInteropBridgesPhase,
@@ -644,13 +648,18 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         inventNamesForLocalFunctions,
         localFunctionsPhase,
         tailrecPhase,
+        finallyBlocksPhase,
+        computeTypesPhase, // Inliner erases generics. Trying to restore some of the information and simplify IR.
+        forLoopsPhase,
+        flattenStringConcatenationPhase,
+        stringConcatenationPhase,
+        stringConcatenationTypeNarrowingPhase.takeIf { this.optimizationsEnabled },
         defaultParameterExtentPhase,
         innerClassPhase,
         dataClassesPhase,
         ifNullExpressionsFusionPhase,
         staticCallableReferenceOptimizationPhase,
         enumWhenPhase,
-        finallyBlocksPhase,
         enumClassPhase,
         enumUsagePhase,
         varargPhase,
@@ -662,6 +671,7 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         expressionBodyTransformPhase,
         objectClassesPhase,
         staticInitializersPhase,
+        // Running 2nd time not only helps the following heavy analysis but also corrects some lowerings' inaccuracies in IR types.
         computeTypesPhase,
         removeCastsFromNothing,
         optimizeCastsPhase.takeIf { this.genericSafeCasts },
@@ -673,6 +683,7 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         eraseGenericCallsReturnTypesPhase,
         autoboxPhase,
         constructorsLoweringPhase,
+        returnsInsertionPhase,
         lowerCastsPhase.takeUnless { this.optimizationsEnabled },
 )
 

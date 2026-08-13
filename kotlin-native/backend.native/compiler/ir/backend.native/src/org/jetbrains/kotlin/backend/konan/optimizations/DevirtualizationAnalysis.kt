@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.backend.konan.util.IntArrayList
 import org.jetbrains.kotlin.backend.konan.lower.getObjectClassInstanceFunction
 import org.jetbrains.kotlin.backend.konan.util.CustomBitSet
 import org.jetbrains.kotlin.backend.konan.util.LongArrayList
-import org.jetbrains.kotlin.backend.konan.util.LongHashMap
 import org.jetbrains.kotlin.backend.konan.util.LongHashSet
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.IrElement
@@ -84,9 +83,9 @@ internal object DevirtualizationAnalysis {
                             .filter { moduleDFG.functions.containsKey(it) }
         }
 
-        // TODO: Are globals initializers always called whether they are actually reachable from roots or not?
-        // TODO: With the changed semantics of global initializers this is no longer the case - rework.
-        val globalInitializers = moduleDFG.symbolTable.functionMap.values.filter { it.isStaticFieldInitializer }
+        val globalInitializers = moduleDFG.symbolTable.functionMap.values.filter {
+            it.isStaticFieldInitializer || it.isEagerStaticInitializer
+        }
         val explicitlyExported = moduleDFG.symbolTable.functionMap.values.filter { it.explicitlyExported }
 
         // Conservatively assume each associated object could be called.
@@ -877,7 +876,7 @@ internal object DevirtualizationAnalysis {
                 if (iterations >= maxNumberOfIterations) break
 
                 var end = true
-                for ((sourceNode, edge) in badEdges) {
+                for ([sourceNode, edge] in badEdges) {
                     val distNode = edge.node
                     if (distNode.types.orWithFilterHasChanged(sourceNode.types, edge.suitableTypes)) {
                         end = false
@@ -891,7 +890,7 @@ internal object DevirtualizationAnalysis {
             var front = IntArray(nodesCount)
             var prevFront = IntArray(nodesCount)
             var frontSize = 0
-            for ((sourceNode, edge) in badEdges) {
+            for ([sourceNode, edge] in badEdges) {
                 val distNode = edge.node
                 if (distNode.types.orWithFilterHasChanged(sourceNode.types, edge.suitableTypes) && !marked[distNode.id]) {
                     marked.set(distNode.id)
@@ -915,7 +914,7 @@ internal object DevirtualizationAnalysis {
                         if (marked[distNode.id])
                             distNode.types.or(node.types)
                         else {
-                            if (distNode.types.orWithFilterHasChanged(node.types) && !marked[distNode.id]) {
+                            if (distNode.types.orHasChanged(node.types) && !marked[distNode.id]) {
                                 marked.set(distNode.id)
                                 front[frontSize++] = distNode.id
                             }
@@ -999,7 +998,7 @@ internal object DevirtualizationAnalysis {
 
             context.logMultiple {
                 +"Devirtualized from current module:"
-                result.forEach { (virtualCall, devirtualizedCallSite) ->
+                result.forEach { [virtualCall, devirtualizedCallSite] ->
                     if (virtualCall.irCallSite != null) {
                         +"DEVIRTUALIZED"
                         +"FUNCTION: ${devirtualizedCallSite.second}"
@@ -1011,7 +1010,7 @@ internal object DevirtualizationAnalysis {
                     }
                 }
                 +"Devirtualized from external modules:"
-                result.forEach { (virtualCall, devirtualizedCallSite) ->
+                result.forEach { [virtualCall, devirtualizedCallSite] ->
                     if (virtualCall.irCallSite == null) {
                         +"DEVIRTUALIZED"
                         +"FUNCTION: ${devirtualizedCallSite.second}"
@@ -1824,7 +1823,7 @@ internal object DevirtualizationAnalysis {
                             }
                             val branches = mutableListOf<IrBranchImpl>()
                             bestOrder!!.mapIndexedTo(branches) { index, target ->
-                                val (actualCallee, receiverTypes) = target
+                                (val actualCallee, val receiverTypes = possibleReceivers) = target
                                 val condition = when {
                                     optimize && index == possibleCallees.size - 1 -> {
                                         // Don't check the last type in optimize mode.

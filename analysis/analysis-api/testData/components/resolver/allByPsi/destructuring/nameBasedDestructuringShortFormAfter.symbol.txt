@@ -20,25 +20,47 @@ KtParameter(89,106): 'val first: String'
   null
 
 KtTypeReference(100,106): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(100,106): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(100,106): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtParameter(108,123): 'val second: Int'
   null
 
 KtTypeReference(120,123): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(120,123): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(120,123): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNamedFunction(126,503): 'fun declaration(x: Tuple) {'
   null
@@ -50,13 +72,24 @@ KtParameter(142,150): 'x: Tuple'
   null
 
 KtTypeReference(145,150): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtUserType(145,150): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtNameReferenceExpression(145,150): 'Tuple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtBlockExpression(152,503): '{'
   null
@@ -80,13 +113,24 @@ KtDestructuringDeclaration(170,194): 'val (first, second,) = x'
   null
 
 KtDestructuringDeclarationEntry(175,180): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtDestructuringDeclarationEntry(182,188): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtNameReferenceExpression(193,194): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(201,239): 'if (true) { val (second, first,) = x }'
   null
@@ -107,13 +151,24 @@ KtDestructuringDeclaration(213,237): 'val (second, first,) = x'
   null
 
 KtDestructuringDeclarationEntry(218,224): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtDestructuringDeclarationEntry(226,231): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(236,237): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(244,273): 'if (true) { var (first) = x }'
   null
@@ -134,10 +189,18 @@ KtDestructuringDeclaration(256,271): 'var (first) = x'
   null
 
 KtDestructuringDeclarationEntry(261,266): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(270,271): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(278,315): 'if (true) { val (first: String) = x }'
   null
@@ -158,19 +221,38 @@ KtDestructuringDeclaration(290,313): 'val (first: String) = x'
   null
 
 KtDestructuringDeclarationEntry(295,308): 'first: String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(302,308): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(302,308): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(302,308): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(312,313): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(336,370): 'if (true) { val (aa = first) = x }'
   null
@@ -191,13 +273,23 @@ KtDestructuringDeclaration(348,368): 'val (aa = first) = x'
   null
 
 KtDestructuringDeclarationEntry(353,363): 'aa = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(358,363): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtNameReferenceExpression(367,368): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(375,417): 'if (true) { val (aa: String = first) = x }'
   null
@@ -218,22 +310,43 @@ KtDestructuringDeclaration(387,415): 'val (aa: String = first) = x'
   null
 
 KtDestructuringDeclarationEntry(392,410): 'aa: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(396,402): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(396,402): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(396,402): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(405,410): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtNameReferenceExpression(414,415): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(422,455): 'if (true) { val (_ = first) = x }'
   null
@@ -254,13 +367,23 @@ KtDestructuringDeclaration(434,453): 'val (_ = first) = x'
   null
 
 KtDestructuringDeclarationEntry(439,448): '_ = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(443,448): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtNameReferenceExpression(452,453): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtIfExpression(460,501): 'if (true) { val (_: String = first) = x }'
   null
@@ -281,22 +404,43 @@ KtDestructuringDeclaration(472,499): 'val (_: String = first) = x'
   null
 
 KtDestructuringDeclarationEntry(477,494): '_: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(480,486): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(480,486): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(480,486): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(489,494): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtNameReferenceExpression(498,499): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: Tuple
+    ]
 
 KtNamedFunction(505,818): 'fun loop(x: List<Tuple>) {'
   null
@@ -308,13 +452,24 @@ KtParameter(514,528): 'x: List<Tuple>'
   null
 
 KtTypeReference(517,528): 'List<Tuple>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List
+    ]
 
 KtUserType(517,528): 'List<Tuple>'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List
+    ]
 
 KtNameReferenceExpression(517,521): 'List'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List
+    ]
 
 KtTypeArgumentList(521,528): '<Tuple>'
   null
@@ -323,19 +478,35 @@ KtTypeProjection(522,527): 'Tuple'
   null
 
 KtTypeReference(522,527): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtUserType(522,527): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtNameReferenceExpression(522,527): 'Tuple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtBlockExpression(530,818): '{'
   null
 
 KtForExpression(536,566): 'for ((first, second,) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(541,557): '(first, second,)'
   null
@@ -344,16 +515,27 @@ KtDestructuringDeclaration(541,557): '(first, second,)'
   null
 
 KtDestructuringDeclarationEntry(542,547): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtDestructuringDeclarationEntry(549,555): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtContainerNode(561,562): 'x'
   null
 
 KtNameReferenceExpression(561,562): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(564,566): '{}'
   null
@@ -362,7 +544,12 @@ KtBlockExpression(564,566): '{}'
   null
 
 KtForExpression(571,601): 'for ((second, first,) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(576,592): '(second, first,)'
   null
@@ -371,16 +558,27 @@ KtDestructuringDeclaration(576,592): '(second, first,)'
   null
 
 KtDestructuringDeclarationEntry(577,583): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtDestructuringDeclarationEntry(585,590): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtContainerNode(596,597): 'x'
   null
 
 KtNameReferenceExpression(596,597): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(599,601): '{}'
   null
@@ -389,7 +587,12 @@ KtBlockExpression(599,601): '{}'
   null
 
 KtForExpression(606,627): 'for ((first) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(611,618): '(first)'
   null
@@ -398,13 +601,21 @@ KtDestructuringDeclaration(611,618): '(first)'
   null
 
 KtDestructuringDeclarationEntry(612,617): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtContainerNode(622,623): 'x'
   null
 
 KtNameReferenceExpression(622,623): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(625,627): '{}'
   null
@@ -413,7 +624,12 @@ KtBlockExpression(625,627): '{}'
   null
 
 KtForExpression(632,661): 'for ((first: String) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(637,652): '(first: String)'
   null
@@ -422,22 +638,41 @@ KtDestructuringDeclaration(637,652): '(first: String)'
   null
 
 KtDestructuringDeclarationEntry(638,651): 'first: String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(645,651): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(645,651): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(645,651): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtContainerNode(656,657): 'x'
   null
 
 KtNameReferenceExpression(656,657): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(659,661): '{}'
   null
@@ -446,7 +681,12 @@ KtBlockExpression(659,661): '{}'
   null
 
 KtForExpression(683,709): 'for ((aa = first) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(688,700): '(aa = first)'
   null
@@ -455,16 +695,26 @@ KtDestructuringDeclaration(688,700): '(aa = first)'
   null
 
 KtDestructuringDeclarationEntry(689,699): 'aa = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(694,699): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtContainerNode(704,705): 'x'
   null
 
 KtNameReferenceExpression(704,705): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(707,709): '{}'
   null
@@ -473,7 +723,12 @@ KtBlockExpression(707,709): '{}'
   null
 
 KtForExpression(714,748): 'for ((aa: String = first) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(719,739): '(aa: String = first)'
   null
@@ -482,25 +737,46 @@ KtDestructuringDeclaration(719,739): '(aa: String = first)'
   null
 
 KtDestructuringDeclarationEntry(720,738): 'aa: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(724,730): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(724,730): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(724,730): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(733,738): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtContainerNode(743,744): 'x'
   null
 
 KtNameReferenceExpression(743,744): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(746,748): '{}'
   null
@@ -509,7 +785,12 @@ KtBlockExpression(746,748): '{}'
   null
 
 KtForExpression(753,778): 'for ((_ = first) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(758,769): '(_ = first)'
   null
@@ -518,16 +799,26 @@ KtDestructuringDeclaration(758,769): '(_ = first)'
   null
 
 KtDestructuringDeclarationEntry(759,768): '_ = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(763,768): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtContainerNode(773,774): 'x'
   null
 
 KtNameReferenceExpression(773,774): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(776,778): '{}'
   null
@@ -536,7 +827,12 @@ KtBlockExpression(776,778): '{}'
   null
 
 KtForExpression(783,816): 'for ((_: String = first) in x) {}'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/collections/List.iterator(<dispatch receiver>: kotlin.collections.List<E>): kotlin.collections.Iterator<E>,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/Iterator.next(<dispatch receiver>: kotlin.collections.Iterator<T>): T
+    ]
 
 KtParameter(788,807): '(_: String = first)'
   null
@@ -545,25 +841,46 @@ KtDestructuringDeclaration(788,807): '(_: String = first)'
   null
 
 KtDestructuringDeclarationEntry(789,806): '_: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(792,798): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(792,798): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(792,798): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(801,806): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtContainerNode(811,812): 'x'
   null
 
 KtNameReferenceExpression(811,812): 'x'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      x: kotlin.collections.List<Tuple>
+    ]
 
 KtContainerNodeForControlStructureBody(814,816): '{}'
   null
@@ -590,10 +907,16 @@ KtParameter(847,865): 'f: (Tuple) -> Unit'
   null
 
 KtTypeReference(850,865): '(Tuple) -> Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function1
+    ]
 
 KtFunctionType(850,865): '(Tuple) -> Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function1
+    ]
 
 KtParameterList(850,857): '(Tuple)'
   null
@@ -602,22 +925,44 @@ KtParameter(851,856): 'Tuple'
   null
 
 KtTypeReference(851,856): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtUserType(851,856): 'Tuple'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtNameReferenceExpression(851,856): 'Tuple'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Tuple
+    ]
 
 KtTypeReference(861,865): 'Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtUserType(861,865): 'Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtNameReferenceExpression(861,865): 'Unit'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtBlockExpression(867,869): '{}'
   null
@@ -629,7 +974,12 @@ KtCallExpression(875,902): 'foo { (first, second,) -> }'
     ]
 
 KtNameReferenceExpression(875,878): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(879,902): '{ (first, second,) -> }'
   null
@@ -650,10 +1000,16 @@ KtDestructuringDeclaration(881,897): '(first, second,)'
   null
 
 KtDestructuringDeclarationEntry(882,887): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtDestructuringDeclarationEntry(889,895): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtBlockExpression(901,901): ''
   null
@@ -665,7 +1021,12 @@ KtCallExpression(907,934): 'foo { (second, first,) -> }'
     ]
 
 KtNameReferenceExpression(907,910): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(911,934): '{ (second, first,) -> }'
   null
@@ -686,10 +1047,16 @@ KtDestructuringDeclaration(913,929): '(second, first,)'
   null
 
 KtDestructuringDeclarationEntry(914,920): 'second'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val second: kotlin.Int
+    ]
 
 KtDestructuringDeclarationEntry(922,927): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtBlockExpression(933,933): ''
   null
@@ -701,7 +1068,12 @@ KtCallExpression(939,957): 'foo { (first) -> }'
     ]
 
 KtNameReferenceExpression(939,942): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(943,957): '{ (first) -> }'
   null
@@ -722,7 +1094,10 @@ KtDestructuringDeclaration(945,952): '(first)'
   null
 
 KtDestructuringDeclarationEntry(946,951): 'first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtBlockExpression(956,956): ''
   null
@@ -734,7 +1109,12 @@ KtCallExpression(962,988): 'foo { (first: String) -> }'
     ]
 
 KtNameReferenceExpression(962,965): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(966,988): '{ (first: String) -> }'
   null
@@ -755,16 +1135,30 @@ KtDestructuringDeclaration(968,983): '(first: String)'
   null
 
 KtDestructuringDeclarationEntry(969,982): 'first: String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(976,982): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(976,982): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(976,982): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtBlockExpression(987,987): ''
   null
@@ -776,7 +1170,12 @@ KtCallExpression(1010,1033): 'foo { (aa = first) -> }'
     ]
 
 KtNameReferenceExpression(1010,1013): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(1014,1033): '{ (aa = first) -> }'
   null
@@ -797,9 +1196,14 @@ KtDestructuringDeclaration(1016,1028): '(aa = first)'
   null
 
 KtDestructuringDeclarationEntry(1017,1027): 'aa = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(1022,1027): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtBlockExpression(1032,1032): ''
@@ -812,7 +1216,12 @@ KtCallExpression(1038,1069): 'foo { (aa: String = first) -> }'
     ]
 
 KtNameReferenceExpression(1038,1041): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(1042,1069): '{ (aa: String = first) -> }'
   null
@@ -833,18 +1242,34 @@ KtDestructuringDeclaration(1044,1064): '(aa: String = first)'
   null
 
 KtDestructuringDeclarationEntry(1045,1063): 'aa: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(1049,1055): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(1049,1055): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(1049,1055): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(1058,1063): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtBlockExpression(1068,1068): ''
@@ -857,7 +1282,12 @@ KtCallExpression(1074,1096): 'foo { (_ = first) -> }'
     ]
 
 KtNameReferenceExpression(1074,1077): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(1078,1096): '{ (_ = first) -> }'
   null
@@ -878,9 +1308,14 @@ KtDestructuringDeclaration(1080,1091): '(_ = first)'
   null
 
 KtDestructuringDeclarationEntry(1081,1090): '_ = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtNameReferenceExpression(1085,1090): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtBlockExpression(1095,1095): ''
@@ -893,7 +1328,12 @@ KtCallExpression(1101,1131): 'foo { (_: String = first) -> }'
     ]
 
 KtNameReferenceExpression(1101,1104): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo(f: (Tuple) -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(1105,1131): '{ (_: String = first) -> }'
   null
@@ -914,18 +1354,34 @@ KtDestructuringDeclaration(1107,1126): '(_: String = first)'
   null
 
 KtDestructuringDeclarationEntry(1108,1125): '_: String = first'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val first: kotlin.String
+    ]
 
 KtTypeReference(1111,1117): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(1111,1117): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(1111,1117): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(1120,1125): 'first'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtBlockExpression(1130,1130): ''

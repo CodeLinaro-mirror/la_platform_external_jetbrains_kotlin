@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.konan.target.HostManager
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import java.net.URI
-import kotlin.io.path.appendText
 
 @DisplayName("Kotlin/Native disable cache tests")
 @NativeGradlePluginTests
@@ -111,7 +110,7 @@ internal class KotlinNativeDisableCacheIT : KGPBaseTest() {
                 |            @Suppress("DEPRECATION")
                 |            @OptIn(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi::class)
                 |            disableNativeCache(
-                |              org.jetbrains.kotlin.gradle.plugin.mpp.DisableCacheInKotlinVersion.`2_3_20`,
+                |              org.jetbrains.kotlin.gradle.plugin.mpp.DisableCacheInKotlinVersion.`2_4_0`,
                 |              "Disabled for integration testing"
                 |            )
                 |        }
@@ -122,6 +121,35 @@ internal class KotlinNativeDisableCacheIT : KGPBaseTest() {
 
             build(taskName) {
                 assertTasksUpToDate(taskName)
+            }
+        }
+    }
+
+    @GradleTest
+    @OsCondition(supportedOn = [OS.MAC, OS.LINUX, OS.WINDOWS], enabledOnCI = [OS.LINUX, OS.WINDOWS])
+    fun testDisableNativeCacheWithoutOptInShowsActionableError(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject("native-simple-project", gradleVersion) {
+            buildGradleKts.append(
+                """
+                |kotlin {
+                |    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
+                |        binaries.all {
+                |            @Suppress("DEPRECATION")
+                |            disableNativeCache(
+                |              org.jetbrains.kotlin.gradle.plugin.mpp.DisableCacheInKotlinVersion.`2_4_0`,
+                |              "Disabled for integration testing"
+                |            )
+                |        }
+                |    }
+                |}
+                """.trimMargin()
+            )
+
+            buildAndFail("help") {
+                assertOutputContains("This API requires opt-in.")
+                assertOutputContains("@OptIn(KotlinNativeCacheApi::class)")
             }
         }
     }
@@ -190,7 +218,7 @@ private fun KGPBaseTest.setupNativeCacheTest(
                 target.binaries.staticLib {
                     @Suppress("DEPRECATION")
                     disableNativeCache(
-                        DisableCacheInKotlinVersion.`2_3_20`,
+                        DisableCacheInKotlinVersion.`2_4_0`,
                         "Disabled for integration testing",
                         URI("https://kotlinlang.org")
                     )

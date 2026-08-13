@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
 import org.jetbrains.kotlin.ir.backend.js.BackendJsSymbols.RuntimeMetadataKind
 import org.jetbrains.kotlin.ir.backend.js.ir.isExported
+import org.jetbrains.kotlin.ir.backend.js.lower.exportedValueClassBoxFunction
 import org.jetbrains.kotlin.ir.backend.js.lower.isBuiltInClass
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6PrimaryConstructorReplacement
@@ -54,8 +55,10 @@ internal class JsUsefulDeclarationProcessor(
                         context.inlineClassesUtils.getRuntimeClassFor(it)
                     } ?: compilationException("Unexpected type argument in box intrinsic", expression)
 
-                    val constructor = inlineClass.declarations.filterIsInstance<IrConstructor>().single { it.isPrimary }
-                    constructor.enqueue(data, "intrinsic: jsBoxIntrinsic")
+                    val boxFunction = inlineClass.exportedValueClassBoxFunction
+                        ?: inlineClass.declarations.filterIsInstance<IrConstructor>().single { it.isPrimary }
+
+                    boxFunction.enqueue(data, "intrinsic: jsBoxIntrinsic")
                     true
                 }
 
@@ -74,7 +77,7 @@ internal class JsUsefulDeclarationProcessor(
                             compilationException("Expected IrClass as a type argument", expression)
                         }
                         for (declaration in ref.declarations) {
-                            if (declaration is IrConstructor && declaration.isPrimary || declaration.isEs6PrimaryConstructorReplacement) {
+                            if (declaration is IrConstructor && declaration.isPrimary) {
                                 declaration.enqueue(data, "intrinsic: jsClass (constructor)")
                             }
                         }
@@ -269,7 +272,7 @@ internal class JsUsefulDeclarationProcessor(
             if (removeUnusedAssociatedObjects && klass !in referencedJsClasses && klass !in referencedJsClassesFromExpressions) continue
 
             for (annotation in klass.annotations) {
-                val annotationClass = annotation.symbol.owner.constructedClass
+                val annotationClass = annotation.classSymbol.owner
                 if (removeUnusedAssociatedObjects && annotationClass !in referencedJsClasses) continue
 
                 annotation.associatedObject()?.objectGetInstanceFunction?.enqueue(klass, "associated object factory")

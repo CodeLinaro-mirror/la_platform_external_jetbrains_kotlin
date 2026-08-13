@@ -1,2 +1,7 @@
 KtNameReferenceExpression(589,592): 'bar'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      pkg/Foo.bar(): kotlin.Unit
+    ]

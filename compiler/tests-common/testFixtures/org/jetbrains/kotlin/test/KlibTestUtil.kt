@@ -45,11 +45,13 @@ import org.jetbrains.kotlin.resolve.CompilerEnvironment
 import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.cli.common.disposeRootInWriteAction
+import org.jetbrains.kotlin.cli.common.renderDiagnosticInternalName
+import org.jetbrains.kotlin.config.MessageCollectorAccess
 import org.jetbrains.kotlin.library.loader.KlibLoader
 import org.jetbrains.kotlin.library.writer.KlibWriter
 import org.jetbrains.kotlin.library.writer.includeMetadata
-import org.jetbrains.kotlin.resolve.KlibCompilerDeserializationConfiguration
-import org.jetbrains.kotlin.util.toKlibMetadataVersion
+import org.jetbrains.kotlin.resolve.CommonCompilerDeserializationConfiguration
+import org.jetbrains.kotlin.util.toMetadataVersion
 import java.io.File
 import java.nio.file.Path
 import org.jetbrains.kotlin.library.KlibConstants.KLIB_FILE_EXTENSION
@@ -61,13 +63,15 @@ object KlibTestUtil {
         klibFile: File,
         additionalArguments: List<String> = emptyList(),
     ) {
-        require(!Name.guessByFirstCharacter(libraryName).isSpecial) { "Invalid library name: $libraryName" }
+        checkTestInfrastructure(!Name.guessByFirstCharacter(libraryName).isSpecial) { "Invalid library name: $libraryName" }
 
         val configuration = KotlinTestUtils.newConfiguration()
+        @OptIn(MessageCollectorAccess::class) // write access
         configuration.messageCollector =
             FilteringMessageCollector(
                 PrintingMessageCollector(System.err, MessageRenderer.PLAIN_RELATIVE_PATHS, false)
             ) /* decline = */ { !it.isError }
+        configuration.renderDiagnosticInternalName = true
         configuration.put(CommonConfigurationKeys.MODULE_NAME, libraryName)
         configuration.addKotlinSourceRoots(sourceFiles.map { it.absolutePath })
         val stdlibFile = ForTestCompileRuntime.stdlibCommonForTests()
@@ -85,11 +89,7 @@ object KlibTestUtil {
 
             val projectContext = ProjectContext(environment.project, "Compile common sources to KLIB metadata")
 
-            val analyzer = AnalyzerWithCompilerReport(
-                configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY),
-                configuration.languageVersionSettings,
-                renderDiagnosticName = true,
-            )
+            val analyzer = AnalyzerWithCompilerReport(configuration)
 
             analyzer.analyzeAndReport(environment.getSourceFiles()) {
                 CommonResolverForModuleFactory.analyzeFiles(
@@ -109,7 +109,7 @@ object KlibTestUtil {
 
             val analysisResult = analyzer.analysisResult
 
-            check(!analyzer.hasErrors()) {
+            checkTestInfrastructure(!analyzer.hasErrors()) {
                 "Compilation finished with errors. See the previous messages."
             }
 
@@ -122,11 +122,11 @@ object KlibTestUtil {
     }
 
     fun serializeCommonModuleToKlib(module: ModuleDescriptor, libraryName: String, klibFile: File) {
-        require(klibFile.extension == KLIB_FILE_EXTENSION) { "KLIB file must have $KLIB_FILE_EXTENSION extension" }
+        checkTestInfrastructure(klibFile.extension == KLIB_FILE_EXTENSION) { "KLIB file must have $KLIB_FILE_EXTENSION extension" }
 
         val serializer = KlibMetadataMonolithicSerializer(
             languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
-            metadataVersion = LanguageVersionSettingsImpl.DEFAULT.languageVersion.toKlibMetadataVersion(),
+            metadataVersion = LanguageVersionSettingsImpl.DEFAULT.languageVersion.toMetadataVersion(),
             exportKDoc = false,
             skipExpects = false,
             project = null,
@@ -143,7 +143,7 @@ object KlibTestUtil {
                     KotlinLibraryVersioning(
                         compilerVersion = null,
                         abiVersion = null,
-                        metadataVersion = LanguageVersionSettingsImpl.DEFAULT.languageVersion.toKlibMetadataVersion(),
+                        metadataVersion = LanguageVersionSettingsImpl.DEFAULT.languageVersion.toMetadataVersion(),
                     )
                 )
                 platformAndTargets(BuiltInsPlatform.COMMON)
@@ -162,7 +162,6 @@ object KlibTestUtil {
             languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
             storageManager = LockBasedStorageManager.NO_LOCKS,
             builtIns = DefaultBuiltIns.Instance,
-            packageAccessHandler = null
         )
         module.setDependencies(listOf(DefaultBuiltIns.Instance.builtInsModule, module))
 
@@ -210,11 +209,10 @@ private fun createAndInitializeKlibBasedStdlibCommonDescriptor(
 
     val klibPackageFragmentProvider = metadataModuleDescriptorFactory.createPackageFragmentProvider(
         library = stdlibKlib,
-        packageAccessHandler = null,
         customMetadataProtoLoader = null,
         storageManager = projectContext.storageManager,
         moduleDescriptor = stdlibCommonDescriptor,
-        configuration = KlibCompilerDeserializationConfiguration(environment.configuration.languageVersionSettings),
+        configuration = CommonCompilerDeserializationConfiguration(environment.configuration.languageVersionSettings),
         compositePackageFragmentAddend = null,
         lookupTracker = LookupTracker.DO_NOTHING,
     )
@@ -249,7 +247,7 @@ private class CommonDependenciesContainerImpl(dependencies: Collection<ModuleDes
 
     override fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptor {
         return moduleDescriptorByModuleInfo[moduleInfo]
-            ?: error("Unknown module info $moduleInfo")
+            ?: testInfraError("Unknown module info $moduleInfo")
     }
 
     override fun registerDependencyForAllModules(moduleInfo: ModuleInfo, descriptorForModule: ModuleDescriptorImpl) = Unit

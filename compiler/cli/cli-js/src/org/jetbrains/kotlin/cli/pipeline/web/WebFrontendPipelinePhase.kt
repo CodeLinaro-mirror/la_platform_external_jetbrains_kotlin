@@ -1,15 +1,16 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.cli.pipeline.web
 
 import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.cli.CliDiagnostics.COMPILER_ARGUMENTS_ERROR
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.extensionsStorage
+import org.jetbrains.kotlin.cli.hasMessageCollectorErrors
 import org.jetbrains.kotlin.cli.js.platformChecker
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
@@ -18,10 +19,10 @@ import org.jetbrains.kotlin.cli.pipeline.CheckCompilationErrors
 import org.jetbrains.kotlin.cli.pipeline.ConfigurationPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.PerformanceNotifications
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
+import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.config.perfManager
 import org.jetbrains.kotlin.config.useLightTree
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
@@ -34,7 +35,7 @@ import org.jetbrains.kotlin.fir.session.KlibIcData
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
-import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInProductionPipeline
+import org.jetbrains.kotlin.ir.backend.js.loadWebKlibs
 import org.jetbrains.kotlin.js.config.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtFile
@@ -55,17 +56,16 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
             it.notifyCurrentPhaseFinishedIfNeeded()
             it.notifyPhaseStarted(PhaseType.Analysis)
         }
-        val messageCollector = configuration.messageCollector
+        val diagnosticsCollector = configuration.diagnosticsCollector
         val libraries = configuration.libraries
         val friendLibraries = configuration.friendLibraries
 
         val isWasm = configuration.wasmCompilation
 
-        val klibs = loadWebKlibsInProductionPipeline(configuration, configuration.platformChecker)
+        val klibs = loadWebKlibs(configuration, configuration.platformChecker)
 
         val mainModule = MainModule.SourceFiles(environmentForJS.getSourceFiles())
         val moduleStructure = ModulesStructure(
-            project = environmentForJS.project,
             mainModule = mainModule,
             compilerConfiguration = configuration,
             klibs = klibs,
@@ -78,8 +78,7 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
             val groupedSources =
                 collectSources(
                     configuration,
-                    environmentForJS.toVfsBasedProjectEnvironment(),
-                    messageCollector
+                    environmentForJS.toVfsBasedProjectEnvironment()
                 )
 
             if (
@@ -88,7 +87,7 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
                 !configuration.jsIncrementalCompilationEnabled
             ) {
                 if (!configuration.printVersion) {
-                    messageCollector.report(CompilerMessageSeverity.ERROR, "No source files")
+                    configuration.report(COMPILER_ARGUMENTS_ERROR, "No source files")
                 }
                 return null
             }
@@ -102,7 +101,7 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
                 ktSourceFiles = groupedSources.commonSources + groupedSources.platformSources,
                 libraries = libraries,
                 friendLibraries = friendLibraries,
-                diagnosticsReporter = input.diagnosticCollector,
+                diagnosticsReporter = configuration.diagnosticsCollector,
                 performanceManager = configuration.perfManager,
                 incrementalDataProvider = configuration.incrementalDataProvider,
                 extensionStorage = extensionStorage,
@@ -118,7 +117,7 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
                 !configuration.jsIncrementalCompilationEnabled
             ) {
                 if (!configuration.printVersion) {
-                    messageCollector.report(CompilerMessageSeverity.ERROR, "No source files")
+                    configuration.report(COMPILER_ARGUMENTS_ERROR, "No source files")
                 }
                 return null
             }
@@ -129,7 +128,7 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
                 ktFiles = sourceFiles,
                 libraries = libraries,
                 friendLibraries = friendLibraries,
-                diagnosticsReporter = input.diagnosticCollector,
+                diagnosticsReporter = configuration.diagnosticsCollector,
                 incrementalDataProvider = configuration.incrementalDataProvider,
                 extensionStorage = extensionStorage,
                 useWasmPlatform = isWasm,
@@ -141,9 +140,8 @@ object WebFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, W
         return WebFrontendPipelineArtifact(
             analyzedOutput,
             configuration,
-            input.diagnosticCollector,
             moduleStructure,
-            hasErrors = messageCollector.hasErrors() || input.diagnosticCollector.hasErrors,
+            hasErrors = configuration.hasMessageCollectorErrors() || diagnosticsCollector.hasErrors,
         )
     }
 

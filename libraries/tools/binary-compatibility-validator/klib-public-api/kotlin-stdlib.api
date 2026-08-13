@@ -41,6 +41,10 @@ open annotation class kotlin.contracts/ExperimentalExtendedContracts : kotlin/An
     constructor <init>() // kotlin.contracts/ExperimentalExtendedContracts.<init>|<init>(){}[0]
 }
 
+open annotation class kotlin.coroutines/ExperimentalStdlibCoroutineSupportApi : kotlin/Annotation { // kotlin.coroutines/ExperimentalStdlibCoroutineSupportApi|null[0]
+    constructor <init>() // kotlin.coroutines/ExperimentalStdlibCoroutineSupportApi.<init>|<init>(){}[0]
+}
+
 open annotation class kotlin.coroutines/RestrictsSuspension : kotlin/Annotation { // kotlin.coroutines/RestrictsSuspension|null[0]
     constructor <init>() // kotlin.coroutines/RestrictsSuspension.<init>|<init>(){}[0]
 }
@@ -83,6 +87,10 @@ open annotation class kotlin.js/ExperimentalJsExport : kotlin/Annotation { // ko
 
 open annotation class kotlin.js/ExperimentalJsFileName : kotlin/Annotation { // kotlin.js/ExperimentalJsFileName|null[0]
     constructor <init>() // kotlin.js/ExperimentalJsFileName.<init>|<init>(){}[0]
+}
+
+open annotation class kotlin.js/ExperimentalJsNoRuntime : kotlin/Annotation { // kotlin.js/ExperimentalJsNoRuntime|null[0]
+    constructor <init>() // kotlin.js/ExperimentalJsNoRuntime.<init>|<init>(){}[0]
 }
 
 open annotation class kotlin.js/ExperimentalJsReflectionCreateInstance : kotlin/Annotation { // kotlin.js/ExperimentalJsReflectionCreateInstance|null[0]
@@ -560,6 +568,10 @@ abstract interface <#A: in kotlin/Any?> kotlin/Comparable { // kotlin/Comparable
     abstract fun compareTo(#A): kotlin/Int // kotlin/Comparable.compareTo|compareTo(1:0){}[0]
 }
 
+abstract interface <#A: kotlin.coroutines.debug/StackTraceRecoverable<#A> & kotlin/Throwable> kotlin.coroutines.debug/StackTraceRecoverable { // kotlin.coroutines.debug/StackTraceRecoverable|null[0]
+    abstract fun copyForStackTraceRecovery(): #A? // kotlin.coroutines.debug/StackTraceRecoverable.copyForStackTraceRecovery|copyForStackTraceRecovery(){}[0]
+}
+
 abstract interface <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?> kotlin.reflect/KMutableProperty2 : kotlin.reflect/KMutableProperty<#C>, kotlin.reflect/KProperty2<#A, #B, #C> { // kotlin.reflect/KMutableProperty2|null[0]
     abstract fun set(#A, #B, #C) // kotlin.reflect/KMutableProperty2.set|set(1:0;1:1;1:2){}[0]
 }
@@ -590,6 +602,11 @@ abstract interface <#A: kotlin/Any?, #B: kotlin/Any?> kotlin.collections/Mutable
 
     // Targets: [js]
     open fun asJsMapView(): kotlin.js.collections/JsMap<#A, #B> // kotlin.collections/MutableMap.asJsMapView|asJsMapView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/MutableMap.Companion|null[0]
+        final fun <#A2: kotlin/Any?, #B2: kotlin/Any?> fromJsMap(kotlin.js.collections/JsReadonlyMap<#A2, #B2>): kotlin.collections/MutableMap<#A2, #B2> // kotlin.collections/MutableMap.Companion.fromJsMap|fromJsMap(kotlin.js.collections.JsReadonlyMap<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: kotlin/Any?, #B: kotlin/Any?> kotlin.reflect/KMutableProperty1 : kotlin.reflect/KMutableProperty<#B>, kotlin.reflect/KProperty1<#A, #B> { // kotlin.reflect/KMutableProperty1|null[0]
@@ -625,6 +642,11 @@ abstract interface <#A: kotlin/Any?, #B: out kotlin/Any?> kotlin.collections/Map
 
     // Targets: [js]
     open fun asJsReadonlyMapView(): kotlin.js.collections/JsReadonlyMap<#A, #B> // kotlin.collections/Map.asJsReadonlyMapView|asJsReadonlyMapView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/Map.Companion|null[0]
+        final fun <#A2: kotlin/Any?, #B2: kotlin/Any?> fromJsMap(kotlin.js.collections/JsReadonlyMap<#A2, #B2>): kotlin.collections/Map<#A2, #B2> // kotlin.collections/Map.Companion.fromJsMap|fromJsMap(kotlin.js.collections.JsReadonlyMap<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: kotlin/Any?, #B: out kotlin/Any?> kotlin.reflect/KProperty1 : kotlin.reflect/KProperty<#B>, kotlin/Function1<#A, #B> { // kotlin.reflect/KProperty1|null[0]
@@ -661,6 +683,11 @@ abstract interface <#A: kotlin/Any?> kotlin.collections/MutableList : kotlin.col
 
     // Targets: [js]
     open fun asJsArrayView(): kotlin.js.collections/JsArray<#A> // kotlin.collections/MutableList.asJsArrayView|asJsArrayView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/MutableList.Companion|null[0]
+        final fun <#A2: kotlin/Any?> fromJsArray(kotlin.js.collections/JsReadonlyArray<#A2>): kotlin.collections/MutableList<#A2> // kotlin.collections/MutableList.Companion.fromJsArray|fromJsArray(kotlin.js.collections.JsReadonlyArray<0:0>){0§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: kotlin/Any?> kotlin.collections/MutableListIterator : kotlin.collections/ListIterator<#A>, kotlin.collections/MutableIterator<#A> { // kotlin.collections/MutableListIterator|null[0]
@@ -682,6 +709,11 @@ abstract interface <#A: kotlin/Any?> kotlin.collections/MutableSet : kotlin.coll
 
     // Targets: [js]
     open fun asJsSetView(): kotlin.js.collections/JsSet<#A> // kotlin.collections/MutableSet.asJsSetView|asJsSetView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/MutableSet.Companion|null[0]
+        final fun <#A2: kotlin/Any?> fromJsSet(kotlin.js.collections/JsReadonlySet<#A2>): kotlin.collections/MutableSet<#A2> // kotlin.collections/MutableSet.Companion.fromJsSet|fromJsSet(kotlin.js.collections.JsReadonlySet<0:0>){0§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: kotlin/Any?> kotlin.reflect/KMutableProperty : kotlin.reflect/KProperty<#A> // kotlin.reflect/KMutableProperty|null[0]
@@ -752,6 +784,11 @@ abstract interface <#A: out kotlin/Any?> kotlin.collections/List : kotlin.collec
 
     // Targets: [js]
     open fun asJsReadonlyArrayView(): kotlin.js.collections/JsReadonlyArray<#A> // kotlin.collections/List.asJsReadonlyArrayView|asJsReadonlyArrayView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/List.Companion|null[0]
+        final fun <#A2: kotlin/Any?> fromJsArray(kotlin.js.collections/JsReadonlyArray<#A2>): kotlin.collections/List<#A2> // kotlin.collections/List.Companion.fromJsArray|fromJsArray(kotlin.js.collections.JsReadonlyArray<0:0>){0§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: out kotlin/Any?> kotlin.collections/ListIterator : kotlin.collections/Iterator<#A> { // kotlin.collections/ListIterator|null[0]
@@ -782,6 +819,11 @@ abstract interface <#A: out kotlin/Any?> kotlin.collections/Set : kotlin.collect
 
     // Targets: [js]
     open fun asJsReadonlySetView(): kotlin.js.collections/JsReadonlySet<#A> // kotlin.collections/Set.asJsReadonlySetView|asJsReadonlySetView(){}[0]
+
+    // Targets: [js]
+    final object Companion { // kotlin.collections/Set.Companion|null[0]
+        final fun <#A2: kotlin/Any?> fromJsSet(kotlin.js.collections/JsReadonlySet<#A2>): kotlin.collections/Set<#A2> // kotlin.collections/Set.Companion.fromJsSet|fromJsSet(kotlin.js.collections.JsReadonlySet<0:0>){0§<kotlin.Any?>}[0]
+    }
 }
 
 abstract interface <#A: out kotlin/Any?> kotlin.reflect/KFunction : kotlin.reflect/KCallable<#A>, kotlin/Function<#A> // kotlin.reflect/KFunction|null[0]
@@ -818,6 +860,7 @@ abstract interface kotlin.contracts/ContractBuilder { // kotlin.contracts/Contra
     abstract fun (kotlin/Boolean).implies(kotlin.contracts/ReturnsNotNull) // kotlin.contracts/ContractBuilder.implies|implies@kotlin.Boolean(kotlin.contracts.ReturnsNotNull){}[0]
     abstract fun <#A1: kotlin/Any?> (kotlin/Boolean).holdsIn(kotlin/Function<#A1>): kotlin.contracts/HoldsIn // kotlin.contracts/ContractBuilder.holdsIn|holdsIn@kotlin.Boolean(kotlin.Function<0:0>){0§<kotlin.Any?>}[0]
     abstract fun <#A1: kotlin/Any?> callsInPlace(kotlin/Function<#A1>, kotlin.contracts/InvocationKind = ...): kotlin.contracts/CallsInPlace // kotlin.contracts/ContractBuilder.callsInPlace|callsInPlace(kotlin.Function<0:0>;kotlin.contracts.InvocationKind){0§<kotlin.Any?>}[0]
+    abstract fun <#A1: kotlin/Any?> returnsResultOf(kotlin/Function<#A1>) // kotlin.contracts/ContractBuilder.returnsResultOf|returnsResultOf(kotlin.Function<0:0>){0§<kotlin.Any?>}[0]
     abstract fun returns(): kotlin.contracts/Returns // kotlin.contracts/ContractBuilder.returns|returns(){}[0]
     abstract fun returns(kotlin/Any?): kotlin.contracts/Returns // kotlin.contracts/ContractBuilder.returns|returns(kotlin.Any?){}[0]
     abstract fun returnsNotNull(): kotlin.contracts/ReturnsNotNull // kotlin.contracts/ContractBuilder.returnsNotNull|returnsNotNull(){}[0]
@@ -5132,6 +5175,7 @@ final fun (kotlin/Array<out kotlin/ULong>).kotlin.collections/toULongArray(): ko
 final fun (kotlin/Array<out kotlin/UShort>).kotlin.collections/sum(): kotlin/UInt // kotlin.collections/sum|sum@kotlin.Array<out|kotlin.UShort>(){}[0]
 final fun (kotlin/Array<out kotlin/UShort>).kotlin.collections/toUShortArray(): kotlin/UShortArray // kotlin.collections/toUShortArray|toUShortArray@kotlin.Array<out|kotlin.UShort>(){}[0]
 final fun (kotlin/AutoCloseable?).kotlin/closeFinally(kotlin/Throwable?) // kotlin/closeFinally|closeFinally@kotlin.AutoCloseable?(kotlin.Throwable?){}[0]
+final fun (kotlin/BooleanArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.BooleanArray(){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.BooleanArray(){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Boolean> // kotlin.collections/asIterable|asIterable@kotlin.BooleanArray(){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Boolean> // kotlin.collections/asSequence|asSequence@kotlin.BooleanArray(){}[0]
@@ -5148,6 +5192,9 @@ final fun (kotlin/BooleanArray).kotlin.collections/firstOrNull(): kotlin/Boolean
 final fun (kotlin/BooleanArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Boolean? // kotlin.collections/getOrNull|getOrNull@kotlin.BooleanArray(kotlin.Int){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/indexOf(kotlin/Boolean): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.BooleanArray(kotlin.Boolean){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Boolean>): kotlin.collections/Set<kotlin/Boolean> // kotlin.collections/intersect|intersect@kotlin.BooleanArray(kotlin.collections.Iterable<kotlin.Boolean>){}[0]
+final fun (kotlin/BooleanArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.BooleanArray(){}[0]
+final fun (kotlin/BooleanArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.BooleanArray(){}[0]
+final fun (kotlin/BooleanArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Boolean>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.BooleanArray(kotlin.Comparator<in|kotlin.Boolean>){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Boolean, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.BooleanArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Boolean,kotlin.CharSequence>?){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/last(): kotlin/Boolean // kotlin.collections/last|last@kotlin.BooleanArray(){}[0]
 final fun (kotlin/BooleanArray).kotlin.collections/lastIndexOf(kotlin/Boolean): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.BooleanArray(kotlin.Boolean){}[0]
@@ -5202,6 +5249,7 @@ final fun (kotlin/Byte).kotlin.ranges/until(kotlin/Short): kotlin.ranges/IntRang
 final fun (kotlin/Byte).kotlin.text/toHexString(kotlin.text/HexFormat = ...): kotlin/String // kotlin.text/toHexString|toHexString@kotlin.Byte(kotlin.text.HexFormat){}[0]
 final fun (kotlin/Byte).kotlin/rotateLeft(kotlin/Int): kotlin/Byte // kotlin/rotateLeft|rotateLeft@kotlin.Byte(kotlin.Int){}[0]
 final fun (kotlin/Byte).kotlin/rotateRight(kotlin/Int): kotlin/Byte // kotlin/rotateRight|rotateRight@kotlin.Byte(kotlin.Int){}[0]
+final fun (kotlin/ByteArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.ByteArray(){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.ByteArray(){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Byte> // kotlin.collections/asIterable|asIterable@kotlin.ByteArray(){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Byte> // kotlin.collections/asSequence|asSequence@kotlin.ByteArray(){}[0]
@@ -5218,6 +5266,9 @@ final fun (kotlin/ByteArray).kotlin.collections/firstOrNull(): kotlin/Byte? // k
 final fun (kotlin/ByteArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Byte? // kotlin.collections/getOrNull|getOrNull@kotlin.ByteArray(kotlin.Int){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/indexOf(kotlin/Byte): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.ByteArray(kotlin.Byte){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Byte>): kotlin.collections/Set<kotlin/Byte> // kotlin.collections/intersect|intersect@kotlin.ByteArray(kotlin.collections.Iterable<kotlin.Byte>){}[0]
+final fun (kotlin/ByteArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.ByteArray(){}[0]
+final fun (kotlin/ByteArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.ByteArray(){}[0]
+final fun (kotlin/ByteArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Byte>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.ByteArray(kotlin.Comparator<in|kotlin.Byte>){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Byte, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.ByteArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Byte,kotlin.CharSequence>?){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/last(): kotlin/Byte // kotlin.collections/last|last@kotlin.ByteArray(){}[0]
 final fun (kotlin/ByteArray).kotlin.collections/lastIndexOf(kotlin/Byte): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.ByteArray(kotlin.Byte){}[0]
@@ -5297,6 +5348,7 @@ final fun (kotlin/Char).kotlin.text/isWhitespace(): kotlin/Boolean // kotlin.tex
 final fun (kotlin/Char).kotlin.text/titlecase(): kotlin/String // kotlin.text/titlecase|titlecase@kotlin.Char(){}[0]
 final fun (kotlin/Char).kotlin.text/titlecaseChar(): kotlin/Char // kotlin.text/titlecaseChar|titlecaseChar@kotlin.Char(){}[0]
 final fun (kotlin/Char).kotlin.text/uppercaseChar(): kotlin/Char // kotlin.text/uppercaseChar|uppercaseChar@kotlin.Char(){}[0]
+final fun (kotlin/CharArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.CharArray(){}[0]
 final fun (kotlin/CharArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.CharArray(){}[0]
 final fun (kotlin/CharArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Char> // kotlin.collections/asIterable|asIterable@kotlin.CharArray(){}[0]
 final fun (kotlin/CharArray).kotlin.collections/asList(): kotlin.collections/List<kotlin/Char> // kotlin.collections/asList|asList@kotlin.CharArray(){}[0]
@@ -5314,6 +5366,9 @@ final fun (kotlin/CharArray).kotlin.collections/firstOrNull(): kotlin/Char? // k
 final fun (kotlin/CharArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Char? // kotlin.collections/getOrNull|getOrNull@kotlin.CharArray(kotlin.Int){}[0]
 final fun (kotlin/CharArray).kotlin.collections/indexOf(kotlin/Char): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.CharArray(kotlin.Char){}[0]
 final fun (kotlin/CharArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Char>): kotlin.collections/Set<kotlin/Char> // kotlin.collections/intersect|intersect@kotlin.CharArray(kotlin.collections.Iterable<kotlin.Char>){}[0]
+final fun (kotlin/CharArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.CharArray(){}[0]
+final fun (kotlin/CharArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.CharArray(){}[0]
+final fun (kotlin/CharArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Char>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.CharArray(kotlin.Comparator<in|kotlin.Char>){}[0]
 final fun (kotlin/CharArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Char, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.CharArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Char,kotlin.CharSequence>?){}[0]
 final fun (kotlin/CharArray).kotlin.collections/last(): kotlin/Char // kotlin.collections/last|last@kotlin.CharArray(){}[0]
 final fun (kotlin/CharArray).kotlin.collections/lastIndexOf(kotlin/Char): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.CharArray(kotlin.Char){}[0]
@@ -5472,6 +5527,7 @@ final fun (kotlin/Double).kotlin.time/toDuration(kotlin.time/DurationUnit): kotl
 final fun (kotlin/Double).kotlin/isFinite(): kotlin/Boolean // kotlin/isFinite|isFinite@kotlin.Double(){}[0]
 final fun (kotlin/Double).kotlin/isInfinite(): kotlin/Boolean // kotlin/isInfinite|isInfinite@kotlin.Double(){}[0]
 final fun (kotlin/Double).kotlin/isNaN(): kotlin/Boolean // kotlin/isNaN|isNaN@kotlin.Double(){}[0]
+final fun (kotlin/DoubleArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.DoubleArray(){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.DoubleArray(){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Double> // kotlin.collections/asIterable|asIterable@kotlin.DoubleArray(){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Double> // kotlin.collections/asSequence|asSequence@kotlin.DoubleArray(){}[0]
@@ -5488,6 +5544,9 @@ final fun (kotlin/DoubleArray).kotlin.collections/firstOrNull(): kotlin/Double? 
 final fun (kotlin/DoubleArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Double? // kotlin.collections/getOrNull|getOrNull@kotlin.DoubleArray(kotlin.Int){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/indexOf(kotlin/Double): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.DoubleArray(kotlin.Double){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Double>): kotlin.collections/Set<kotlin/Double> // kotlin.collections/intersect|intersect@kotlin.DoubleArray(kotlin.collections.Iterable<kotlin.Double>){}[0]
+final fun (kotlin/DoubleArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.DoubleArray(){}[0]
+final fun (kotlin/DoubleArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.DoubleArray(){}[0]
+final fun (kotlin/DoubleArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Double>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.DoubleArray(kotlin.Comparator<in|kotlin.Double>){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Double, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.DoubleArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Double,kotlin.CharSequence>?){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/last(): kotlin/Double // kotlin.collections/last|last@kotlin.DoubleArray(){}[0]
 final fun (kotlin/DoubleArray).kotlin.collections/lastIndexOf(kotlin/Double): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.DoubleArray(kotlin.Double){}[0]
@@ -5549,6 +5608,7 @@ final fun (kotlin/Float).kotlin.ranges/rangeUntil(kotlin/Float): kotlin.ranges/O
 final fun (kotlin/Float).kotlin/isFinite(): kotlin/Boolean // kotlin/isFinite|isFinite@kotlin.Float(){}[0]
 final fun (kotlin/Float).kotlin/isInfinite(): kotlin/Boolean // kotlin/isInfinite|isInfinite@kotlin.Float(){}[0]
 final fun (kotlin/Float).kotlin/isNaN(): kotlin/Boolean // kotlin/isNaN|isNaN@kotlin.Float(){}[0]
+final fun (kotlin/FloatArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.FloatArray(){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.FloatArray(){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Float> // kotlin.collections/asIterable|asIterable@kotlin.FloatArray(){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Float> // kotlin.collections/asSequence|asSequence@kotlin.FloatArray(){}[0]
@@ -5565,6 +5625,9 @@ final fun (kotlin/FloatArray).kotlin.collections/firstOrNull(): kotlin/Float? //
 final fun (kotlin/FloatArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Float? // kotlin.collections/getOrNull|getOrNull@kotlin.FloatArray(kotlin.Int){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/indexOf(kotlin/Float): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.FloatArray(kotlin.Float){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Float>): kotlin.collections/Set<kotlin/Float> // kotlin.collections/intersect|intersect@kotlin.FloatArray(kotlin.collections.Iterable<kotlin.Float>){}[0]
+final fun (kotlin/FloatArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.FloatArray(){}[0]
+final fun (kotlin/FloatArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.FloatArray(){}[0]
+final fun (kotlin/FloatArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Float>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.FloatArray(kotlin.Comparator<in|kotlin.Float>){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Float, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.FloatArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Float,kotlin.CharSequence>?){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/last(): kotlin/Float // kotlin.collections/last|last@kotlin.FloatArray(){}[0]
 final fun (kotlin/FloatArray).kotlin.collections/lastIndexOf(kotlin/Float): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.FloatArray(kotlin.Float){}[0]
@@ -5640,6 +5703,7 @@ final fun (kotlin/Int).kotlin/rotateLeft(kotlin/Int): kotlin/Int // kotlin/rotat
 final fun (kotlin/Int).kotlin/rotateRight(kotlin/Int): kotlin/Int // kotlin/rotateRight|rotateRight@kotlin.Int(kotlin.Int){}[0]
 final fun (kotlin/Int).kotlin/takeHighestOneBit(): kotlin/Int // kotlin/takeHighestOneBit|takeHighestOneBit@kotlin.Int(){}[0]
 final fun (kotlin/Int).kotlin/takeLowestOneBit(): kotlin/Int // kotlin/takeLowestOneBit|takeLowestOneBit@kotlin.Int(){}[0]
+final fun (kotlin/IntArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.IntArray(){}[0]
 final fun (kotlin/IntArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.IntArray(){}[0]
 final fun (kotlin/IntArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Int> // kotlin.collections/asIterable|asIterable@kotlin.IntArray(){}[0]
 final fun (kotlin/IntArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Int> // kotlin.collections/asSequence|asSequence@kotlin.IntArray(){}[0]
@@ -5656,6 +5720,9 @@ final fun (kotlin/IntArray).kotlin.collections/firstOrNull(): kotlin/Int? // kot
 final fun (kotlin/IntArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Int? // kotlin.collections/getOrNull|getOrNull@kotlin.IntArray(kotlin.Int){}[0]
 final fun (kotlin/IntArray).kotlin.collections/indexOf(kotlin/Int): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.IntArray(kotlin.Int){}[0]
 final fun (kotlin/IntArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Int>): kotlin.collections/Set<kotlin/Int> // kotlin.collections/intersect|intersect@kotlin.IntArray(kotlin.collections.Iterable<kotlin.Int>){}[0]
+final fun (kotlin/IntArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.IntArray(){}[0]
+final fun (kotlin/IntArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.IntArray(){}[0]
+final fun (kotlin/IntArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Int>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.IntArray(kotlin.Comparator<in|kotlin.Int>){}[0]
 final fun (kotlin/IntArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Int, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.IntArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Int,kotlin.CharSequence>?){}[0]
 final fun (kotlin/IntArray).kotlin.collections/last(): kotlin/Int // kotlin.collections/last|last@kotlin.IntArray(){}[0]
 final fun (kotlin/IntArray).kotlin.collections/lastIndexOf(kotlin/Int): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.IntArray(kotlin.Int){}[0]
@@ -5727,6 +5794,7 @@ final fun (kotlin/Long).kotlin/countLeadingZeroBits(): kotlin/Int // kotlin/coun
 final fun (kotlin/Long).kotlin/rotateLeft(kotlin/Int): kotlin/Long // kotlin/rotateLeft|rotateLeft@kotlin.Long(kotlin.Int){}[0]
 final fun (kotlin/Long).kotlin/takeHighestOneBit(): kotlin/Long // kotlin/takeHighestOneBit|takeHighestOneBit@kotlin.Long(){}[0]
 final fun (kotlin/Long).kotlin/takeLowestOneBit(): kotlin/Long // kotlin/takeLowestOneBit|takeLowestOneBit@kotlin.Long(){}[0]
+final fun (kotlin/LongArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.LongArray(){}[0]
 final fun (kotlin/LongArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.LongArray(){}[0]
 final fun (kotlin/LongArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Long> // kotlin.collections/asIterable|asIterable@kotlin.LongArray(){}[0]
 final fun (kotlin/LongArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Long> // kotlin.collections/asSequence|asSequence@kotlin.LongArray(){}[0]
@@ -5744,6 +5812,9 @@ final fun (kotlin/LongArray).kotlin.collections/firstOrNull(): kotlin/Long? // k
 final fun (kotlin/LongArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Long? // kotlin.collections/getOrNull|getOrNull@kotlin.LongArray(kotlin.Int){}[0]
 final fun (kotlin/LongArray).kotlin.collections/indexOf(kotlin/Long): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.LongArray(kotlin.Long){}[0]
 final fun (kotlin/LongArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Long>): kotlin.collections/Set<kotlin/Long> // kotlin.collections/intersect|intersect@kotlin.LongArray(kotlin.collections.Iterable<kotlin.Long>){}[0]
+final fun (kotlin/LongArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.LongArray(){}[0]
+final fun (kotlin/LongArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.LongArray(){}[0]
+final fun (kotlin/LongArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Long>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.LongArray(kotlin.Comparator<in|kotlin.Long>){}[0]
 final fun (kotlin/LongArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Long, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.LongArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Long,kotlin.CharSequence>?){}[0]
 final fun (kotlin/LongArray).kotlin.collections/last(): kotlin/Long // kotlin.collections/last|last@kotlin.LongArray(){}[0]
 final fun (kotlin/LongArray).kotlin.collections/lastIndexOf(kotlin/Long): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.LongArray(kotlin.Long){}[0]
@@ -5812,6 +5883,7 @@ final fun (kotlin/Short).kotlin.ranges/until(kotlin/Short): kotlin.ranges/IntRan
 final fun (kotlin/Short).kotlin.text/toHexString(kotlin.text/HexFormat = ...): kotlin/String // kotlin.text/toHexString|toHexString@kotlin.Short(kotlin.text.HexFormat){}[0]
 final fun (kotlin/Short).kotlin/rotateLeft(kotlin/Int): kotlin/Short // kotlin/rotateLeft|rotateLeft@kotlin.Short(kotlin.Int){}[0]
 final fun (kotlin/Short).kotlin/rotateRight(kotlin/Int): kotlin/Short // kotlin/rotateRight|rotateRight@kotlin.Short(kotlin.Int){}[0]
+final fun (kotlin/ShortArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.ShortArray(){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.ShortArray(){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/asIterable(): kotlin.collections/Iterable<kotlin/Short> // kotlin.collections/asIterable|asIterable@kotlin.ShortArray(){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/asSequence(): kotlin.sequences/Sequence<kotlin/Short> // kotlin.collections/asSequence|asSequence@kotlin.ShortArray(){}[0]
@@ -5828,6 +5900,9 @@ final fun (kotlin/ShortArray).kotlin.collections/firstOrNull(): kotlin/Short? //
 final fun (kotlin/ShortArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/Short? // kotlin.collections/getOrNull|getOrNull@kotlin.ShortArray(kotlin.Int){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/indexOf(kotlin/Short): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.ShortArray(kotlin.Short){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/intersect(kotlin.collections/Iterable<kotlin/Short>): kotlin.collections/Set<kotlin/Short> // kotlin.collections/intersect|intersect@kotlin.ShortArray(kotlin.collections.Iterable<kotlin.Short>){}[0]
+final fun (kotlin/ShortArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.ShortArray(){}[0]
+final fun (kotlin/ShortArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.ShortArray(){}[0]
+final fun (kotlin/ShortArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/Short>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.ShortArray(kotlin.Comparator<in|kotlin.Short>){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<kotlin/Short, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.ShortArray(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<kotlin.Short,kotlin.CharSequence>?){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/last(): kotlin/Short // kotlin.collections/last|last@kotlin.ShortArray(){}[0]
 final fun (kotlin/ShortArray).kotlin.collections/lastIndexOf(kotlin/Short): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.ShortArray(kotlin.Short){}[0]
@@ -5975,12 +6050,16 @@ final fun (kotlin/UByte).kotlin.ranges/coerceIn(kotlin/UByte, kotlin/UByte): kot
 final fun (kotlin/UByte).kotlin.ranges/downTo(kotlin/UByte): kotlin.ranges/UIntProgression // kotlin.ranges/downTo|downTo@kotlin.UByte(kotlin.UByte){}[0]
 final fun (kotlin/UByte).kotlin.ranges/until(kotlin/UByte): kotlin.ranges/UIntRange // kotlin.ranges/until|until@kotlin.UByte(kotlin.UByte){}[0]
 final fun (kotlin/UByte).kotlin.text/toString(kotlin/Int): kotlin/String // kotlin.text/toString|toString@kotlin.UByte(kotlin.Int){}[0]
+final fun (kotlin/UByteArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.UByteArray(){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/asList(): kotlin.collections/List<kotlin/UByte> // kotlin.collections/asList|asList@kotlin.UByteArray(){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/drop(kotlin/Int): kotlin.collections/List<kotlin/UByte> // kotlin.collections/drop|drop@kotlin.UByteArray(kotlin.Int){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/dropLast(kotlin/Int): kotlin.collections/List<kotlin/UByte> // kotlin.collections/dropLast|dropLast@kotlin.UByteArray(kotlin.Int){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/fill(kotlin/UByte, kotlin/Int = ..., kotlin/Int = ...) // kotlin.collections/fill|fill@kotlin.UByteArray(kotlin.UByte;kotlin.Int;kotlin.Int){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/firstOrNull(): kotlin/UByte? // kotlin.collections/firstOrNull|firstOrNull@kotlin.UByteArray(){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/UByte? // kotlin.collections/getOrNull|getOrNull@kotlin.UByteArray(kotlin.Int){}[0]
+final fun (kotlin/UByteArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.UByteArray(){}[0]
+final fun (kotlin/UByteArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.UByteArray(){}[0]
+final fun (kotlin/UByteArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/UByte>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.UByteArray(kotlin.Comparator<in|kotlin.UByte>){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/lastOrNull(): kotlin/UByte? // kotlin.collections/lastOrNull|lastOrNull@kotlin.UByteArray(){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/max(): kotlin/UByte // kotlin.collections/max|max@kotlin.UByteArray(){}[0]
 final fun (kotlin/UByteArray).kotlin.collections/maxOrNull(): kotlin/UByte? // kotlin.collections/maxOrNull|maxOrNull@kotlin.UByteArray(){}[0]
@@ -6024,12 +6103,16 @@ final fun (kotlin/UInt).kotlin.ranges/coerceIn(kotlin/UInt, kotlin/UInt): kotlin
 final fun (kotlin/UInt).kotlin.ranges/downTo(kotlin/UInt): kotlin.ranges/UIntProgression // kotlin.ranges/downTo|downTo@kotlin.UInt(kotlin.UInt){}[0]
 final fun (kotlin/UInt).kotlin.ranges/until(kotlin/UInt): kotlin.ranges/UIntRange // kotlin.ranges/until|until@kotlin.UInt(kotlin.UInt){}[0]
 final fun (kotlin/UInt).kotlin.text/toString(kotlin/Int): kotlin/String // kotlin.text/toString|toString@kotlin.UInt(kotlin.Int){}[0]
+final fun (kotlin/UIntArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.UIntArray(){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/asList(): kotlin.collections/List<kotlin/UInt> // kotlin.collections/asList|asList@kotlin.UIntArray(){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/drop(kotlin/Int): kotlin.collections/List<kotlin/UInt> // kotlin.collections/drop|drop@kotlin.UIntArray(kotlin.Int){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/dropLast(kotlin/Int): kotlin.collections/List<kotlin/UInt> // kotlin.collections/dropLast|dropLast@kotlin.UIntArray(kotlin.Int){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/fill(kotlin/UInt, kotlin/Int = ..., kotlin/Int = ...) // kotlin.collections/fill|fill@kotlin.UIntArray(kotlin.UInt;kotlin.Int;kotlin.Int){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/firstOrNull(): kotlin/UInt? // kotlin.collections/firstOrNull|firstOrNull@kotlin.UIntArray(){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/UInt? // kotlin.collections/getOrNull|getOrNull@kotlin.UIntArray(kotlin.Int){}[0]
+final fun (kotlin/UIntArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.UIntArray(){}[0]
+final fun (kotlin/UIntArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.UIntArray(){}[0]
+final fun (kotlin/UIntArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/UInt>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.UIntArray(kotlin.Comparator<in|kotlin.UInt>){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/lastOrNull(): kotlin/UInt? // kotlin.collections/lastOrNull|lastOrNull@kotlin.UIntArray(){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/max(): kotlin/UInt // kotlin.collections/max|max@kotlin.UIntArray(){}[0]
 final fun (kotlin/UIntArray).kotlin.collections/maxOrNull(): kotlin/UInt? // kotlin.collections/maxOrNull|maxOrNull@kotlin.UIntArray(){}[0]
@@ -6073,12 +6156,16 @@ final fun (kotlin/ULong).kotlin.ranges/coerceIn(kotlin/ULong, kotlin/ULong): kot
 final fun (kotlin/ULong).kotlin.ranges/downTo(kotlin/ULong): kotlin.ranges/ULongProgression // kotlin.ranges/downTo|downTo@kotlin.ULong(kotlin.ULong){}[0]
 final fun (kotlin/ULong).kotlin.ranges/until(kotlin/ULong): kotlin.ranges/ULongRange // kotlin.ranges/until|until@kotlin.ULong(kotlin.ULong){}[0]
 final fun (kotlin/ULong).kotlin.text/toString(kotlin/Int): kotlin/String // kotlin.text/toString|toString@kotlin.ULong(kotlin.Int){}[0]
+final fun (kotlin/ULongArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.ULongArray(){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/asList(): kotlin.collections/List<kotlin/ULong> // kotlin.collections/asList|asList@kotlin.ULongArray(){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/drop(kotlin/Int): kotlin.collections/List<kotlin/ULong> // kotlin.collections/drop|drop@kotlin.ULongArray(kotlin.Int){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/dropLast(kotlin/Int): kotlin.collections/List<kotlin/ULong> // kotlin.collections/dropLast|dropLast@kotlin.ULongArray(kotlin.Int){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/fill(kotlin/ULong, kotlin/Int = ..., kotlin/Int = ...) // kotlin.collections/fill|fill@kotlin.ULongArray(kotlin.ULong;kotlin.Int;kotlin.Int){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/firstOrNull(): kotlin/ULong? // kotlin.collections/firstOrNull|firstOrNull@kotlin.ULongArray(){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/ULong? // kotlin.collections/getOrNull|getOrNull@kotlin.ULongArray(kotlin.Int){}[0]
+final fun (kotlin/ULongArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.ULongArray(){}[0]
+final fun (kotlin/ULongArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.ULongArray(){}[0]
+final fun (kotlin/ULongArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/ULong>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.ULongArray(kotlin.Comparator<in|kotlin.ULong>){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/lastOrNull(): kotlin/ULong? // kotlin.collections/lastOrNull|lastOrNull@kotlin.ULongArray(){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/max(): kotlin/ULong // kotlin.collections/max|max@kotlin.ULongArray(){}[0]
 final fun (kotlin/ULongArray).kotlin.collections/maxOrNull(): kotlin/ULong? // kotlin.collections/maxOrNull|maxOrNull@kotlin.ULongArray(){}[0]
@@ -6121,12 +6208,16 @@ final fun (kotlin/UShort).kotlin.ranges/coerceIn(kotlin/UShort, kotlin/UShort): 
 final fun (kotlin/UShort).kotlin.ranges/downTo(kotlin/UShort): kotlin.ranges/UIntProgression // kotlin.ranges/downTo|downTo@kotlin.UShort(kotlin.UShort){}[0]
 final fun (kotlin/UShort).kotlin.ranges/until(kotlin/UShort): kotlin.ranges/UIntRange // kotlin.ranges/until|until@kotlin.UShort(kotlin.UShort){}[0]
 final fun (kotlin/UShort).kotlin.text/toString(kotlin/Int): kotlin/String // kotlin.text/toString|toString@kotlin.UShort(kotlin.Int){}[0]
+final fun (kotlin/UShortArray).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.UShortArray(){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/asList(): kotlin.collections/List<kotlin/UShort> // kotlin.collections/asList|asList@kotlin.UShortArray(){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/drop(kotlin/Int): kotlin.collections/List<kotlin/UShort> // kotlin.collections/drop|drop@kotlin.UShortArray(kotlin.Int){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/dropLast(kotlin/Int): kotlin.collections/List<kotlin/UShort> // kotlin.collections/dropLast|dropLast@kotlin.UShortArray(kotlin.Int){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/fill(kotlin/UShort, kotlin/Int = ..., kotlin/Int = ...) // kotlin.collections/fill|fill@kotlin.UShortArray(kotlin.UShort;kotlin.Int;kotlin.Int){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/firstOrNull(): kotlin/UShort? // kotlin.collections/firstOrNull|firstOrNull@kotlin.UShortArray(){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/getOrNull(kotlin/Int): kotlin/UShort? // kotlin.collections/getOrNull|getOrNull@kotlin.UShortArray(kotlin.Int){}[0]
+final fun (kotlin/UShortArray).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.UShortArray(){}[0]
+final fun (kotlin/UShortArray).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.UShortArray(){}[0]
+final fun (kotlin/UShortArray).kotlin.collections/isSortedWith(kotlin/Comparator<in kotlin/UShort>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.UShortArray(kotlin.Comparator<in|kotlin.UShort>){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/lastOrNull(): kotlin/UShort? // kotlin.collections/lastOrNull|lastOrNull@kotlin.UShortArray(){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/max(): kotlin/UShort // kotlin.collections/max|max@kotlin.UShortArray(){}[0]
 final fun (kotlin/UShortArray).kotlin.collections/maxOrNull(): kotlin/UShort? // kotlin.collections/maxOrNull|maxOrNull@kotlin.UShortArray(){}[0]
@@ -6288,6 +6379,7 @@ final fun <#A: kotlin/Any?> (kotlin.collections/Collection<#A>).kotlin.collectio
 final fun <#A: kotlin/Any?> (kotlin.collections/Collection<#A>).kotlin.collections/random(kotlin.random/Random): #A // kotlin.collections/random|random@kotlin.collections.Collection<0:0>(kotlin.random.Random){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Collection<#A>).kotlin.collections/randomOrNull(kotlin.random/Random): #A? // kotlin.collections/randomOrNull|randomOrNull@kotlin.collections.Collection<0:0>(kotlin.random.Random){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Collection<#A>).kotlin.collections/toMutableList(): kotlin.collections/MutableList<#A> // kotlin.collections/toMutableList|toMutableList@kotlin.collections.Collection<0:0>(){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.collections.Iterable<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.collections.Iterable<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/asSequence(): kotlin.sequences/Sequence<#A> // kotlin.collections/asSequence|asSequence@kotlin.collections.Iterable<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/chunked(kotlin/Int): kotlin.collections/List<kotlin.collections/List<#A>> // kotlin.collections/chunked|chunked@kotlin.collections.Iterable<0:0>(kotlin.Int){0§<kotlin.Any?>}[0]
@@ -6304,6 +6396,7 @@ final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/firstOrNull(): #A? // kotlin.collections/firstOrNull|firstOrNull@kotlin.collections.Iterable<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/indexOf(#A): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.collections.Iterable<0:0>(0:0){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/intersect(kotlin.collections/Iterable<#A>): kotlin.collections/Set<#A> // kotlin.collections/intersect|intersect@kotlin.collections.Iterable<0:0>(kotlin.collections.Iterable<0:0>){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/isSortedWith(kotlin/Comparator<in #A>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.collections.Iterable<0:0>(kotlin.Comparator<in|0:0>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<#A, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.collections.Iterable<0:0>(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<0:0,kotlin.CharSequence>?){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/last(): #A // kotlin.collections/last|last@kotlin.collections.Iterable<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/lastIndexOf(#A): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.collections.Iterable<0:0>(0:0){0§<kotlin.Any?>}[0]
@@ -6392,6 +6485,7 @@ final fun <#A: kotlin/Any?> (kotlin.coroutines/Continuation<#A>).kotlin.coroutin
 final fun <#A: kotlin/Any?> (kotlin.coroutines/SuspendFunction0<#A>).kotlin.coroutines.intrinsics/createCoroutineUnintercepted(kotlin.coroutines/Continuation<#A>): kotlin.coroutines/Continuation<kotlin/Unit> // kotlin.coroutines.intrinsics/createCoroutineUnintercepted|createCoroutineUnintercepted@kotlin.coroutines.SuspendFunction0<0:0>(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.coroutines/SuspendFunction0<#A>).kotlin.coroutines/createCoroutine(kotlin.coroutines/Continuation<#A>): kotlin.coroutines/Continuation<kotlin/Unit> // kotlin.coroutines/createCoroutine|createCoroutine@kotlin.coroutines.SuspendFunction0<0:0>(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.coroutines/SuspendFunction0<#A>).kotlin.coroutines/startCoroutine(kotlin.coroutines/Continuation<#A>) // kotlin.coroutines/startCoroutine|startCoroutine@kotlin.coroutines.SuspendFunction0<0:0>(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/allEqual(): kotlin/Boolean // kotlin.sequences/allEqual|allEqual@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/any(): kotlin/Boolean // kotlin.sequences/any|any@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/asIterable(): kotlin.collections/Iterable<#A> // kotlin.sequences/asIterable|asIterable@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/chunked(kotlin/Int): kotlin.sequences/Sequence<kotlin.collections/List<#A>> // kotlin.sequences/chunked|chunked@kotlin.sequences.Sequence<0:0>(kotlin.Int){0§<kotlin.Any?>}[0]
@@ -6411,6 +6505,7 @@ final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/fir
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/firstOrNull(): #A? // kotlin.sequences/firstOrNull|firstOrNull@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/ifEmpty(kotlin/Function0<kotlin.sequences/Sequence<#A>>): kotlin.sequences/Sequence<#A> // kotlin.sequences/ifEmpty|ifEmpty@kotlin.sequences.Sequence<0:0>(kotlin.Function0<kotlin.sequences.Sequence<0:0>>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/indexOf(#A): kotlin/Int // kotlin.sequences/indexOf|indexOf@kotlin.sequences.Sequence<0:0>(0:0){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/isSortedWith(kotlin/Comparator<in #A>): kotlin/Boolean // kotlin.sequences/isSortedWith|isSortedWith@kotlin.sequences.Sequence<0:0>(kotlin.Comparator<in|0:0>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<#A, kotlin/CharSequence>? = ...): kotlin/String // kotlin.sequences/joinToString|joinToString@kotlin.sequences.Sequence<0:0>(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<0:0,kotlin.CharSequence>?){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/last(): #A // kotlin.sequences/last|last@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/lastIndexOf(#A): kotlin/Int // kotlin.sequences/lastIndexOf|lastIndexOf@kotlin.sequences.Sequence<0:0>(0:0){0§<kotlin.Any?>}[0]
@@ -6455,6 +6550,7 @@ final fun <#A: kotlin/Any?> (kotlin/Array<#A>).kotlin.collections/shuffle() // k
 final fun <#A: kotlin/Any?> (kotlin/Array<#A>).kotlin.collections/shuffle(kotlin.random/Random) // kotlin.collections/shuffle|shuffle@kotlin.Array<0:0>(kotlin.random.Random){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<#A>).kotlin.collections/sliceArray(kotlin.collections/Collection<kotlin/Int>): kotlin/Array<#A> // kotlin.collections/sliceArray|sliceArray@kotlin.Array<0:0>(kotlin.collections.Collection<kotlin.Int>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<#A>).kotlin.collections/sliceArray(kotlin.ranges/IntRange): kotlin/Array<#A> // kotlin.collections/sliceArray|sliceArray@kotlin.Array<0:0>(kotlin.ranges.IntRange){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/allEqual(): kotlin/Boolean // kotlin.collections/allEqual|allEqual@kotlin.Array<out|0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/any(): kotlin/Boolean // kotlin.collections/any|any@kotlin.Array<out|0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/asIterable(): kotlin.collections/Iterable<#A> // kotlin.collections/asIterable|asIterable@kotlin.Array<out|0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/asList(): kotlin.collections/List<#A> // kotlin.collections/asList|asList@kotlin.Array<out|0:0>(){0§<kotlin.Any?>}[0]
@@ -6471,6 +6567,7 @@ final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/firstOrNul
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/getOrNull(kotlin/Int): #A? // kotlin.collections/getOrNull|getOrNull@kotlin.Array<out|0:0>(kotlin.Int){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/indexOf(#A): kotlin/Int // kotlin.collections/indexOf|indexOf@kotlin.Array<out|0:0>(0:0){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/intersect(kotlin.collections/Iterable<#A>): kotlin.collections/Set<#A> // kotlin.collections/intersect|intersect@kotlin.Array<out|0:0>(kotlin.collections.Iterable<0:0>){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/isSortedWith(kotlin/Comparator<in #A>): kotlin/Boolean // kotlin.collections/isSortedWith|isSortedWith@kotlin.Array<out|0:0>(kotlin.Comparator<in|0:0>){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/joinToString(kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/CharSequence = ..., kotlin/Int = ..., kotlin/CharSequence = ..., kotlin/Function1<#A, kotlin/CharSequence>? = ...): kotlin/String // kotlin.collections/joinToString|joinToString@kotlin.Array<out|0:0>(kotlin.CharSequence;kotlin.CharSequence;kotlin.CharSequence;kotlin.Int;kotlin.CharSequence;kotlin.Function1<0:0,kotlin.CharSequence>?){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/last(): #A // kotlin.collections/last|last@kotlin.Array<out|0:0>(){0§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/lastIndexOf(#A): kotlin/Int // kotlin.collections/lastIndexOf|lastIndexOf@kotlin.Array<out|0:0>(0:0){0§<kotlin.Any?>}[0]
@@ -6577,6 +6674,8 @@ final fun <#A: kotlin/Comparable<#A>> (#A).kotlin.ranges/coerceIn(kotlin.ranges/
 final fun <#A: kotlin/Comparable<#A>> (#A).kotlin.ranges/coerceIn(kotlin.ranges/ClosedRange<#A>): #A // kotlin.ranges/coerceIn|coerceIn@0:0(kotlin.ranges.ClosedRange<0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (#A).kotlin.ranges/rangeTo(#A): kotlin.ranges/ClosedRange<#A> // kotlin.ranges/rangeTo|rangeTo@0:0(0:0){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (#A).kotlin.ranges/rangeUntil(#A): kotlin.ranges/OpenEndRange<#A> // kotlin.ranges/rangeUntil|rangeUntil@0:0(0:0){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.collections.Iterable<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.collections.Iterable<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.collections/max(): #A // kotlin.collections/max|max@kotlin.collections.Iterable<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.collections/maxOrNull(): #A? // kotlin.collections/maxOrNull|maxOrNull@kotlin.collections.Iterable<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.collections/min(): #A // kotlin.collections/min|min@kotlin.collections.Iterable<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
@@ -6586,6 +6685,8 @@ final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/Iterable<#A>).kotlin.c
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/List<#A?>).kotlin.collections/binarySearch(#A?, kotlin/Int = ..., kotlin/Int = ...): kotlin/Int // kotlin.collections/binarySearch|binarySearch@kotlin.collections.List<0:0?>(0:0?;kotlin.Int;kotlin.Int){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/MutableList<#A>).kotlin.collections/sort() // kotlin.collections/sort|sort@kotlin.collections.MutableList<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.collections/MutableList<#A>).kotlin.collections/sortDescending() // kotlin.collections/sortDescending|sortDescending@kotlin.collections.MutableList<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/isSorted(): kotlin/Boolean // kotlin.sequences/isSorted|isSorted@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/isSortedDescending(): kotlin/Boolean // kotlin.sequences/isSortedDescending|isSortedDescending@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/max(): #A // kotlin.sequences/max|max@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/maxOrNull(): #A? // kotlin.sequences/maxOrNull|maxOrNull@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/min(): #A // kotlin.sequences/min|min@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
@@ -6594,6 +6695,8 @@ final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.seq
 final fun <#A: kotlin/Comparable<#A>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/sortedDescending(): kotlin.sequences/Sequence<#A> // kotlin.sequences/sortedDescending|sortedDescending@kotlin.sequences.Sequence<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<#A>).kotlin.collections/sortedArray(): kotlin/Array<#A> // kotlin.collections/sortedArray|sortedArray@kotlin.Array<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<#A>).kotlin.collections/sortedArrayDescending(): kotlin/Array<#A> // kotlin.collections/sortedArrayDescending|sortedArrayDescending@kotlin.Array<0:0>(){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<out #A>).kotlin.collections/isSorted(): kotlin/Boolean // kotlin.collections/isSorted|isSorted@kotlin.Array<out|0:0>(){0§<kotlin.Comparable<0:0>>}[0]
+final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<out #A>).kotlin.collections/isSortedDescending(): kotlin/Boolean // kotlin.collections/isSortedDescending|isSortedDescending@kotlin.Array<out|0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<out #A>).kotlin.collections/max(): #A // kotlin.collections/max|max@kotlin.Array<out|0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<out #A>).kotlin.collections/maxOrNull(): #A? // kotlin.collections/maxOrNull|maxOrNull@kotlin.Array<out|0:0>(){0§<kotlin.Comparable<0:0>>}[0]
 final fun <#A: kotlin/Comparable<#A>> (kotlin/Array<out #A>).kotlin.collections/min(): #A // kotlin.collections/min|min@kotlin.Array<out|0:0>(){0§<kotlin.Comparable<0:0>>}[0]
@@ -8135,6 +8238,7 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Comparable<#C>> (
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (#A).kotlin/let(kotlin/Function1<#A, #B>): #B // kotlin/let|let@0:0(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (#A).kotlin/run(kotlin/Function1<#A, #B>): #B // kotlin/run|run@0:0(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (#A).kotlin/runCatching(kotlin/Function1<#A, #B>): kotlin/Result<#B> // kotlin/runCatching|runCatching@0:0(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/allEqualBy(kotlin/Function1<#A, #B>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/associateBy(kotlin/Function1<#A, #B>): kotlin.collections/Map<#B, #A> // kotlin.collections/associateBy|associateBy@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/associateWith(kotlin/Function1<#A, #B>): kotlin.collections/Map<#A, #B> // kotlin.collections/associateWith|associateWith@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/distinctBy(kotlin/Function1<#A, #B>): kotlin.collections/List<#A> // kotlin.collections/distinctBy|distinctBy@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -8213,6 +8317,7 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableM
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.coroutines/SuspendFunction1<#A, #B>).kotlin.coroutines.intrinsics/startCoroutineUninterceptedOrReturn(#A, kotlin.coroutines/Continuation<#B>): kotlin/Any? // kotlin.coroutines.intrinsics/startCoroutineUninterceptedOrReturn|startCoroutineUninterceptedOrReturn@kotlin.coroutines.SuspendFunction1<0:0,0:1>(0:0;kotlin.coroutines.Continuation<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.reflect/KMutableProperty1<#A, #B>).kotlin/setValue(#A, kotlin.reflect/KProperty<*>, #B) // kotlin/setValue|setValue@kotlin.reflect.KMutableProperty1<0:0,0:1>(0:0;kotlin.reflect.KProperty<*>;0:1){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.reflect/KProperty1<#A, #B>).kotlin/getValue(#A, kotlin.reflect/KProperty<*>): #B // kotlin/getValue|getValue@kotlin.reflect.KProperty1<0:0,0:1>(0:0;kotlin.reflect.KProperty<*>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/allEqualBy(kotlin/Function1<#A, #B>): kotlin/Boolean // kotlin.sequences/allEqualBy|allEqualBy@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/associateBy(kotlin/Function1<#A, #B>): kotlin.collections/Map<#B, #A> // kotlin.sequences/associateBy|associateBy@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/associateWith(kotlin/Function1<#A, #B>): kotlin.collections/Map<#A, #B> // kotlin.sequences/associateWith|associateWith@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/fold(#B, kotlin/Function2<#B, #A, #B>): #B // kotlin.sequences/fold|fold@kotlin.sequences.Sequence<0:0>(0:1;kotlin.Function2<0:1,0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -8223,6 +8328,7 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/maxOfWithOrNull(kotlin/Comparator<in #B>, kotlin/Function1<#A, #B>): #B? // kotlin.sequences/maxOfWithOrNull|maxOfWithOrNull@kotlin.sequences.Sequence<0:0>(kotlin.Comparator<in|0:1>;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/minOfWith(kotlin/Comparator<in #B>, kotlin/Function1<#A, #B>): #B // kotlin.sequences/minOfWith|minOfWith@kotlin.sequences.Sequence<0:0>(kotlin.Comparator<in|0:1>;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.sequences/Sequence<#A>).kotlin.sequences/minOfWithOrNull(kotlin/Comparator<in #B>, kotlin/Function1<#A, #B>): #B? // kotlin.sequences/minOfWithOrNull|minOfWithOrNull@kotlin.sequences.Sequence<0:0>(kotlin.Comparator<in|0:1>;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/allEqualBy(kotlin/Function1<#A, #B>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/associateBy(kotlin/Function1<#A, #B>): kotlin.collections/Map<#B, #A> // kotlin.collections/associateBy|associateBy@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/associateWith(kotlin/Function1<#A, #B>): kotlin.collections/Map<#A, #B> // kotlin.collections/associateWith|associateWith@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/distinctBy(kotlin/Function1<#A, #B>): kotlin.collections/List<#A> // kotlin.collections/distinctBy|distinctBy@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -8318,6 +8424,8 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> kotlin.comparisons/compareBy
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> kotlin.comparisons/compareValuesBy(#A, #A, kotlin/Comparator<in #B>, kotlin/Function1<#A, #B>): kotlin/Int // kotlin.comparisons/compareValuesBy|compareValuesBy(0:0;0:0;kotlin.Comparator<in|0:1>;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> kotlin/context(#A, kotlin/Function1<#A, #B>): #B // kotlin/context|context(0:0;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> kotlin/with(#A, kotlin/Function1<#A, #B>): #B // kotlin/with|with(0:0;kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/Iterable<#A>).kotlin.collections/isSortedBy(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/Iterable<#A>).kotlin.collections/isSortedByDescending(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/Iterable<#A>).kotlin.collections/maxBy(kotlin/Function1<#A, #B>): #A // kotlin.collections/maxBy|maxBy@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/Iterable<#A>).kotlin.collections/maxByOrNull(kotlin/Function1<#A, #B>): #A? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/Iterable<#A>).kotlin.collections/maxOf(kotlin/Function1<#A, #B>): #B // kotlin.collections/maxOf|maxOf@kotlin.collections.Iterable<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
@@ -8331,6 +8439,8 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collection
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/List<#A>).kotlin.collections/binarySearchBy(#B?, kotlin/Int = ..., kotlin/Int = ..., crossinline kotlin/Function1<#A, #B?>): kotlin/Int // kotlin.collections/binarySearchBy|binarySearchBy@kotlin.collections.List<0:0>(0:1?;kotlin.Int;kotlin.Int;kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/MutableList<#A>).kotlin.collections/sortBy(crossinline kotlin/Function1<#A, #B?>) // kotlin.collections/sortBy|sortBy@kotlin.collections.MutableList<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.collections/MutableList<#A>).kotlin.collections/sortByDescending(crossinline kotlin/Function1<#A, #B?>) // kotlin.collections/sortByDescending|sortByDescending@kotlin.collections.MutableList<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/isSortedBy(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.sequences/isSortedBy|isSortedBy@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/isSortedByDescending(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.sequences/isSortedByDescending|isSortedByDescending@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/maxBy(kotlin/Function1<#A, #B>): #A // kotlin.sequences/maxBy|maxBy@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/maxByOrNull(kotlin/Function1<#A, #B>): #A? // kotlin.sequences/maxByOrNull|maxByOrNull@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/maxOf(kotlin/Function1<#A, #B>): #B // kotlin.sequences/maxOf|maxOf@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
@@ -8341,6 +8451,8 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/minOfOrNull(kotlin/Function1<#A, #B>): #B? // kotlin.sequences/minOfOrNull|minOfOrNull@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/sortedBy(crossinline kotlin/Function1<#A, #B?>): kotlin.sequences/Sequence<#A> // kotlin.sequences/sortedBy|sortedBy@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/sortedByDescending(crossinline kotlin/Function1<#A, #B?>): kotlin.sequences/Sequence<#A> // kotlin.sequences/sortedByDescending|sortedByDescending@kotlin.sequences.Sequence<0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin/Array<out #A>).kotlin.collections/isSortedBy(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin/Array<out #A>).kotlin.collections/isSortedByDescending(kotlin/Function1<#A, #B?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1?>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin/Array<out #A>).kotlin.collections/maxBy(kotlin/Function1<#A, #B>): #A // kotlin.collections/maxBy|maxBy@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin/Array<out #A>).kotlin.collections/maxByOrNull(kotlin/Function1<#A, #B>): #A? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Comparable<#B>> (kotlin/Array<out #A>).kotlin.collections/maxOf(kotlin/Function1<#A, #B>): #B // kotlin.collections/maxOf|maxOf@kotlin.Array<out|0:0>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Comparable<0:1>>}[0]
@@ -8547,6 +8659,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/sum
 final inline fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/sumOf(kotlin/Function1<#A, kotlin/ULong>): kotlin/ULong // kotlin.collections/sumOf|sumOf@kotlin.Array<out|0:0>(kotlin.Function1<0:0,kotlin.ULong>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/takeLastWhile(kotlin/Function1<#A, kotlin/Boolean>): kotlin.collections/List<#A> // kotlin.collections/takeLastWhile|takeLastWhile@kotlin.Array<out|0:0>(kotlin.Function1<0:0,kotlin.Boolean>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Array<out #A>).kotlin.collections/takeWhile(kotlin/Function1<#A, kotlin/Boolean>): kotlin.collections/List<#A> // kotlin.collections/takeWhile|takeWhile@kotlin.Array<out|0:0>(kotlin.Function1<0:0,kotlin.Boolean>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Boolean, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Boolean, #A>): kotlin.collections/Map<#A, kotlin/Boolean> // kotlin.collections/associateBy|associateBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Boolean, #A>): kotlin.collections/Map<kotlin/Boolean, #A> // kotlin.collections/associateWith|associateWith@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Boolean, #A>): kotlin.collections/List<kotlin/Boolean> // kotlin.collections/distinctBy|distinctBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
@@ -8568,6 +8681,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/runn
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/Boolean, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.BooleanArray(0:0;kotlin.Function2<0:0,kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Boolean, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.BooleanArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/BooleanArray).kotlin.collections/zip(kotlin/BooleanArray, kotlin/Function2<kotlin/Boolean, kotlin/Boolean, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.BooleanArray(kotlin.BooleanArray;kotlin.Function2<kotlin.Boolean,kotlin.Boolean,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Byte, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Byte, #A>): kotlin.collections/Map<#A, kotlin/Byte> // kotlin.collections/associateBy|associateBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Byte, #A>): kotlin.collections/Map<kotlin/Byte, #A> // kotlin.collections/associateWith|associateWith@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Byte, #A>): kotlin.collections/List<kotlin/Byte> // kotlin.collections/distinctBy|distinctBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
@@ -8589,6 +8703,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/running
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/Byte, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.ByteArray(0:0;kotlin.Function2<0:0,kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Byte, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.ByteArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ByteArray).kotlin.collections/zip(kotlin/ByteArray, kotlin/Function2<kotlin/Byte, kotlin/Byte, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.ByteArray(kotlin.ByteArray;kotlin.Function2<kotlin.Byte,kotlin.Byte,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/CharArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Char, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/CharArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Char, #A>): kotlin.collections/Map<#A, kotlin/Char> // kotlin.collections/associateBy|associateBy@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/CharArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Char, #A>): kotlin.collections/Map<kotlin/Char, #A> // kotlin.collections/associateWith|associateWith@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/CharArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Char, #A>): kotlin.collections/List<kotlin/Char> // kotlin.collections/distinctBy|distinctBy@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Any?>}[0]
@@ -8636,6 +8751,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/Comparable<#A>).kotlin/compareTo(#A):
 final inline fun <#A: kotlin/Any?> (kotlin/Comparator<#A>).kotlin.comparisons/thenBy(crossinline kotlin/Function1<#A, kotlin/Comparable<*>?>): kotlin/Comparator<#A> // kotlin.comparisons/thenBy|thenBy@kotlin.Comparator<0:0>(kotlin.Function1<0:0,kotlin.Comparable<*>?>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Comparator<#A>).kotlin.comparisons/thenByDescending(crossinline kotlin/Function1<#A, kotlin/Comparable<*>?>): kotlin/Comparator<#A> // kotlin.comparisons/thenByDescending|thenByDescending@kotlin.Comparator<0:0>(kotlin.Function1<0:0,kotlin.Comparable<*>?>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Comparator<#A>).kotlin.comparisons/thenComparator(crossinline kotlin/Function2<#A, #A, kotlin/Int>): kotlin/Comparator<#A> // kotlin.comparisons/thenComparator|thenComparator@kotlin.Comparator<0:0>(kotlin.Function2<0:0,0:0,kotlin.Int>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Double, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Double, #A>): kotlin.collections/Map<#A, kotlin/Double> // kotlin.collections/associateBy|associateBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Double, #A>): kotlin.collections/Map<kotlin/Double, #A> // kotlin.collections/associateWith|associateWith@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Double, #A>): kotlin.collections/List<kotlin/Double> // kotlin.collections/distinctBy|distinctBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
@@ -8657,6 +8773,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/runni
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/Double, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.DoubleArray(0:0;kotlin.Function2<0:0,kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Double, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.DoubleArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/DoubleArray).kotlin.collections/zip(kotlin/DoubleArray, kotlin/Function2<kotlin/Double, kotlin/Double, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.DoubleArray(kotlin.DoubleArray;kotlin.Function2<kotlin.Double,kotlin.Double,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Float, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Float, #A>): kotlin.collections/Map<#A, kotlin/Float> // kotlin.collections/associateBy|associateBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Float, #A>): kotlin.collections/Map<kotlin/Float, #A> // kotlin.collections/associateWith|associateWith@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Float, #A>): kotlin.collections/List<kotlin/Float> // kotlin.collections/distinctBy|distinctBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
@@ -8678,6 +8795,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/runnin
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/Float, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.FloatArray(0:0;kotlin.Function2<0:0,kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Float, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.FloatArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/FloatArray).kotlin.collections/zip(kotlin/FloatArray, kotlin/Function2<kotlin/Float, kotlin/Float, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.FloatArray(kotlin.FloatArray;kotlin.Function2<kotlin.Float,kotlin.Float,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Int, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Int, #A>): kotlin.collections/Map<#A, kotlin/Int> // kotlin.collections/associateBy|associateBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Int, #A>): kotlin.collections/Map<kotlin/Int, #A> // kotlin.collections/associateWith|associateWith@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Int, #A>): kotlin.collections/List<kotlin/Int> // kotlin.collections/distinctBy|distinctBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
@@ -8700,6 +8818,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/scan(#A,
 final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Int, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.IntArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/IntArray).kotlin.collections/zip(kotlin/IntArray, kotlin/Function2<kotlin/Int, kotlin/Int, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.IntArray(kotlin.IntArray;kotlin.Function2<kotlin.Int,kotlin.Int,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Lazy<#A>).kotlin/getValue(kotlin/Any?, kotlin.reflect/KProperty<*>): #A // kotlin/getValue|getValue@kotlin.Lazy<0:0>(kotlin.Any?;kotlin.reflect.KProperty<*>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/LongArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Long, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/LongArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Long, #A>): kotlin.collections/Map<#A, kotlin/Long> // kotlin.collections/associateBy|associateBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/LongArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Long, #A>): kotlin.collections/Map<kotlin/Long, #A> // kotlin.collections/associateWith|associateWith@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/LongArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Long, #A>): kotlin.collections/List<kotlin/Long> // kotlin.collections/distinctBy|distinctBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Any?>}[0]
@@ -8724,6 +8843,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/LongArray).kotlin.collections/zip(kot
 final inline fun <#A: kotlin/Any?> (kotlin/Result<#A>).kotlin/getOrThrow(): #A // kotlin/getOrThrow|getOrThrow@kotlin.Result<0:0>(){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Result<#A>).kotlin/onFailure(kotlin/Function1<kotlin/Throwable, kotlin/Unit>): kotlin/Result<#A> // kotlin/onFailure|onFailure@kotlin.Result<0:0>(kotlin.Function1<kotlin.Throwable,kotlin.Unit>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/Result<#A>).kotlin/onSuccess(kotlin/Function1<#A, kotlin/Unit>): kotlin/Result<#A> // kotlin/onSuccess|onSuccess@kotlin.Result<0:0>(kotlin.Function1<0:0,kotlin.Unit>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/Short, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/associateBy(kotlin/Function1<kotlin/Short, #A>): kotlin.collections/Map<#A, kotlin/Short> // kotlin.collections/associateBy|associateBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/Short, #A>): kotlin.collections/Map<kotlin/Short, #A> // kotlin.collections/associateWith|associateWith@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/distinctBy(kotlin/Function1<kotlin/Short, #A>): kotlin.collections/List<kotlin/Short> // kotlin.collections/distinctBy|distinctBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
@@ -8745,6 +8865,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/runnin
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/Short, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.ShortArray(0:0;kotlin.Function2<0:0,kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/Short, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.ShortArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ShortArray).kotlin.collections/zip(kotlin/ShortArray, kotlin/Function2<kotlin/Short, kotlin/Short, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.ShortArray(kotlin.ShortArray;kotlin.Function2<kotlin.Short,kotlin.Short,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/UByte, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/UByte, #A>): kotlin.collections/Map<kotlin/UByte, #A> // kotlin.collections/associateWith|associateWith@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/flatMap(kotlin/Function1<kotlin/UByte, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMap|flatMap@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/flatMapIndexed(kotlin/Function2<kotlin/Int, kotlin/UByte, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMapIndexed|flatMapIndexed@kotlin.UByteArray(kotlin.Function2<kotlin.Int,kotlin.UByte,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
@@ -8764,6 +8885,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/runnin
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/UByte, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.UByteArray(0:0;kotlin.Function2<0:0,kotlin.UByte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/UByte, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.UByteArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.UByte,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UByteArray).kotlin.collections/zip(kotlin/UByteArray, kotlin/Function2<kotlin/UByte, kotlin/UByte, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.UByteArray(kotlin.UByteArray;kotlin.Function2<kotlin.UByte,kotlin.UByte,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/UInt, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/UInt, #A>): kotlin.collections/Map<kotlin/UInt, #A> // kotlin.collections/associateWith|associateWith@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/flatMap(kotlin/Function1<kotlin/UInt, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMap|flatMap@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/flatMapIndexed(kotlin/Function2<kotlin/Int, kotlin/UInt, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMapIndexed|flatMapIndexed@kotlin.UIntArray(kotlin.Function2<kotlin.Int,kotlin.UInt,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
@@ -8783,6 +8905,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/running
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/UInt, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.UIntArray(0:0;kotlin.Function2<0:0,kotlin.UInt,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/UInt, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.UIntArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.UInt,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UIntArray).kotlin.collections/zip(kotlin/UIntArray, kotlin/Function2<kotlin/UInt, kotlin/UInt, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.UIntArray(kotlin.UIntArray;kotlin.Function2<kotlin.UInt,kotlin.UInt,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/ULong, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/ULong, #A>): kotlin.collections/Map<kotlin/ULong, #A> // kotlin.collections/associateWith|associateWith@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/flatMap(kotlin/Function1<kotlin/ULong, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMap|flatMap@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/flatMapIndexed(kotlin/Function2<kotlin/Int, kotlin/ULong, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMapIndexed|flatMapIndexed@kotlin.ULongArray(kotlin.Function2<kotlin.Int,kotlin.ULong,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
@@ -8802,6 +8925,7 @@ final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/runnin
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/scan(#A, kotlin/Function2<#A, kotlin/ULong, #A>): kotlin.collections/List<#A> // kotlin.collections/scan|scan@kotlin.ULongArray(0:0;kotlin.Function2<0:0,kotlin.ULong,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/scanIndexed(#A, kotlin/Function3<kotlin/Int, #A, kotlin/ULong, #A>): kotlin.collections/List<#A> // kotlin.collections/scanIndexed|scanIndexed@kotlin.ULongArray(0:0;kotlin.Function3<kotlin.Int,0:0,kotlin.ULong,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/ULongArray).kotlin.collections/zip(kotlin/ULongArray, kotlin/Function2<kotlin/ULong, kotlin/ULong, #A>): kotlin.collections/List<#A> // kotlin.collections/zip|zip@kotlin.ULongArray(kotlin.ULongArray;kotlin.Function2<kotlin.ULong,kotlin.ULong,0:0>){0§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?> (kotlin/UShortArray).kotlin.collections/allEqualBy(kotlin/Function1<kotlin/UShort, #A>): kotlin/Boolean // kotlin.collections/allEqualBy|allEqualBy@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UShortArray).kotlin.collections/associateWith(kotlin/Function1<kotlin/UShort, #A>): kotlin.collections/Map<kotlin/UShort, #A> // kotlin.collections/associateWith|associateWith@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UShortArray).kotlin.collections/flatMap(kotlin/Function1<kotlin/UShort, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMap|flatMap@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?> (kotlin/UShortArray).kotlin.collections/flatMapIndexed(kotlin/Function2<kotlin/Int, kotlin/UShort, kotlin.collections/Iterable<#A>>): kotlin.collections/List<#A> // kotlin.collections/flatMapIndexed|flatMapIndexed@kotlin.UShortArray(kotlin.Function2<kotlin.Int,kotlin.UShort,kotlin.collections.Iterable<0:0>>){0§<kotlin.Any?>}[0]
@@ -8855,6 +8979,8 @@ final inline fun <#A: kotlin/CharSequence> (#A).kotlin.text/onEach(kotlin/Functi
 final inline fun <#A: kotlin/CharSequence> (#A).kotlin.text/onEachIndexed(kotlin/Function2<kotlin/Int, kotlin/Char, kotlin/Unit>): #A // kotlin.text/onEachIndexed|onEachIndexed@0:0(kotlin.Function2<kotlin.Int,kotlin.Char,kotlin.Unit>){0§<kotlin.CharSequence>}[0]
 final inline fun <#A: kotlin/Comparable<#A>, #B: kotlin.collections/Iterable<#A> & kotlin.ranges/ClosedRange<#A>> (#B).kotlin.ranges/contains(#A?): kotlin/Boolean // kotlin.ranges/contains|contains@0:1(0:0?){0§<kotlin.Comparable<0:0>>;1§<kotlin.ranges.ClosedRange<0:0>&kotlin.collections.Iterable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>, #B: kotlin.collections/Iterable<#A> & kotlin.ranges/OpenEndRange<#A>> (#B).kotlin.ranges/contains(#A?): kotlin/Boolean // kotlin.ranges/contains|contains@0:1(0:0?){0§<kotlin.Comparable<0:0>>;1§<kotlin.ranges.OpenEndRange<0:0>&kotlin.collections.Iterable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Boolean, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Boolean, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Boolean, #A>): kotlin/Boolean // kotlin.collections/maxBy|maxBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Boolean, #A>): kotlin/Boolean? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Boolean, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8865,6 +8991,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collec
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Boolean, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Boolean, #A?>): kotlin.collections/List<kotlin/Boolean> // kotlin.collections/sortedBy|sortedBy@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/BooleanArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Boolean, #A?>): kotlin.collections/List<kotlin/Boolean> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.BooleanArray(kotlin.Function1<kotlin.Boolean,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Byte, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Byte, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Byte, #A>): kotlin/Byte // kotlin.collections/maxBy|maxBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Byte, #A>): kotlin/Byte? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Byte, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8875,6 +9003,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collectio
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Byte, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Byte, #A?>): kotlin.collections/List<kotlin/Byte> // kotlin.collections/sortedBy|sortedBy@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ByteArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Byte, #A?>): kotlin.collections/List<kotlin/Byte> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.ByteArray(kotlin.Function1<kotlin.Byte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Char, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Char, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Char, #A>): kotlin/Char // kotlin.collections/maxBy|maxBy@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Char, #A>): kotlin/Char? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Char, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.CharArray(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8893,6 +9023,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharSequence).kotlin.text/m
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharSequence).kotlin.text/minByOrNull(kotlin/Function1<kotlin/Char, #A>): kotlin/Char? // kotlin.text/minByOrNull|minByOrNull@kotlin.CharSequence(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharSequence).kotlin.text/minOf(kotlin/Function1<kotlin/Char, #A>): #A // kotlin.text/minOf|minOf@kotlin.CharSequence(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/CharSequence).kotlin.text/minOfOrNull(kotlin/Function1<kotlin/Char, #A>): #A? // kotlin.text/minOfOrNull|minOfOrNull@kotlin.CharSequence(kotlin.Function1<kotlin.Char,0:0>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Double, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Double, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Double, #A>): kotlin/Double // kotlin.collections/maxBy|maxBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Double, #A>): kotlin/Double? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Double, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8903,6 +9035,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collect
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Double, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Double, #A?>): kotlin.collections/List<kotlin/Double> // kotlin.collections/sortedBy|sortedBy@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/DoubleArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Double, #A?>): kotlin.collections/List<kotlin/Double> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.DoubleArray(kotlin.Function1<kotlin.Double,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Float, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Float, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Float, #A>): kotlin/Float // kotlin.collections/maxBy|maxBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Float, #A>): kotlin/Float? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Float, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8913,6 +9047,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collecti
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Float, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Float, #A?>): kotlin.collections/List<kotlin/Float> // kotlin.collections/sortedBy|sortedBy@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/FloatArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Float, #A?>): kotlin.collections/List<kotlin/Float> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.FloatArray(kotlin.Function1<kotlin.Float,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Int, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Int, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Int, #A>): kotlin/Int // kotlin.collections/maxBy|maxBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Int, #A>): kotlin/Int? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Int, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8923,6 +9059,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collection
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Int, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Int, #A?>): kotlin.collections/List<kotlin/Int> // kotlin.collections/sortedBy|sortedBy@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/IntArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Int, #A?>): kotlin.collections/List<kotlin/Int> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.IntArray(kotlin.Function1<kotlin.Int,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Long, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Long, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Long, #A>): kotlin/Long // kotlin.collections/maxBy|maxBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Long, #A>): kotlin/Long? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Long, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8933,6 +9071,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collectio
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Long, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Long, #A?>): kotlin.collections/List<kotlin/Long> // kotlin.collections/sortedBy|sortedBy@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/LongArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Long, #A?>): kotlin.collections/List<kotlin/Long> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.LongArray(kotlin.Function1<kotlin.Long,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/Short, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/Short, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/Short, #A>): kotlin/Short // kotlin.collections/maxBy|maxBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/Short, #A>): kotlin/Short? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/Short, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8943,6 +9083,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collecti
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/Short, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/sortedBy(crossinline kotlin/Function1<kotlin/Short, #A?>): kotlin.collections/List<kotlin/Short> // kotlin.collections/sortedBy|sortedBy@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ShortArray).kotlin.collections/sortedByDescending(crossinline kotlin/Function1<kotlin/Short, #A?>): kotlin.collections/List<kotlin/Short> // kotlin.collections/sortedByDescending|sortedByDescending@kotlin.ShortArray(kotlin.Function1<kotlin.Short,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/UByte, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/UByte, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/UByte, #A>): kotlin/UByte // kotlin.collections/maxBy|maxBy@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/UByte, #A>): kotlin/UByte? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/UByte, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8951,6 +9093,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collecti
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/minByOrNull(kotlin/Function1<kotlin/UByte, #A>): kotlin/UByte? // kotlin.collections/minByOrNull|minByOrNull@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/minOf(kotlin/Function1<kotlin/UByte, #A>): #A // kotlin.collections/minOf|minOf@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UByteArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/UByte, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.UByteArray(kotlin.Function1<kotlin.UByte,0:0>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/UInt, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/UInt, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/UInt, #A>): kotlin/UInt // kotlin.collections/maxBy|maxBy@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/UInt, #A>): kotlin/UInt? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/UInt, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8959,6 +9103,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collectio
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/minByOrNull(kotlin/Function1<kotlin/UInt, #A>): kotlin/UInt? // kotlin.collections/minByOrNull|minByOrNull@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/minOf(kotlin/Function1<kotlin/UInt, #A>): #A // kotlin.collections/minOf|minOf@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UIntArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/UInt, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.UIntArray(kotlin.Function1<kotlin.UInt,0:0>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/ULong, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/ULong, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/ULong, #A>): kotlin/ULong // kotlin.collections/maxBy|maxBy@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/ULong, #A>): kotlin/ULong? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/ULong, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -8967,6 +9113,8 @@ final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collecti
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/minByOrNull(kotlin/Function1<kotlin/ULong, #A>): kotlin/ULong? // kotlin.collections/minByOrNull|minByOrNull@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/minOf(kotlin/Function1<kotlin/ULong, #A>): #A // kotlin.collections/minOf|minOf@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/ULongArray).kotlin.collections/minOfOrNull(kotlin/Function1<kotlin/ULong, #A>): #A? // kotlin.collections/minOfOrNull|minOfOrNull@kotlin.ULongArray(kotlin.Function1<kotlin.ULong,0:0>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UShortArray).kotlin.collections/isSortedBy(kotlin/Function1<kotlin/UShort, #A?>): kotlin/Boolean // kotlin.collections/isSortedBy|isSortedBy@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
+final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UShortArray).kotlin.collections/isSortedByDescending(kotlin/Function1<kotlin/UShort, #A?>): kotlin/Boolean // kotlin.collections/isSortedByDescending|isSortedByDescending@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0?>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UShortArray).kotlin.collections/maxBy(kotlin/Function1<kotlin/UShort, #A>): kotlin/UShort // kotlin.collections/maxBy|maxBy@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UShortArray).kotlin.collections/maxByOrNull(kotlin/Function1<kotlin/UShort, #A>): kotlin/UShort? // kotlin.collections/maxByOrNull|maxByOrNull@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0>){0§<kotlin.Comparable<0:0>>}[0]
 final inline fun <#A: kotlin/Comparable<#A>> (kotlin/UShortArray).kotlin.collections/maxOf(kotlin/Function1<kotlin/UShort, #A>): #A // kotlin.collections/maxOf|maxOf@kotlin.UShortArray(kotlin.Function1<kotlin.UShort,0:0>){0§<kotlin.Comparable<0:0>>}[0]
@@ -9071,6 +9219,11 @@ open annotation class kotlin.js/JsFileName : kotlin/Annotation { // kotlin.js/Js
 
     final val name // kotlin.js/JsFileName.name|{}name[1]
         final fun <get-name>(): kotlin/String // kotlin.js/JsFileName.name.<get-name>|<get-name>(){}[1]
+}
+
+// Targets: [native, wasmJs, wasmWasi]
+open annotation class kotlin.js/JsNoRuntime : kotlin/Annotation { // kotlin.js/JsNoRuntime|null[1]
+    constructor <init>() // kotlin.js/JsNoRuntime.<init>|<init>(){}[1]
 }
 
 // Targets: [native, wasmJs, wasmWasi]
@@ -9754,6 +9907,16 @@ open annotation class kotlin.native.internal.objc/BindClassToObjCName : kotlin/A
 }
 
 // Targets: [native]
+open annotation class kotlin.native.internal.objc/BindReverseBridgeToMethod : kotlin/Annotation { // kotlin.native.internal.objc/BindReverseBridgeToMethod|null[0]
+    constructor <init>(kotlin.reflect/KClass<*>, kotlin/String) // kotlin.native.internal.objc/BindReverseBridgeToMethod.<init>|<init>(kotlin.reflect.KClass<*>;kotlin.String){}[0]
+
+    final val targetClass // kotlin.native.internal.objc/BindReverseBridgeToMethod.targetClass|{}targetClass[0]
+        final fun <get-targetClass>(): kotlin.reflect/KClass<*> // kotlin.native.internal.objc/BindReverseBridgeToMethod.targetClass.<get-targetClass>|<get-targetClass>(){}[0]
+    final val targetMethod // kotlin.native.internal.objc/BindReverseBridgeToMethod.targetMethod|{}targetMethod[0]
+        final fun <get-targetMethod>(): kotlin/String // kotlin.native.internal.objc/BindReverseBridgeToMethod.targetMethod.<get-targetMethod>|<get-targetMethod>(){}[0]
+}
+
+// Targets: [native]
 open annotation class kotlin.native.internal.test/TestInitializer : kotlin/Annotation { // kotlin.native.internal.test/TestInitializer|null[0]
     constructor <init>() // kotlin.native.internal.test/TestInitializer.<init>|<init>(){}[0]
 }
@@ -9811,6 +9974,14 @@ open annotation class kotlin.native.internal/GCUnsafeCall : kotlin/Annotation { 
 
     final val callee // kotlin.native.internal/GCUnsafeCall.callee|{}callee[0]
         final fun <get-callee>(): kotlin/String // kotlin.native.internal/GCUnsafeCall.callee.<get-callee>|<get-callee>(){}[0]
+}
+
+// Targets: [native]
+open annotation class kotlin.native.internal/ImportedBridge : kotlin/Annotation { // kotlin.native.internal/ImportedBridge|null[0]
+    constructor <init>(kotlin/String) // kotlin.native.internal/ImportedBridge.<init>|<init>(kotlin.String){}[0]
+
+    final val bridgeName // kotlin.native.internal/ImportedBridge.bridgeName|{}bridgeName[0]
+        final fun <get-bridgeName>(): kotlin/String // kotlin.native.internal/ImportedBridge.bridgeName.<get-bridgeName>|<get-bridgeName>(){}[0]
 }
 
 // Targets: [native]
@@ -9874,6 +10045,15 @@ open annotation class kotlin.native/ObjCEnum : kotlin/Annotation { // kotlin.nat
         final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.name.<get-name>|<get-name>(){}[0]
     final val swiftName // kotlin.native/ObjCEnum.swiftName|{}swiftName[0]
         final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.swiftName.<get-swiftName>|<get-swiftName>(){}[0]
+
+    open annotation class EntryName : kotlin/Annotation { // kotlin.native/ObjCEnum.EntryName|null[0]
+        constructor <init>(kotlin/String, kotlin/String = ...) // kotlin.native/ObjCEnum.EntryName.<init>|<init>(kotlin.String;kotlin.String){}[0]
+
+        final val name // kotlin.native/ObjCEnum.EntryName.name|{}name[0]
+            final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.EntryName.name.<get-name>|<get-name>(){}[0]
+        final val swiftName // kotlin.native/ObjCEnum.EntryName.swiftName|{}swiftName[0]
+            final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.EntryName.swiftName.<get-swiftName>|<get-swiftName>(){}[0]
+    }
 }
 
 // Targets: [native]
@@ -10172,6 +10352,11 @@ open annotation class kotlinx.cinterop/ObjCOutlet : kotlin/Annotation { // kotli
 // Targets: [native]
 open annotation class kotlinx.cinterop/ObjCSignatureOverride : kotlin/Annotation { // kotlinx.cinterop/ObjCSignatureOverride|null[0]
     constructor <init>() // kotlinx.cinterop/ObjCSignatureOverride.<init>|<init>(){}[0]
+}
+
+// Targets: [native]
+open annotation class kotlinx.cinterop/ObjCUnavailable : kotlin/Annotation { // kotlinx.cinterop/ObjCUnavailable|null[0]
+    constructor <init>() // kotlinx.cinterop/ObjCUnavailable.<init>|<init>(){}[0]
 }
 
 // Targets: [native]
@@ -13803,6 +13988,15 @@ open annotation class kotlin.native/ObjCEnum : kotlin/Annotation { // kotlin.nat
         final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.name.<get-name>|<get-name>(){}[1]
     final val swiftName // kotlin.native/ObjCEnum.swiftName|{}swiftName[1]
         final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.swiftName.<get-swiftName>|<get-swiftName>(){}[1]
+
+    open annotation class EntryName : kotlin/Annotation { // kotlin.native/ObjCEnum.EntryName|null[1]
+        constructor <init>(kotlin/String, kotlin/String = ...) // kotlin.native/ObjCEnum.EntryName.<init>|<init>(kotlin.String;kotlin.String){}[1]
+
+        final val name // kotlin.native/ObjCEnum.EntryName.name|{}name[1]
+            final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.EntryName.name.<get-name>|<get-name>(){}[1]
+        final val swiftName // kotlin.native/ObjCEnum.EntryName.swiftName|{}swiftName[1]
+            final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.EntryName.swiftName.<get-swiftName>|<get-swiftName>(){}[1]
+    }
 }
 
 // Targets: [js, wasmJs, wasmWasi]
@@ -13986,6 +14180,11 @@ final val kotlin.js/definedExternally // kotlin.js/definedExternally|{}definedEx
     final fun <get-definedExternally>(): kotlin/Nothing // kotlin.js/definedExternally.<get-definedExternally>|<get-definedExternally>(){}[0]
 
 // Targets: [wasmJs, wasmWasi]
+open annotation class kotlin.wasm.unsafe/ComponentModelInternalApi : kotlin/Annotation { // kotlin.wasm.unsafe/ComponentModelInternalApi|null[0]
+    constructor <init>() // kotlin.wasm.unsafe/ComponentModelInternalApi.<init>|<init>(){}[0]
+}
+
+// Targets: [wasmJs, wasmWasi]
 open annotation class kotlin.wasm.unsafe/UnsafeWasmMemoryApi : kotlin/Annotation { // kotlin.wasm.unsafe/UnsafeWasmMemoryApi|null[0]
     constructor <init>() // kotlin.wasm.unsafe/UnsafeWasmMemoryApi.<init>|<init>(){}[0]
 }
@@ -14096,7 +14295,7 @@ final fun <#A: kotlin/Any?, #B: kotlin/Any?> kotlin.wasm.internal/startCoroutine
 final fun <#A: kotlin/Any?> (kotlin.coroutines/SuspendFunction0<#A>).kotlin.coroutines.intrinsics/startCoroutineUninterceptedOrReturnImpl(kotlin.coroutines/Continuation<#A>): kotlin/Any? // kotlin.coroutines.intrinsics/startCoroutineUninterceptedOrReturnImpl|startCoroutineUninterceptedOrReturnImpl@kotlin.coroutines.SuspendFunction0<0:0>(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
 
 // Targets: [wasmJs, wasmWasi]
-final fun <#A: kotlin/Any?> kotlin.coroutines.intrinsics/createSimpleCoroutineFromSuspendFunction(kotlin.coroutines/Continuation<#A>): kotlin.coroutines/CoroutineImpl // kotlin.coroutines.intrinsics/createSimpleCoroutineFromSuspendFunction|createSimpleCoroutineFromSuspendFunction(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?> kotlin.coroutines.intrinsics/createSimpleCoroutineFromSuspendFunction(kotlin.coroutines/Continuation<#A>): kotlin.coroutines/CoroutineImpl<kotlin/Any?, kotlin/Any?> // kotlin.coroutines.intrinsics/createSimpleCoroutineFromSuspendFunction|createSimpleCoroutineFromSuspendFunction(kotlin.coroutines.Continuation<0:0>){0§<kotlin.Any?>}[0]
 
 // Targets: [wasmJs, wasmWasi]
 final fun <#A: kotlin/Any?> kotlin.wasm.internal/getContinuation(): kotlin.coroutines/Continuation<#A> // kotlin.wasm.internal/getContinuation|getContinuation(){0§<kotlin.Any?>}[0]
@@ -14132,7 +14331,13 @@ final fun kotlin.wasm.internal/wasm_i64_shr_s(kotlin/Long, kotlin/Long): kotlin/
 final fun kotlin.wasm.internal/wasm_i64_shr_u(kotlin/Long, kotlin/Long): kotlin/Long // kotlin.wasm.internal/wasm_i64_shr_u|wasm_i64_shr_u(kotlin.Long;kotlin.Long){}[0]
 
 // Targets: [wasmJs, wasmWasi]
+final fun kotlin.wasm.unsafe/componentModelRealloc(kotlin/Int, kotlin/Int, kotlin/Int): kotlin/Int // kotlin.wasm.unsafe/componentModelRealloc|componentModelRealloc(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+// Targets: [wasmJs, wasmWasi]
 final fun kotlin.wasm.unsafe/createAllocatorInTheNewScope(): kotlin.wasm.unsafe/ScopedMemoryAllocator // kotlin.wasm.unsafe/createAllocatorInTheNewScope|createAllocatorInTheNewScope(){}[0]
+
+// Targets: [wasmJs, wasmWasi]
+final fun kotlin.wasm.unsafe/freeAllComponentModelReallocAllocatedMemory() // kotlin.wasm.unsafe/freeAllComponentModelReallocAllocatedMemory|freeAllComponentModelReallocAllocatedMemory(){}[0]
 
 // Targets: [wasmJs, wasmWasi]
 final fun kotlin/floatToUInt(kotlin/Float): kotlin/UInt // kotlin/floatToUInt|floatToUInt(kotlin.Float){}[0]
@@ -14202,6 +14407,11 @@ open annotation class kotlin.js/JsFileName : kotlin/Annotation { // kotlin.js/Js
 // Targets: [js]
 open annotation class kotlin.js/JsNoDispatchReceiver : kotlin/Annotation { // kotlin.js/JsNoDispatchReceiver|null[0]
     constructor <init>() // kotlin.js/JsNoDispatchReceiver.<init>|<init>(){}[0]
+}
+
+// Targets: [js]
+open annotation class kotlin.js/JsNoRuntime : kotlin/Annotation { // kotlin.js/JsNoRuntime|null[0]
+    constructor <init>() // kotlin.js/JsNoRuntime.<init>|<init>(){}[0]
 }
 
 // Targets: [js]
@@ -15126,6 +15336,9 @@ final inline fun <#A: kotlin/Any> (#A).kotlin.js/toJsReference(): kotlin.js/JsRe
 
 // Targets: [js]
 final inline fun <#A: kotlin/Any> (kotlin.js/JsReference<#A>).kotlin.js/get(): #A // kotlin.js/get|get@kotlin.js.JsReference<0:0>(){0§<kotlin.Any>}[0]
+
+// Targets: [js]
+final inline fun <#A: kotlin/Any> (kotlin/Any).kotlin.js/get(): #A // kotlin.js/get|get@kotlin.Any(){0§<kotlin.Any>}[0]
 
 // Targets: [js]
 final inline fun <#A: kotlin/Any> (kotlin/Any).kotlin.js/unsafeCast(): #A // kotlin.js/unsafeCast|unsafeCast@kotlin.Any(){0§<kotlin.Any>}[0]

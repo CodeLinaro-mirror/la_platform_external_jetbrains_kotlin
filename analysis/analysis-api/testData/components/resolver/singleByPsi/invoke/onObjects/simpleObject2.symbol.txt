@@ -1,2 +1,7 @@
 KtNameReferenceExpression(79,82): 'Foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      foo/Foo
+    ]

@@ -1,2 +1,7 @@
 KtOperationReferenceExpression(146,148): '++'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyClass.inc(<dispatch receiver>: MyClass): MyClass
+    ]

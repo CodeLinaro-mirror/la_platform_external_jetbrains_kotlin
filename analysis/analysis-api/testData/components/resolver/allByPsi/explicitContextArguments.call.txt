@@ -312,7 +312,7 @@ KtCallExpression(395,440): 'unnamed/*explicit regular*/(regular = "str2")'
       }
 
 KtNameReferenceExpression(395,402): 'unnamed'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -440,7 +440,7 @@ KtCallExpression(445,488): 'named/*explicit regular*/(regular = "str2")'
       }
 
 KtNameReferenceExpression(445,450): 'named'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -577,7 +577,7 @@ KtCallExpression(494,558): 'unnamed/*all explicit*/(explicit = Explicit(), regul
       }
 
 KtNameReferenceExpression(494,501): 'unnamed'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -670,7 +670,7 @@ KtCallExpression(529,539): 'Explicit()'
       valueArgumentMapping = {}
 
 KtNameReferenceExpression(529,537): 'Explicit'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -769,7 +769,7 @@ KtCallExpression(563,625): 'named/*all explicit*/(explicit = Explicit(), regular
       }
 
 KtNameReferenceExpression(563,568): 'named'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -862,7 +862,7 @@ KtCallExpression(596,606): 'Explicit()'
       valueArgumentMapping = {}
 
 KtNameReferenceExpression(596,604): 'Explicit'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -968,7 +968,7 @@ KtCallExpression(664,794): 'with(Explicit()) {'
       }
 
 KtNameReferenceExpression(664,668): 'with'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1044,7 +1044,7 @@ KtCallExpression(669,679): 'Explicit()'
       valueArgumentMapping = {}
 
 KtNameReferenceExpression(669,677): 'Explicit'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1084,9 +1084,10 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1107,9 +1108,10 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1171,7 +1173,7 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
       }
 
 KtNameReferenceExpression(691,698): 'unnamed'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -1179,9 +1181,10 @@ KtNameReferenceExpression(691,698): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1202,9 +1205,10 @@ KtNameReferenceExpression(691,698): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1292,9 +1296,10 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1315,9 +1320,10 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1379,7 +1385,7 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
       }
 
 KtNameReferenceExpression(745,750): 'named'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -1387,9 +1393,10 @@ KtNameReferenceExpression(745,750): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1410,9 +1417,10 @@ KtNameReferenceExpression(745,750): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1508,9 +1516,10 @@ KtCallExpression(800,864): 'unnamed/*all explicit*/(explicit = Explicit(), regul
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1576,7 +1585,7 @@ KtCallExpression(800,864): 'unnamed/*all explicit*/(explicit = Explicit(), regul
       }
 
 KtNameReferenceExpression(800,807): 'unnamed'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -1592,9 +1601,10 @@ KtNameReferenceExpression(800,807): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1689,7 +1699,7 @@ KtCallExpression(835,845): 'Explicit()'
       valueArgumentMapping = {}
 
 KtNameReferenceExpression(835,843): 'Explicit'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1740,9 +1750,10 @@ KtCallExpression(869,931): 'named/*all explicit*/(explicit = Explicit(), regular
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1808,7 +1819,7 @@ KtCallExpression(869,931): 'named/*all explicit*/(explicit = Explicit(), regular
       }
 
 KtNameReferenceExpression(869,874): 'named'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -1824,9 +1835,10 @@ KtNameReferenceExpression(869,874): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1921,7 +1933,7 @@ KtCallExpression(902,912): 'Explicit()'
       valueArgumentMapping = {}
 
 KtNameReferenceExpression(902,910): 'Explicit'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

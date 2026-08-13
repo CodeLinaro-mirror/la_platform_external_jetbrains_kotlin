@@ -5,20 +5,12 @@
 
 package kotlin.reflect.jvm.internal
 
+import org.jetbrains.kotlin.descriptors.runtime.structure.safeClassLoader
 import kotlin.LazyThreadSafetyMode.PUBLICATION
-import kotlin.metadata.KmFunction
-import kotlin.metadata.KmType
-import kotlin.metadata.KmValueParameter
-import kotlin.metadata.Modality
-import kotlin.metadata.isExternal
-import kotlin.metadata.isInfix
-import kotlin.metadata.isInline
-import kotlin.metadata.isOperator
-import kotlin.metadata.isSuspend
+import kotlin.jvm.internal.CallableReference
+import kotlin.metadata.*
 import kotlin.metadata.jvm.JvmMethodSignature
 import kotlin.metadata.jvm.signature
-import kotlin.metadata.modality
-import kotlin.metadata.visibility
 import kotlin.reflect.KType
 import kotlin.reflect.KVisibility
 
@@ -27,9 +19,15 @@ internal class KotlinKNamedFunction(
     signature: String,
     rawBoundReceiver: Any?,
     private val kmFunction: KmFunction,
-) : KotlinKFunction(container, signature, rawBoundReceiver) {
+    overriddenStorage: KCallableOverriddenStorage,
+) : KotlinKFunction(container, signature, rawBoundReceiver, overriddenStorage) {
     override val contextParameters: List<KmValueParameter> get() = kmFunction.contextParameters
-    override val extensionReceiverType: KmType? get() = kmFunction.receiverParameterType
+
+    override val extensionReceiverType: KmType? by lazy(PUBLICATION) {
+        @OptIn(ExperimentalCompanionBlocksAndExtensions::class)
+        kmFunction.receiverParameterType.takeUnless { kmFunction.isStatic }
+    }
+
     override val valueParameters: List<KmValueParameter> get() = kmFunction.valueParameters
     override val typeParameterTable: TypeParameterTable get() = _typeParameterTable.value
     override val jvmSignature: JvmMethodSignature
@@ -37,14 +35,14 @@ internal class KotlinKNamedFunction(
 
     private val _typeParameterTable: Lazy<TypeParameterTable> = lazy(PUBLICATION) {
         val parent = (container as? KClassImpl<*>)?.typeParameterTable
-        TypeParameterTable.create(kmFunction.typeParameters, parent, this, container.jClass.classLoader)
+        TypeParameterTable.create(kmFunction.typeParameters, parent, this, container.jClass.safeClassLoader)
     }
 
     override val name: String
         get() = kmFunction.name
 
     override val returnType: KType by lazy(PUBLICATION) {
-        kmFunction.returnType.toKType(container.jClass.classLoader, typeParameterTable) {
+        kmFunction.returnType.toKType(container.jClass.safeClassLoader, typeParameterTable) {
             extractContinuationArgument() ?: caller.returnType
         }
     }
@@ -58,4 +56,7 @@ internal class KotlinKNamedFunction(
     override val isInfix: Boolean get() = kmFunction.isInfix
 
     override val isPrimaryConstructor: Boolean get() = false
+
+    override fun shallowCopy(container: KDeclarationContainerImpl, overriddenStorage: KCallableOverriddenStorage): ReflectKCallable<Any?> =
+        KotlinKNamedFunction(container, signature, CallableReference.NO_RECEIVER, kmFunction, overriddenStorage)
 }

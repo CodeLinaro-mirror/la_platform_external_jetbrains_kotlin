@@ -133,7 +133,6 @@ public final class org/jetbrains/kotlin/analysis/api/platform/declarations/Kotli
 
 public final class org/jetbrains/kotlin/analysis/api/platform/declarations/KotlinCompositeDeclarationProvider : org/jetbrains/kotlin/analysis/api/platform/KotlinCompositeProvider, org/jetbrains/kotlin/analysis/api/platform/declarations/KotlinDeclarationProvider {
 	public static final field Companion Lorg/jetbrains/kotlin/analysis/api/platform/declarations/KotlinCompositeDeclarationProvider$Companion;
-	public synthetic fun <init> (Ljava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun computePackageNames ()Ljava/util/Set;
 	public fun computePackageNamesWithTopLevelCallables ()Ljava/util/Set;
 	public fun computePackageNamesWithTopLevelClassifiers ()Ljava/util/Set;
@@ -393,6 +392,11 @@ public final class org/jetbrains/kotlin/analysis/api/platform/modification/KaEle
 	public final fun getRemovedElement ()Lcom/intellij/psi/PsiElement;
 }
 
+public final class org/jetbrains/kotlin/analysis/api/platform/modification/KaElementModificationType$ElementReplaced : org/jetbrains/kotlin/analysis/api/platform/modification/KaElementModificationType {
+	public fun <init> (Lcom/intellij/psi/PsiElement;)V
+	public final fun getReplacedElement ()Lcom/intellij/psi/PsiElement;
+}
+
 public final class org/jetbrains/kotlin/analysis/api/platform/modification/KaElementModificationType$Unknown : org/jetbrains/kotlin/analysis/api/platform/modification/KaElementModificationType {
 	public static final field INSTANCE Lorg/jetbrains/kotlin/analysis/api/platform/modification/KaElementModificationType$Unknown;
 }
@@ -547,7 +551,6 @@ public abstract class org/jetbrains/kotlin/analysis/api/platform/packages/Kotlin
 
 public final class org/jetbrains/kotlin/analysis/api/platform/packages/KotlinCompositePackageProvider : org/jetbrains/kotlin/analysis/api/platform/KotlinCompositeProvider, org/jetbrains/kotlin/analysis/api/platform/packages/KotlinPackageProvider {
 	public static final field Companion Lorg/jetbrains/kotlin/analysis/api/platform/packages/KotlinCompositePackageProvider$Companion;
-	public synthetic fun <init> (Ljava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun doesKotlinOnlyPackageExist (Lorg/jetbrains/kotlin/name/FqName;)Z
 	public fun doesPackageExist (Lorg/jetbrains/kotlin/name/FqName;Lorg/jetbrains/kotlin/platform/TargetPlatform;)Z
 	public fun doesPlatformSpecificPackageExist (Lorg/jetbrains/kotlin/name/FqName;Lorg/jetbrains/kotlin/platform/TargetPlatform;)Z
@@ -706,6 +709,31 @@ public abstract class org/jetbrains/kotlin/analysis/api/platform/projectStructur
 	public fun <init> ()V
 	public fun getContentScope ()Lcom/intellij/psi/search/GlobalSearchScope;
 	public fun getTransitiveDependsOnDependencies ()Ljava/util/List;
+}
+
+public abstract interface class org/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModuleConverter : org/jetbrains/kotlin/analysis/api/platform/KotlinOptionalPlatformComponent {
+	public static final field Companion Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModuleConverter$Companion;
+	public abstract fun asOpenApiModule (Lorg/jetbrains/kotlin/analysis/api/projectStructure/KaModule;)Lcom/intellij/openapi/module/Module;
+}
+
+public final class org/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModuleConverter$Companion {
+	public final fun getInstance ()Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModuleConverter;
+}
+
+public final class org/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind : java/lang/Enum {
+	public static final field JS Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static final field JVM Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static final field METADATA Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static final field NATIVE Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static final field WASM Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static fun values ()[Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+}
+
+public final class org/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKindKt {
+	public static final fun getPlatformKind (Lorg/jetbrains/kotlin/analysis/api/projectStructure/KaModule;)Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
+	public static final fun toModulePlatformKind (Lorg/jetbrains/kotlin/platform/TargetPlatform;)Lorg/jetbrains/kotlin/analysis/api/platform/projectStructure/KaModulePlatformKind;
 }
 
 public abstract class org/jetbrains/kotlin/analysis/api/platform/projectStructure/KaResolutionScope : com/intellij/psi/search/GlobalSearchScope {
@@ -933,5 +961,9 @@ public final class org/jetbrains/kotlin/analysis/api/platform/utils/SublistMerge
 public final class org/jetbrains/kotlin/analysis/api/platform/utils/UtilsKt {
 	public static final field KOTLIN_JAVA_ELEMENT_FINDER_CLASS_NAME Ljava/lang/String;
 	public static final fun forEachNonKotlinPsiElementFinder (Lcom/intellij/openapi/project/Project;Lkotlin/jvm/functions/Function1;)V
+}
+
+public abstract interface class org/jetbrains/kotlin/analysis/api/resolution/KaResolvableReferenceBridge {
+	public abstract fun resolveToSymbols (Lorg/jetbrains/kotlin/analysis/api/KaSession;)Ljava/util/Collection;
 }
 

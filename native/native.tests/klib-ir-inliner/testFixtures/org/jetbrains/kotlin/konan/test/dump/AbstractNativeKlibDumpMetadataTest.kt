@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Tag
 import java.io.File
 
 @Tag("klib")
-@UsePartialLinkage(UsePartialLinkage.Mode.DISABLED)
+@UsePartialLinkage(UsePartialLinkage.Mode.ERROR)
 abstract class AbstractNativeKlibDumpMetadataTest : AbstractNativeSimpleTest() {
 
     protected fun runTest(@TestDataFile testPath: String) {
@@ -72,7 +72,7 @@ abstract class AbstractNativeKlibDumpMetadataTest : AbstractNativeSimpleTest() {
     }
 
     private fun generateTestCaseWithSingleSource(source: File, extraArgs: List<String>): TestCase {
-        val moduleStructure = ModuleStructureExtractorImpl.parseModuleStructureWithoutService(source)
+        val moduleStructure = ModuleStructureExtractorImpl.parseModuleStructureWithoutService(source, JUnit5Assertions)
         if (moduleStructure.modules.size > 1) {
             fail { "Test should contain only one module" }
         }

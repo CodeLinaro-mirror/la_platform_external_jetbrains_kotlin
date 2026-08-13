@@ -45,8 +45,9 @@ import org.jetbrains.kotlin.analysis.api.standalone.base.permissions.KotlinStand
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.*
 import org.jetbrains.kotlin.analysis.api.standalone.base.services.LLStandaloneFirElementByPsiElementChooser
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.services.LLFirElementByPsiElementChooser
-import org.jetbrains.kotlin.analysis.project.structure.builder.KtModuleProviderBuilder
-import org.jetbrains.kotlin.analysis.project.structure.builder.buildProjectStructureProvider
+import org.jetbrains.kotlin.analysis.project.structure.builder.KaModuleContainerBuilder
+import org.jetbrains.kotlin.analysis.project.structure.builder.buildModuleContainer
+import org.jetbrains.kotlin.analysis.project.structure.impl.KotlinStandaloneProjectStructureProvider
 import org.jetbrains.kotlin.analysis.project.structure.impl.buildKtModuleProviderByCompilerConfiguration
 import org.jetbrains.kotlin.analysis.project.structure.impl.getPsiFilesFromPaths
 import org.jetbrains.kotlin.analysis.project.structure.impl.getSourceFilePaths
@@ -54,7 +55,6 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreApplicationEnvironmentMod
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.setupIdeaStandaloneExecution
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.extensions.ProjectExtensionDescriptor
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.psi.KtFile
 import kotlin.contracts.ExperimentalContracts
@@ -85,7 +85,7 @@ public class StandaloneAnalysisAPISessionBuilder(
     init {
         val application = kotlinCoreProjectEnvironment.environment.application
         ApplicationServiceRegistration.registerWithCustomRegistration(application, serviceRegistrars) {
-            registerApplicationServices(application, data = Unit)
+            registerApplicationServices(application, kotlinCoreProjectEnvironment.environment.parentDisposable, data = Unit)
         }
     }
 
@@ -95,13 +95,19 @@ public class StandaloneAnalysisAPISessionBuilder(
 
     private lateinit var projectStructureProvider: KotlinStaticProjectStructureProvider
 
-    public fun buildKtModuleProvider(init: KtModuleProviderBuilder.() -> Unit) {
-        projectStructureProvider = buildProjectStructureProvider(kotlinCoreProjectEnvironment.environment, project, init)
+    @OptIn(ExperimentalContracts::class)
+    public fun buildKtModuleProvider(init: KaModuleContainerBuilder.() -> Unit) {
+        contract {
+            callsInPlace(init, InvocationKind.EXACTLY_ONCE)
+        }
+        val [moduleContainer, platform] = buildModuleContainer(kotlinCoreProjectEnvironment.environment, project, init)
+        projectStructureProvider = KotlinStandaloneProjectStructureProvider(platform, project, moduleContainer)
     }
 
     @Deprecated(
         "Compiler configuration is not a good fit for specifying multi-module project.",
-        ReplaceWith("buildKtModuleProvider { }")
+        ReplaceWith("buildKtModuleProvider { }"),
+        level = DeprecationLevel.HIDDEN,
     )
     public fun buildKtModuleProviderByCompilerConfiguration(
         compilerConfiguration: CompilerConfiguration,
@@ -210,6 +216,7 @@ public class StandaloneAnalysisAPISessionBuilder(
      *
      * @param compilerConfiguration The [CompilerConfiguration] containing information about the registered compiler plugins.
      */
+    @Deprecated("Obsolete Standalone API", level = DeprecationLevel.HIDDEN)
     public fun registerCompilerPluginServices(compilerConfiguration: CompilerConfiguration) {
         registerProjectService(
             KotlinCompilerPluginsProvider::class.java,
@@ -250,12 +257,13 @@ public class StandaloneAnalysisAPISessionBuilder(
  * When using this service registrar in tests, make sure that `AnalysisApiIdeModeTestServiceRegistrar` isn't configured at the same time.
  */
 internal object StandaloneSessionServiceRegistrar : AnalysisApiSimpleServiceRegistrar() {
-    override fun registerApplicationServices(application: MockApplication) {
+    override fun registerApplicationServices(application: MockApplication, disposable: Disposable) {
         application.apply {
             registerService(KotlinAnalysisPermissionOptions::class.java, KotlinStandaloneAnalysisPermissionOptions::class.java)
         }
     }
 
+    @OptIn(KaImplementationDetail::class)
     override fun registerProjectServices(project: MockProject) {
         project.apply {
             registerService(KotlinLifetimeTokenFactory::class.java, KotlinAlwaysAccessibleLifetimeTokenFactory::class.java)

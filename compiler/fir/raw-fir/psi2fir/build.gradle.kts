@@ -7,12 +7,14 @@ plugins {
     kotlin("jvm")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("require-explicit-types")
 }
 
 dependencies {
     api(project(":compiler:fir:raw-fir:raw-fir.common"))
     implementation(project(":compiler:psi:psi-api"))
     implementation(project(":compiler:psi:psi-impl"))
+    implementation(project(":compiler:psi:psi-frontend-utils"))
     implementation(kotlinxCollectionsImmutable())
 
     compileOnly(intellijCore())
@@ -20,6 +22,8 @@ dependencies {
 
     testFixturesApi(libs.junit4)
     testFixturesApi(testFixtures(project(":compiler:tests-common")))
+    testFixturesApi(testFixtures(project(":compiler:tests-common-new")))
+    testFixturesApi(testFixtures(project(":compiler:fir:raw-fir:raw-fir.common")))
     testFixturesApi(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
     testCompileOnly(kotlinTest("junit"))

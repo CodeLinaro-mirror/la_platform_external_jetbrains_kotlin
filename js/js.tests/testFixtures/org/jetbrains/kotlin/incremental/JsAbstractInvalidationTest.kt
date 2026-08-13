@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -34,8 +34,8 @@ import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.util.JUnit4Assertions
 import org.jetbrains.kotlin.test.utils.TestDisposable
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.junit.ComparisonFailure
+import org.jetbrains.kotlin.test.testInfraError
 import java.io.File
 
 abstract class JsAbstractInvalidationTest(
@@ -54,13 +54,16 @@ abstract class JsAbstractInvalidationTest(
 
     override val modelTarget: ModelTarget = ModelTarget.JS
 
-    override val outputDirPath = System.getProperty("kotlin.js.test.root.out.dir") ?: error("'kotlin.js.test.root.out.dir' is not set")
+    override val outputDirPath = System.getProperty("kotlin.js.test.root.out.dir") ?: testInfraError("'kotlin.js.test.root.out.dir' is not set")
 
     override val stdlibKLib: String =
-        File(System.getProperty("kotlin.js.stdlib.klib.path") ?: error("Please set stdlib path")).canonicalPath
+        File(System.getProperty("kotlin.js.stdlib.klib.path") ?: testInfraError("Please set stdlib path")).canonicalPath
 
     override val kotlinTestKLib: String =
-        File(System.getProperty("kotlin.js.kotlin.test.klib.path") ?: error("Please set kotlin.test path")).canonicalPath
+        File(System.getProperty("kotlin.js.kotlin.test.klib.path") ?: testInfraError("Please set kotlin.test path")).canonicalPath
+
+    open val libraryNamesToExcludeFromStats
+        get() = setOf(STDLIB_MODULE_NAME, KOTLIN_TEST_MODULE_NAME)
 
     final override val rootDisposable: TestDisposable =
         TestDisposable("${JsAbstractInvalidationTest::class.simpleName}.rootDisposable")
@@ -78,6 +81,7 @@ abstract class JsAbstractInvalidationTest(
         allLibraries: List<String>,
         friendLibraries: List<String>,
         includedLibrary: String?,
+        outputDir: File,
     ): CompilerConfiguration {
         val copy = super.createConfiguration(
             moduleName = moduleName,
@@ -86,6 +90,7 @@ abstract class JsAbstractInvalidationTest(
             allLibraries = allLibraries,
             friendLibraries = friendLibraries,
             includedLibrary = includedLibrary,
+            outputDir = outputDir,
         )
         copy.put(JSConfigurationKeys.USE_ES6_CLASSES, targetBackend == TargetBackend.JS_IR_ES6)
         copy.put(JSConfigurationKeys.COMPILE_SUSPEND_AS_JS_GENERATOR, targetBackend == TargetBackend.JS_IR_ES6)
@@ -113,9 +118,9 @@ abstract class JsAbstractInvalidationTest(
         override fun execute() {
             if (granularity in projectInfo.ignoredGranularities) return
 
-            val mainArguments = runIf(projectInfo.callMain) { emptyList<String>() }
-            val dtsStrategy = when (granularity) {
-                JsGenerationGranularity.PER_FILE -> TsCompilationStrategy.EACH_FILE
+            val dtsStrategy = when {
+                !projectInfo.checkTypeScriptDefinitions -> TsCompilationStrategy.NONE
+                granularity == JsGenerationGranularity.PER_FILE -> TsCompilationStrategy.EACH_FILE
                 else -> TsCompilationStrategy.MERGED
             }
 
@@ -124,16 +129,18 @@ abstract class JsAbstractInvalidationTest(
 
                 val mainModuleInfo = testInfo.last()
                 testInfo.find { it != mainModuleInfo && it.friends.isNotEmpty() }?.let {
-                    error("module ${it.moduleName} has friends, but only main module may have the friends")
+                    testInfraError("module ${it.moduleName} has friends, but only main module may have the friends")
                 }
 
+                val moduleName = projStep.order.last()
                 val configuration = createConfiguration(
-                    moduleName = projStep.order.last(),
+                    moduleName = moduleName,
                     moduleKind = projectInfo.moduleKind,
                     languageFeatures = projStep.language,
                     allLibraries = testInfo.mapTo(mutableListOf(stdlibKLib, kotlinTestKLib)) { it.modulePath },
                     friendLibraries = mainModuleInfo.friends,
                     includedLibrary = mainModuleInfo.modulePath,
+                    outputDir = jsDir,
                 ).apply {
                     put(JSConfigurationKeys.GENERATE_DTS, projectInfo.checkTypeScriptDefinitions)
                     put(JSConfigurationKeys.SOURCE_MAP_EMBED_SOURCES, SourceMapSourceEmbedding.NEVER)
@@ -145,17 +152,24 @@ abstract class JsAbstractInvalidationTest(
                 }
 
                 configuration.phaseConfig = createPhaseConfig(projStep.id, buildDir)
-                val icContext = JsICContext(
-                    mainArguments,
-                    granularity,
-                    setOf(FqName(BOX_FUNCTION_NAME)),
-                )
+                configuration.additionalExportedDeclarationNames = setOf(FqName(BOX_FUNCTION_NAME))
 
+                val artifactConfiguration = WebArtifactConfiguration(
+                    moduleKind = projectInfo.moduleKind,
+                    moduleName = moduleName,
+                    outputDirectory = jsDir,
+                    outputName = moduleName,
+                    granularity = granularity,
+                    tsCompilationStrategy = dtsStrategy,
+                    production = false,
+                    minimizedMemberNames = false,
+                )
 
                 val cacheUpdater = CacheUpdater(
                     cacheDir = buildDir.resolve("incremental-cache").absolutePath,
                     compilerConfiguration = configuration,
-                    icContext = icContext
+                    artifactConfiguration = artifactConfiguration,
+                    icContext = JsICContext(granularity)
                 )
 
                 val removedModulesInfo = (projectInfo.modules - projStep.order.toSet()).map { setupTestStep(projStep, it) }
@@ -164,16 +178,15 @@ abstract class JsAbstractInvalidationTest(
                 verifyCacheUpdateStats(projStep.id, cacheUpdater.getDirtyFileLastStats(), testInfo + removedModulesInfo)
 
                 val mainModuleName = icCaches.last().moduleExternalName
+
                 val jsExecutableProducer = JsExecutableProducer(
-                    mainModuleName = mainModuleName,
-                    moduleKind = configuration[JSConfigurationKeys.MODULE_KIND]!!,
+                    artifactConfiguration = artifactConfiguration,
                     sourceMapsInfo = SourceMapsInfo.from(configuration),
                     caches = icCaches,
-                    relativeRequirePath = true
                 )
 
-                val (jsOutput, rebuiltModules) = jsExecutableProducer.buildExecutable(granularity, outJsProgram = true)
-                val writtenFiles = writeJsCode(projStep.id, mainModuleName, jsOutput, dtsStrategy)
+                (val jsOutput = compilationOut, val rebuiltModules = buildModules) = jsExecutableProducer.buildExecutable(outJsProgram = true)
+                val writtenFiles = writeJsCode(projStep.id, jsOutput)
 
                 verifyJsExecutableProducerBuildModules(projStep.id, rebuiltModules, dirtyData)
                 verifyJsCode(projStep.id, mainModuleName, writtenFiles)
@@ -185,7 +198,7 @@ abstract class JsAbstractInvalidationTest(
         }
 
         private fun verifyJsExecutableProducerBuildModules(stepId: Int, gotRebuilt: List<String>, expectedRebuilt: List<String>) {
-            val got = gotRebuilt.filter { !it.startsWith(STDLIB_MODULE_NAME) && !it.startsWith(KOTLIN_TEST_MODULE_NAME) }
+            val got = gotRebuilt.filter { moduleName -> libraryNamesToExcludeFromStats.none { moduleName.startsWith(it) } }
             JUnit4Assertions.assertSameElements(got, expectedRebuilt) {
                 "Mismatched rebuilt modules at step $stepId"
             }
@@ -196,7 +209,7 @@ abstract class JsAbstractInvalidationTest(
                 V8JsTestChecker.checkWithTestFunctionArgs(
                     files = jsFiles,
                     testModuleName = "./$mainModuleName${projectInfo.moduleKind.jsExtension}",
-                    testPackageName = null,
+                    testPackageName = FqName.ROOT,
                     testFunctionName = BOX_FUNCTION_NAME,
                     testFunctionArgs = "$stepId, false",
                     expectedResult = "OK",
@@ -235,22 +248,8 @@ abstract class JsAbstractInvalidationTest(
             }
         }
 
-        private fun writeJsCode(
-            stepId: Int,
-            mainModuleName: String,
-            jsOutput: CompilationOutputs,
-            dtsStrategy: TsCompilationStrategy
-        ): List<String> {
-            val compiledJsFiles = jsOutput.writeAll(
-                WebArtifactConfiguration(
-                    moduleKind = projectInfo.moduleKind,
-                    moduleName = mainModuleName,
-                    outputDirectory = jsDir,
-                    outputName = mainModuleName,
-                    granularity = granularity,
-                    tsCompilationStrategy = dtsStrategy,
-                )
-            ).filter {
+        private fun writeJsCode(stepId: Int, jsOutput: CompilationOutputs): List<String> {
+            val compiledJsFiles = jsOutput.writeAll().filter {
                 it.extension == "js" || it.extension == "mjs"
             }
             for (jsCodeFile in compiledJsFiles) {

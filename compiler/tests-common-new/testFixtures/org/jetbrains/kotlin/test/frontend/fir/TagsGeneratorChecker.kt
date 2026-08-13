@@ -16,14 +16,9 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.contracts.FirEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.FirResolvedContractDescription
-import org.jetbrains.kotlin.fir.contracts.description.ConeCallsEffectDeclaration
-import org.jetbrains.kotlin.fir.contracts.description.ConeConditionalEffectDeclaration
-import org.jetbrains.kotlin.fir.contracts.description.ConeConditionalReturnsDeclaration
-import org.jetbrains.kotlin.fir.contracts.description.ConeHoldsInEffectDeclaration
-import org.jetbrains.kotlin.fir.contracts.description.ConeReturnsEffectDeclaration
+import org.jetbrains.kotlin.fir.contracts.description.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.hasExplicitBackingField
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
@@ -33,6 +28,7 @@ import org.jetbrains.kotlin.fir.references.FirResolvedCallableReference
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.references.symbol
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -45,12 +41,12 @@ import org.jetbrains.kotlin.test.frontend.fir.TagsGeneratorChecker.FirTags.MAX_L
 import org.jetbrains.kotlin.test.frontend.fir.TagsGeneratorChecker.FirTags.TAG_PREFIX
 import org.jetbrains.kotlin.test.frontend.fir.TagsGeneratorChecker.FirTags.TAG_SUFFIX
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirAnalysisHandler
+import org.jetbrains.kotlin.test.isTeamCityBuild
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.*
-import org.jetbrains.kotlin.test.utils.FirIdenticalCheckerHelper.Companion.isTeamCityBuild
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.Variance
 import java.io.File
@@ -224,6 +220,7 @@ class TagsGeneratorChecker(testServices: TestServices) : FirAnalysisHandler(test
         const val FUNCTIONAL_TYPE_WITH_EXTENSION = "typeWithExtension"
         const val FUN_INTERFACE = "funInterface"
         const val SAM_CONVERSION = "samConversion"
+        const val FUNCTION_TYPE_CONVERSION = "functionTypeConversion"
         const val SMARTCAST = "smartcast"
         const val SAFE_CALL = "safeCall"
         const val LOCAL_CLASS = "localClass"
@@ -308,7 +305,7 @@ private class TagsCollectorVisitor(private val session: FirSession) : FirVisitor
         if (property.delegateFieldSymbol != null) tags += FirTags.PROPERTY_DELEGATE
         if (property.source?.elementType == KtNodeTypes.DESTRUCTURING_DECLARATION) tags += FirTags.DESTRUCTURING_DECLARATION
         if (property.receiverParameter != null) tags += FirTags.PROPERTY_WITH_EXTENSION_RECEIVER
-        if (property.getter?.symbol?.isDefault == false && property.getter?.source?.kind != KtFakeSourceElementKind.DelegatedPropertyAccessor)
+        if (property.getter?.symbol?.isDefault == false && property.getter?.source?.kind !is KtFakeSourceElementKind.DelegatedPropertyAccessor)
             tags += FirTags.GETTER
         if (property.setter?.symbol?.isDefault == false) tags += FirTags.SETTER
         if (property.contextParameters.isNotEmpty()) tags += FirTags.PROPERTY_WITH_CONTEXT
@@ -547,9 +544,12 @@ private class TagsCollectorVisitor(private val session: FirSession) : FirVisitor
         tags += FirTags.COLLECTION_LITERAL
     }
 
-    override fun visitSamConversionExpression(samConversionExpression: FirSamConversionExpression) {
-        visitExpression(samConversionExpression)
-        tags += FirTags.SAM_CONVERSION
+    override fun visitFunctionTypeConversionExpression(functionTypeConversionExpression: FirFunctionTypeConversionExpression) {
+        visitExpression(functionTypeConversionExpression)
+        tags += when (functionTypeConversionExpression.kind) {
+            is FirFunctionConversionKind.Sam -> FirTags.SAM_CONVERSION
+            else -> FirTags.FUNCTION_TYPE_CONVERSION
+        }
     }
 
     override fun visitSmartCastExpression(smartCastExpression: FirSmartCastExpression) {
@@ -623,7 +623,7 @@ private class TagsCollectorVisitor(private val session: FirSession) : FirVisitor
             is FirDeclarationOrigin.Java.Library -> true
             is FirDeclarationOrigin.Synthetic.JavaProperty -> true
             FirDeclarationOrigin.Enhancement, FirDeclarationOrigin.RenamedForOverride -> when (source?.kind) {
-                KtFakeSourceElementKind.EnumGeneratedDeclaration -> false
+                is KtFakeSourceElementKind.EnumGeneratedDeclaration -> false
                 else -> true
             }
             else -> false
@@ -704,14 +704,9 @@ private class TagsCollectorVisitor(private val session: FirSession) : FirVisitor
 
     fun skipSyntheticDeclaration(source: KtSourceElement?): Boolean {
         return when (source?.kind) {
-            KtFakeSourceElementKind.EnumGeneratedDeclaration -> true
-            KtFakeSourceElementKind.DataClassGeneratedMembers -> true
-            KtFakeSourceElementKind.DesugaredPrefixInc -> true
-            KtFakeSourceElementKind.DesugaredPrefixDec -> true
-            KtFakeSourceElementKind.DesugaredPostfixInc -> true
-            KtFakeSourceElementKind.DesugaredPostfixDec -> true
-            KtFakeSourceElementKind.DesugaredPrefixIncSecondGetReference -> true
-            KtFakeSourceElementKind.DesugaredPrefixDecSecondGetReference -> true
+            is KtFakeSourceElementKind.EnumGeneratedDeclaration -> true
+            is KtFakeSourceElementKind.DataClassGeneratedMembers -> true
+            is KtFakeSourceElementKind.DesugaredIncrementOrDecrement -> true
             KtFakeSourceElementKind.ArrayAccessNameReference -> true
             KtFakeSourceElementKind.ArrayIndexExpressionReference -> true
             KtFakeSourceElementKind.ArrayTypeFromVarargParameter -> true

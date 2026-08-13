@@ -8,35 +8,52 @@ package org.jetbrains.kotlin.backend.common.linkage.partial
 import org.jetbrains.kotlin.backend.common.linkage.issues.PartialLinkageErrorsLogged
 import org.jetbrains.kotlin.backend.common.linkage.partial.ClassifierPartialLinkageStatus.Unusable.*
 import org.jetbrains.kotlin.backend.common.overrides.IrLinkerFakeOverrideProvider
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.config.PartialLinkageConfig
+import org.jetbrains.kotlin.config.PartialLinkageLogLevel
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.IrDiagnosticReporter
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeAliasSymbol
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.defaultTypeWithoutArguments
 import org.jetbrains.kotlin.ir.util.SymbolTable
+import org.jetbrains.kotlin.ir.util.defaultType
 
 fun createPartialLinkageSupportForLinker(
     partialLinkageConfig: PartialLinkageConfig,
-    builtIns: IrBuiltIns,
-    messageCollector: MessageCollector,
-): PartialLinkageSupportForLinker = if (partialLinkageConfig.isEnabled)
-    PartialLinkageSupportForLinkerImpl(
-        builtIns = builtIns,
-        logger = PartialLinkageLogger(messageCollector, partialLinkageConfig.logLevel),
-    )
-else
-    PartialLinkageSupportForLinker.DISABLED
+    irFactory: IrFactory,
+    anyClass: IrClassSymbol,
+    nothingClass: IrClassSymbol,
+    diagnosticReporter: IrDiagnosticReporter,
+): PartialLinkageSupportForLinker = PartialLinkageSupportForLinkerImpl(
+    irFactory,
+    anyClass,
+    nothingClass,
+    PartialLinkageLogger(diagnosticReporter, partialLinkageConfig.logLevel)
+)
 
 internal class PartialLinkageSupportForLinkerImpl(
-    val builtIns: IrBuiltIns,
+    irFactory: IrFactory,
+    private val anyClass: IrClassSymbol,
+    nothingClass: IrClassSymbol,
     private val logger: PartialLinkageLogger,
 ) : PartialLinkageSupportForLinker {
-    private val stubGenerator = MissingDeclarationStubGenerator(builtIns)
-    private val classifierExplorer = ClassifierExplorer(builtIns, stubGenerator)
-    private val patcher = PartiallyLinkedIrTreePatcher(builtIns, classifierExplorer, stubGenerator, logger)
+    private val stubGenerator = MissingDeclarationStubGenerator(irFactory, nothingClass.defaultTypeWithoutArguments)
+    private val classifierExplorer = ClassifierExplorer(anyClass, stubGenerator)
+    private val patcher = PartiallyLinkedIrTreePatcher(
+        irFactory,
+        anyClass,
+        nothingClass.defaultTypeWithoutArguments,
+        classifierExplorer,
+        stubGenerator,
+        logger
+    )
 
     /**
      * The queue of IR files to remove unusable annotations.
@@ -72,22 +89,24 @@ internal class PartialLinkageSupportForLinkerImpl(
         classifierExplorer.exploreIrElement(function)
     }
 
-    override fun generateStubsAndPatchUsages(symbolTable: SymbolTable) {
+    override fun generateStubsAndPatchUsages(irBuiltIns: IrBuiltIns, symbolTable: SymbolTable) {
         // Generate stubs.
         for (symbol in symbolTable.descriptorExtension.allUnboundSymbols) {
             stubGenerator.getDeclaration(symbol)
         }
 
-        // Patch IR files (without visiting contained declarations).
-        patcher.removeUnusableAnnotationsFromFiles(filesEnqueuedForProcessing.getCopyAndClear())
+        with(irBuiltIns) {
+            // Patch IR files (without visiting contained declarations).
+            patcher.removeUnusableAnnotationsFromFiles(filesEnqueuedForProcessing.getCopyAndClear())
 
-        // Patch all IR declarations scheduled so far.
-        patcher.patchDeclarations(declarationsEnqueuedForProcessing.getCopyAndClear())
+            // Patch all IR declarations scheduled so far.
+            patcher.patchDeclarations(declarationsEnqueuedForProcessing.getCopyAndClear())
+        }
 
         // Make sure that there are no linkage issues that have been reported with the 'error' severity.
         // If there are, abort the current compilation.
         if (logger.logLevel == PartialLinkageLogLevel.ERROR && patcher.linkageIssuesLogged > 0)
-            PartialLinkageErrorsLogged.raiseIssue(logger.messageCollector)
+            PartialLinkageErrorsLogged.raiseIssue(logger.diagnosticReporter)
     }
 
     override fun preprocessBeforeFakeOverridesBuilding(symbolTable: SymbolTable, fakeOverrideBuilder: IrLinkerFakeOverrideProvider) {
@@ -103,7 +122,7 @@ internal class PartialLinkageSupportForLinkerImpl(
                     }
                     is DueToOtherClassifier, is InvalidInheritance -> {
                         // these usecases are tested by `js/js.translator/testData/incremental/invalidationWithPL/interfaceBecomeClass/`
-                        candidateClass.superTypes = listOf(builtIns.anyType)
+                        candidateClass.superTypes = listOf(anyClass.owner.defaultType)
                     }
                 }
             }

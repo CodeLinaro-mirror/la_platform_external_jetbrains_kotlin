@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.standalone.fir.test.cases.session.builder
 
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
@@ -18,18 +19,25 @@ import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtTypeAlias
 import org.jetbrains.kotlin.test.services.StandardLibrariesPathProviderForKotlinProject
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.zip.ZipFile
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.deleteRecursively
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -147,7 +155,7 @@ class StandaloneBehaviorTest : AbstractStandaloneTest() {
 
                 val stdlibModule = addModule(
                     buildKtLibraryModule {
-                        addBinaryRoot(StandardLibrariesPathProviderForKotlinProject.runtimeJarForTests().toPath())
+                        addBinaryRoot(ForTestCompileRuntime.runtimeJarForTests().toPath())
                         platform = sharedPlatform
                         libraryName = "stdlib"
                     }
@@ -169,8 +177,8 @@ class StandaloneBehaviorTest : AbstractStandaloneTest() {
         testPackageProvider(sourceModule) {
             checkPackageExistence("foo", isKotlinOnly = true, isPlatform = false)
             checkPackageExistence("bar", isKotlinOnly = false, isPlatform = false)
-            checkPackageExistence("kotlin", isKotlinOnly = false, isPlatform = true)
-            checkPackageExistence("kotlin.collections", isKotlinOnly = false, isPlatform = true)
+            checkPackageExistence("kotlin", isKotlinOnly = true, isPlatform = true)
+            checkPackageExistence("kotlin.collections", isKotlinOnly = true, isPlatform = true)
             checkPackageExistence("kotlin.jvm.functions", isKotlinOnly = false, isPlatform = true)
             checkPackageExistence("java.lang", isKotlinOnly = false, isPlatform = true)
             checkPackageExistence("java.io", isKotlinOnly = false, isPlatform = true)
@@ -192,7 +200,7 @@ class StandaloneBehaviorTest : AbstractStandaloneTest() {
             buildKtModuleProvider {
                 val stdlibModule = addModule(
                     buildKtLibraryModule {
-                        addBinaryRoot(StandardLibrariesPathProviderForKotlinProject.defaultJsStdlib().toPath())
+                        addBinaryRoot(ForTestCompileRuntime.stdlibJsForTests().toPath())
                         platform = sharedPlatform
                         libraryName = "stdlib"
                     }
@@ -222,6 +230,81 @@ class StandaloneBehaviorTest : AbstractStandaloneTest() {
             checkSubpackages("foo", emptyList())
             checkSubpackages("bar", emptyList())
             checkSubpackages("kotlin", listOf("collections", "jvm", "js"))
+        }
+    }
+
+    @Test
+    fun testUnpackedKlibDependency() {
+        val klibFile = ForTestCompileRuntime.stdlibJsForTests()
+        val tempKlibFolder = Files.createTempDirectory(klibFile.name)
+
+        try {
+            ZipFile(klibFile).use { zipFile ->
+                for (zipEntry in zipFile.entries()) {
+                    val targetPath = tempKlibFolder.resolve(zipEntry.name)
+                    if (zipEntry.isDirectory) {
+                        Files.createDirectories(targetPath)
+                    } else {
+                        Files.createDirectories(targetPath.parent)
+                        zipFile.getInputStream(zipEntry).use { input ->
+                            Files.copy(input, targetPath)
+                        }
+                    }
+                }
+            }
+
+            val sharedPlatform = JsPlatforms.defaultJsPlatform
+
+            lateinit var sourceModule: KaSourceModule
+            val standaloneSession = buildStandaloneAnalysisAPISession(disposable) {
+                buildKtModuleProvider {
+                    val stdlibModule = addModule(
+                        buildKtLibraryModule {
+                            addBinaryRoot(tempKlibFolder)
+                            platform = sharedPlatform
+                            libraryName = "stdlib"
+                        }
+                    )
+
+                    platform = sharedPlatform
+                    sourceModule = addModule(
+                        buildKtSourceModule {
+                            addSourceRoot(testDataPath("packageProvider"))
+                            addRegularDependency(stdlibModule)
+                            platform = sharedPlatform
+                            moduleName = "source"
+                        }
+                    )
+                }
+            }
+
+            testPackageProvider(sourceModule) {
+                checkPackageExistence("foo", isKotlinOnly = true, isPlatform = false)
+                checkPackageExistence("bar", isKotlinOnly = false, isPlatform = false)
+                checkPackageExistence("kotlin", isKotlinOnly = true, isPlatform = false)
+                checkPackageExistence("kotlin.collections", isKotlinOnly = true, isPlatform = false)
+                checkPackageExistence("kotlin.jvm.functions", isKotlinOnly = false, isPlatform = false)
+                checkPackageExistence("java.lang", isKotlinOnly = false, isPlatform = false)
+                checkPackageExistence("java.io", isKotlinOnly = false, isPlatform = false)
+
+                checkSubpackages("foo", emptyList())
+                checkSubpackages("bar", emptyList())
+                checkSubpackages("kotlin", listOf("collections", "jvm", "js"))
+            }
+
+            val ktFile = standaloneSession.modulesWithFiles.getValue(sourceModule).single() as KtFile
+            val testFunction = ktFile.declarations.filterIsInstance<KtNamedFunction>().single()
+            analyze(ktFile) {
+                @OptIn(KaExperimentalApi::class)
+                val listOfStringsType = typeCreator.classType(StandardClassIds.List) {
+                    invariantTypeArgument(builtinTypes.string)
+                }
+
+                assertEquals(listOfStringsType, testFunction.returnType)
+            }
+        } finally {
+            @OptIn(ExperimentalPathApi::class)
+            tempKlibFolder.deleteRecursively()
         }
     }
 
@@ -263,7 +346,6 @@ class StandaloneBehaviorTest : AbstractStandaloneTest() {
                 assertEquals(emptySet(), actualSubpackages, "Subpackages of '$packageFqName' must be empty")
             } else {
                 for (expectedSubpackage in expectedInside) {
-                    val expectedSubpackage = expectedSubpackage
                     val isInside = expectedSubpackage in actualSubpackages
                     assertTrue(isInside, "Subpackage '$name.$expectedSubpackage' must exist")
                 }

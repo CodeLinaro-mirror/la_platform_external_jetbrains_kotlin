@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.DeclarationTransformer
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
+import org.jetbrains.kotlin.ir.backend.js.utils.isJsStaticDeclaration
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildProperty
@@ -18,29 +19,31 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrAnnotation
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.JsStandardClassIds
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 /**
  * Make for each `@JsStatic` declaration inside the companion object a proxy declaration inside its parent class static scope.
  */
 class JsStaticLowering(private val context: JsIrBackendContext) : DeclarationTransformer {
     override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
-        if (declaration.parentClassOrNull?.isCompanion != true || !declaration.isJsStaticDeclaration()) return null
-        val containingClass = declaration.parentAsClass.parentAsClass
+        val parentClass = declaration.parent as? IrClass ?: return null
+        if (!parentClass.isObject || !declaration.isJsStaticDeclaration()) return null
+        val staticScopeOwner = if (parentClass.isCompanion) parentClass.parentAsClass else parentClass
 
         val proxyDeclaration = when (declaration) {
-            is IrSimpleFunction -> declaration.takeIf { it.correspondingPropertySymbol == null }?.generateStaticMethodProxy(containingClass)
-            is IrProperty -> declaration.generateStaticPropertyProxy(containingClass)
+            is IrSimpleFunction -> declaration.takeIf { it.correspondingPropertySymbol == null }?.generateStaticMethodProxy(staticScopeOwner)
+            is IrProperty -> declaration.generateStaticPropertyProxy(staticScopeOwner)
             else -> irError("Unexpected declaration type") {
                 withIrEntry("declaration", declaration)
             }
         } ?: return null
 
-        containingClass.declarations.add(proxyDeclaration)
-
         declaration.excludeFromJsExport()
 
-        return null
+        return if (parentClass.isCompanion) {
+            staticScopeOwner.declarations.add(proxyDeclaration)
+            null
+        } else listOf(declaration, proxyDeclaration)
     }
 
     private fun IrProperty.generateStaticPropertyProxy(proxyParent: IrClass): IrProperty {
@@ -69,26 +72,22 @@ class JsStaticLowering(private val context: JsIrBackendContext) : DeclarationTra
             copyFunctionSignatureFrom(originalFun, returnType = originalFun.returnType)
             parameters = nonDispatchParameters // Drop the dispatch parameter
 
-            body = context.createIrBuilder(symbol).irBlockBody {
-                val delegatingCall = irCall(originalFun).apply {
-                    passTypeArgumentsFrom(this@proxy)
-                    arguments.clear()
-                    if (originalFun.dispatchReceiverParameter != null) {
-                        arguments.add(irGetObject(originalFun.parentAsClass.symbol))
+            body = runIf(!isExternal) {
+                context.createIrBuilder(symbol).irBlockBody {
+                    val delegatingCall = irCall(originalFun).apply {
+                        passTypeArgumentsFrom(this@proxy)
+                        arguments.clear()
+                        if (originalFun.dispatchReceiverParameter != null) {
+                            arguments.add(irGetObject(originalFun.parentAsClass.symbol))
+                        }
+                        this@proxy.parameters.mapTo(arguments) { irGet(it) }
                     }
-                    this@proxy.parameters.mapTo(arguments) { irGet(it) }
-                }
 
-                +irReturn(delegatingCall)
+                    +irReturn(delegatingCall)
+                }
             }
         }
     }
-
-
-    private fun IrDeclaration.isJsStaticDeclaration(): Boolean =
-        hasAnnotation(JsStandardClassIds.Annotations.JsStatic) ||
-                (this as? IrSimpleFunction)?.correspondingPropertySymbol?.owner?.hasAnnotation(JsStandardClassIds.Annotations.JsStatic) == true ||
-                (this as? IrProperty)?.getter?.hasAnnotation(JsStandardClassIds.Annotations.JsStatic) == true
 
 
     private fun IrDeclaration.excludeFromJsExport() {

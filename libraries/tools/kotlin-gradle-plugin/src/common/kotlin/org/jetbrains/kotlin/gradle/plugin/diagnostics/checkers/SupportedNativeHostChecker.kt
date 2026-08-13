@@ -25,9 +25,8 @@ internal object SupportedNativeHostChecker : KotlinGradleProjectChecker {
         val nativeTargets = extension.awaitTargets().withType<KotlinNativeTarget>()
         if (nativeTargets.isEmpty()) return
 
-        if (HostManager.hostOrNull != null) return
-        collector.reportOncePerGradleProject(
-            project,
+        if (HostManager.hostIsSupported) return
+        collector.reportOncePerGradleProject(diagnosticsContext,
             KotlinToolingDiagnostics.NativeHostNotSupportedError(
                 HostManager.platformName(),
                 HostManager().supportedHosts

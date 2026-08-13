@@ -22,7 +22,6 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirStandardOverrideChecker
 class ConeEquivalentCallConflictResolver(private val session: FirSession) : ConeCallConflictResolver() {
     override fun chooseMaximallySpecificCandidates(
         candidates: Set<Candidate>,
-        discriminateAbstracts: Boolean
     ): Set<Candidate> {
         return filterOutEquivalentCalls(candidates)
     }
@@ -82,7 +81,7 @@ class ConeEquivalentCallConflictResolver(private val session: FirSession) : Cone
             if (!argumentMappingInitialized) return null
             val mapping = argumentMapping
             val result = IntArray(mapping.size + 1) { function.valueParameters.size }
-            for ((index, parameter) in mapping.values.withIndex()) {
+            for ([index, parameter] in mapping.values.withIndex()) {
                 result[index + 1] = parametersToIndices[parameter] ?: error("Unmapped argument in arguments mapping")
             }
             return result

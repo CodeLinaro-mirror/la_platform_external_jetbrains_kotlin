@@ -170,6 +170,10 @@ the Kotlin IntelliJ IDEA plugin:
    - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
    - Origin: Derived from boost hash functions, Copyright 2005-2014 Daniel James
 
+ - Path: kotlin-native/libclangext/src/main/cpp/ClangExt.cpp
+   - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
+   - Origin: Derived from boost hash functions, Copyright 2005-2014 Daniel James
+
  - Path: prepare/compiler/
     - License: Apache 2 ([license/third_party/opentelemetry_license.txt][opentelemetry])
     - Origin: Copyright The OpenTelemetry Authors
@@ -258,6 +262,10 @@ any distributions of the compiler, libraries or plugin:
  - Path: compiler/util-klib-abi/test/org/jetbrains/kotlin/library/abi/parser
       - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
       - Origin: Copyright (C) 2024 The Android Open Source Project
+
+ - Path: compiler/util-io/src/org/jetbrains/kotlin/util/Leb128.kt
+      - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
+      - Origin: Copyright (C) 2008 The Android Open Source Project
 
 ## Kotlin Tools and Libraries Tests
 

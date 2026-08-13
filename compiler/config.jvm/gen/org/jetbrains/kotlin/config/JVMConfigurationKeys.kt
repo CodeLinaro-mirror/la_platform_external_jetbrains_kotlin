@@ -137,10 +137,6 @@ object JVMConfigurationKeys {
     @JvmField
     val NO_REFLECT = CompilerConfigurationKey.create<Boolean>("NO_REFLECT")
 
-    // Which functions to serialize as IR to class metadata.
-    @JvmField
-    val SERIALIZE_IR = CompilerConfigurationKey.create<JvmSerializeIrMode>("SERIALIZE_IR")
-
     @JvmField
     val VALIDATE_BYTECODE = CompilerConfigurationKey.create<Boolean>("VALIDATE_BYTECODE")
 
@@ -178,6 +174,10 @@ object JVMConfigurationKeys {
     // Annotations fqNames that shall be skipped while copying the annotations from the target to the bridge functions.
     @JvmField
     val IGNORED_ANNOTATIONS_FOR_BRIDGES = CompilerConfigurationKey.create<List<String>>("IGNORED_ANNOTATIONS_FOR_BRIDGES")
+
+    // Path to outputs of common fragments metadata for KMP JVM IC
+    @JvmField
+    val COMMON_FRAGMENTS_OUTPUT_DIR = CompilerConfigurationKey.create<File>("COMMON_FRAGMENTS_OUTPUT_DIR")
 
 }
 
@@ -329,10 +329,6 @@ var CompilerConfiguration.noReflect: Boolean
     get() = getBoolean(JVMConfigurationKeys.NO_REFLECT)
     set(value) { put(JVMConfigurationKeys.NO_REFLECT, value) }
 
-var CompilerConfiguration.serializeIr: JvmSerializeIrMode?
-    get() = get(JVMConfigurationKeys.SERIALIZE_IR)
-    set(value) { put(JVMConfigurationKeys.SERIALIZE_IR, requireNotNull(value) { "nullable values are not allowed" }) }
-
 var CompilerConfiguration.validateBytecode: Boolean
     get() = getBoolean(JVMConfigurationKeys.VALIDATE_BYTECODE)
     set(value) { put(JVMConfigurationKeys.VALIDATE_BYTECODE, value) }
@@ -372,4 +368,8 @@ var CompilerConfiguration.whenGenerationScheme: JvmWhenGenerationScheme?
 var CompilerConfiguration.ignoredAnnotationsForBridges: List<String>
     get() = getList(JVMConfigurationKeys.IGNORED_ANNOTATIONS_FOR_BRIDGES)
     set(value) { put(JVMConfigurationKeys.IGNORED_ANNOTATIONS_FOR_BRIDGES, value) }
+
+var CompilerConfiguration.commonFragmentsOutputDir: File?
+    get() = get(JVMConfigurationKeys.COMMON_FRAGMENTS_OUTPUT_DIR)
+    set(value) { putIfNotNull(JVMConfigurationKeys.COMMON_FRAGMENTS_OUTPUT_DIR, value) }
 

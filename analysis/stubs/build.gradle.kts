@@ -3,6 +3,7 @@ plugins {
     id("java-test-fixtures")
     id("project-tests-convention")
     id("test-data-manager")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -17,6 +18,7 @@ dependencies {
     testFixturesApi(testFixtures(project(":analysis:low-level-api-fir")))
     testFixturesApi(testFixtures(project(":analysis:decompiled:decompiler-to-file-stubs")))
     testFixturesApi(testFixtures(project(":analysis:decompiled:decompiler-to-psi")))
+    testFixturesImplementation(project(":analysis:analysis-internal-utils"))
     testFixturesApi(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
 }
@@ -30,12 +32,37 @@ sourceSets {
     "testFixtures" { projectDefault() }
 }
 
-projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0)) {
-        workingDir = rootDir
+tasks.compileTestFixturesKotlin {
+    compilerOptions {
+        optIn.add("org.jetbrains.kotlin.analysis.api.KaImplementationDetail")
     }
+}
+
+tasks.compileTestKotlin {
+    compilerOptions {
+        optIn.add("org.jetbrains.kotlin.analysis.api.KaImplementationDetail")
+    }
+}
+
+projectTests {
+    testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0))
+
+    testGenerator("org.jetbrains.kotlin.analysis.stubs.TestGeneratorKt")
 
     withJvmStdlibAndReflect()
+    withJsRuntime()
+    withStdlibCommon()
+    withTestJar()
+    withAnnotations()
+    withMockJdkRuntime()
+    withMockJdkAnnotationsJar()
+    withScriptRuntime()
+
+    @OptIn(KotlinCompilerDistUsage::class)
+    withDist()
+
+    testData(project.isolated, "testData")
+    testData(project(":compiler:psi:psi-impl").isolated, "testData/psi")
 }
 
 testsJar()

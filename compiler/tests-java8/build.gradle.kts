@@ -1,5 +1,3 @@
-import kotlin.io.path.createTempDirectory
-
 plugins {
     kotlin("jvm")
     id("project-tests-convention")
@@ -30,9 +28,6 @@ sourceSets {
 }
 
 projectTests {
-    testData(project(":compiler").isolated, "testData/loadJava")
-    testData(project(":compiler").isolated, "testData/loadJava8")
-    testData(project(":compiler").isolated, "testData/resolvedCalls/enhancedSignatures")
     testData(project(":compiler").isolated, "testData/builtin-classes")
 
     withJvmStdlibAndReflect()
@@ -45,12 +40,11 @@ projectTests {
 
     testTask(
         defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_21_0),
-        jUnitMode = JUnitMode.JUnit5
+        jUnitMode = JUnitMode.JUnit5,
+        javaLauncher = JdkMajorVersion.JDK_1_8
     ) {
         systemProperty("kotlin.test.script.classpath", testSourceSet.output.classesDirs.joinToString(File.pathSeparator))
     }
-
-    testGenerator("org.jetbrains.kotlin.generators.tests.GenerateJava8TestsKt", generateTestsInBuildDirectory = true)
 }
 
 

@@ -9,23 +9,22 @@ import org.jetbrains.kotlin.backend.common.ir.isReifiable
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin.SUPER_INTERFACE_METHOD_BRIDGE
 import org.jetbrains.kotlin.backend.jvm.ir.*
-import org.jetbrains.kotlin.backend.jvm.ir.isJvmInterface
 import org.jetbrains.kotlin.backend.jvm.isJavaLangDeprecatedOnlyAddedByCompiler
 import org.jetbrains.kotlin.backend.jvm.mapping.mapTypeAsDeclaration
 import org.jetbrains.kotlin.backend.jvm.mapping.mapTypeParameter
 import org.jetbrains.kotlin.backend.jvm.originalOfSuspendForInline
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.inline.*
 import org.jetbrains.kotlin.codegen.state.JvmBackendConfig
+import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
-import org.jetbrains.kotlin.ir.expressions.IrClassReference
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrGetValue
-import org.jetbrains.kotlin.ir.expressions.IrVararg
+import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.types.isClassWithFqName
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
@@ -33,6 +32,7 @@ import org.jetbrains.kotlin.name.JvmStandardClassIds
 import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.JvmStandardClassIds.STRICTFP_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.JvmStandardClassIds.SYNCHRONIZED_ANNOTATION_FQ_NAME
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.annotations.JVM_THROWS_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
@@ -48,13 +48,17 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
     private val IrClass?.isNotNullAndInterface: Boolean get() = this != null && this.isInterface
 
     fun generate(
-        reifiedTypeParameters: ReifiedTypeParametersUsages = classCodegen.reifiedTypeParametersUsages
+        reifiedTypeParameters: ReifiedTypeParametersUsages = classCodegen.reifiedTypeParametersUsages,
     ): SMAPAndMethodNode =
         try {
             doGenerate(reifiedTypeParameters)
         } catch (e: Throwable) {
             rethrowIntellijPlatformExceptionIfNeeded(e)
-            throw RuntimeException("Exception while generating code for:\n${irFunction.dump()}", e)
+            throw RuntimeException(
+                "Exception while generating code for ${RenderIrElementVisitor().renderSymbolReference(irFunction.symbol)}:\n" +
+                        irFunction.dump(),
+                e,
+            )
         }
 
     private fun doGenerate(reifiedTypeParameters: ReifiedTypeParametersUsages): SMAPAndMethodNode {
@@ -66,12 +70,7 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
             flags,
             signature.asmMethod.name,
             signature.asmMethod.descriptor,
-            signature.genericsSignature
-                .takeIf {
-                    (irFunction.isInline && irFunction.origin != IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER) ||
-                            (!isSynthetic && irFunction.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA) ||
-                            (irFunction.origin == JvmLoweredDeclarationOrigin.SUSPEND_IMPL_STATIC_FUNCTION)
-                },
+            signature.genericsSignature.takeIf { irFunction.needsGenericSignature(isSynthetic) },
             getThrownExceptions(irFunction)?.toTypedArray()
         )
         val methodVisitor: MethodVisitor = wrapWithMaxLocalCalc(methodNode)
@@ -123,7 +122,7 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
             generateAnnotationDefaultValueIfNeeded(methodVisitor)
             SMAP(listOf())
         } else if (notForInline != null) {
-            val (originalNode, smap) = classCodegen.generateMethodNode(notForInline)
+            (val originalNode = node, val smap = classSMAP) = classCodegen.generateMethodNode(notForInline)
             originalNode.accept(MethodBodyVisitor(methodVisitor))
             smap
         } else {
@@ -142,6 +141,20 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
         }
         methodVisitor.visitEnd()
         return SMAPAndMethodNode(methodNode, smap)
+    }
+
+    private fun IrFunction.needsGenericSignature(isSynthetic: Boolean): Boolean {
+        if (irFunction.hasAnnotation(JvmStandardClassIds.JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME) &&
+            typeParameters.any { it.erasedUpperBound.isClassWithFqName(StandardNames.RESULT_FQ_NAME) }
+        ) {
+            // Starting from JDK 11, javac reports ambiguity when there are two functions with the same generic signature.
+            // Do not write generic signature for exposed function when there's a type parameter with upper bound `Result`.
+            return false
+        }
+
+        return (isInline && origin != IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER) ||
+                (!isSynthetic && origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA) ||
+                (irFunction.origin == JvmLoweredDeclarationOrigin.SUSPEND_IMPL_STATIC_FUNCTION)
     }
 
     private fun postReifyEvaluatorGeneratedMethod(methodNode: MethodNode) {
@@ -240,14 +253,24 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
         // see KT-80649
         if (isAnnotatedWithJavaLangDeprecated && !isJavaLangDeprecatedOnlyAddedByCompiler) return false
 
-        val mightBeDeprecated = if (this is IrSimpleFunction) {
-            allOverridden(true).any {
-                it.isAnnotatedWithDeprecated || it.correspondingPropertySymbol?.owner?.isAnnotatedWithDeprecated == true
+        val deprecated = annotations.findAnnotation(StandardNames.FqNames.deprecated)
+            ?: (this as? IrSimpleFunction)?.correspondingPropertySymbol?.owner?.annotations
+                ?.findAnnotation(StandardNames.FqNames.deprecated)
+            ?: return false
+        val deprecatedSinceKotlin = annotations.findAnnotation(StandardNames.FqNames.deprecatedSinceKotlin)
+            ?: (this as? IrSimpleFunction)?.correspondingPropertySymbol?.owner?.annotations
+                ?.findAnnotation(StandardNames.FqNames.deprecatedSinceKotlin)
+        if (deprecatedSinceKotlin != null) {
+            val hiddenSinceArgument =
+                deprecatedSinceKotlin.getValueArgument(StandardClassIds.Annotations.ParameterNames.deprecatedSinceKotlinHiddenSince)
+                    ?: return false
+            val hiddenSince = ((hiddenSinceArgument as? IrConst)?.value as? String)?.let(ApiVersion.Companion::parse)
+            if (hiddenSince != null) {
+                return context.config.languageVersionSettings.apiVersion >= hiddenSince
             }
-        } else {
-            isAnnotatedWithDeprecated
         }
-        return mightBeDeprecated && context.state.deprecationProvider.isDeprecatedHidden(toIrBasedDescriptor())
+        val level = deprecated.getValueArgument(StandardClassIds.Annotations.ParameterNames.deprecatedLevel)
+        return level is IrGetEnumValue && level.symbol.owner.name.asString() == DeprecationLevel.HIDDEN.name
     }
 
     private fun getThrownExceptions(function: IrFunction): List<String>? {
@@ -319,7 +342,7 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
         mv.visitAnnotableParameterCount(annotableParamCount, true)
         mv.visitAnnotableParameterCount(annotableParamCount, false)
 
-        for ((i, parameterType) in kotlinParameterTypes.withIndex()) {
+        for ([i, parameterType] in kotlinParameterTypes.withIndex()) {
             val parameter = nonDispatchParameters[i]
 
             if (i < syntheticParameterCount || parameter.isSyntheticMarkerParameter()) continue

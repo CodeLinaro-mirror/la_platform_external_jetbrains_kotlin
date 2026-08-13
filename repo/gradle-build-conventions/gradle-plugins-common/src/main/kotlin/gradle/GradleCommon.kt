@@ -4,8 +4,8 @@
  */
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import gradle.commonSourceSetName
 import gradle.GradlePluginVariant
+import gradle.commonSourceSetName
 import gradle.publishGradlePluginsJavadoc
 import org.gradle.api.Action
 import org.gradle.api.GradleException
@@ -47,6 +47,8 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinSingleJavaTargetExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
@@ -359,11 +361,11 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
     sourceSets.named(SourceSet.MAIN_SOURCE_SET_NAME) {
         plugins.withType<JavaGradlePluginPlugin>().configureEach {
             // Removing Gradle api default dependency added by 'java-gradle-plugin'
-            configurations[apiConfigurationName].dependencies.remove(dependencies.gradleApi())
+            configurations[compileOnlyApiConfigurationName].dependencies.remove(dependencies.gradleApi())
         }
 
         dependencies {
-            "compileOnly"("org.jetbrains.kotlin:kotlin-stdlib:${GradlePluginVariant.GRADLE_MIN}.0")
+            "compileOnly"("org.jetbrains.kotlin:kotlin-stdlib:${GradlePluginVariant.GRADLE_MIN.bundledKotlinVersion}.0")
             // Decoupling gradle-api artifact from current project Gradle version. Later would be useful for
             // gradle plugin variants
             "compileOnly"("dev.gradleplugins:gradle-api:${GradlePluginVariant.GRADLE_MIN.gradleApiVersion}")
@@ -481,7 +483,7 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
                     }
 
                     @Suppress("DEPRECATION")
-                    if(GradleVersion.current() < GradleVersion.version("9.0.0")) {
+                    if (GradleVersion.current() < GradleVersion.version("9.0.0")) {
                         originalConfiguration.isVisible = false
                     }
 
@@ -506,6 +508,11 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
     val mainCompilation = kotlinJvmTarget.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
     tasks.named<KotlinCompile>(mainCompilation.compileKotlinTaskName) {
         configureGradleCompatibility()
+
+        // workaround for KT-85412
+        compilerOptions.moduleName.value(
+            project.name.replace(invalidModuleNameCharactersRegex, "_")
+        ).disallowChanges()
     }
 
     // Fix common sources visibility for tests
@@ -630,11 +637,10 @@ private fun Project.commonVariantAttributes(): Action<Configuration> = Action<Co
  */
 fun KotlinCompile.configureGradleCompatibility() {
     compilerOptions {
-        val variant = GradlePluginVariant.GRADLE_MIN
         // we should keep control of the language version for compatibility with bundled Kotlin compiler for Gradle Kotlin scripts.
-        languageVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
+        languageVersion.set(KotlinVersion.fromVersion(GradlePluginVariant.COMPILE_KOTLIN_VERSION))
         // we should not use stdlib symbols not available in the bundled Kotlin runtime
-        apiVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
+        apiVersion.set(KotlinVersion.fromVersion(GradlePluginVariant.COMPILE_KOTLIN_VERSION))
         freeCompilerArgs.addAll(
             listOf(
                 "-Xskip-prerelease-check",
@@ -649,6 +655,8 @@ fun KotlinCompile.configureGradleCompatibility() {
     }
 }
 
+internal val invalidModuleNameCharactersRegex = """[\\/\r\n\t]""".toRegex()
+
 /**
  * Configures the main JVM compile task in the project to use specific setup for compatibility with [GradlePluginVariant.GRADLE_MIN]
  * If you need to configure it for specific tasks, please use [configureGradleCompatibility] and [configureBuildToolsApiVersionForGradleCompatibility].
@@ -657,6 +665,35 @@ fun Project.configureKotlinCompileTasksGradleCompatibility() {
     configureBuildToolsApiVersionForGradleCompatibility()
     tasks.named("compileKotlin", KotlinCompile::class.java) {
         configureGradleCompatibility()
+    }
+
+    // workaround for KT-85412
+    extensions.findByType<KotlinJvmExtension>()?.target?.compilations?.configureEach {
+        compileTaskProvider.configure {
+            if (this@configureEach.name == KotlinCompilation.MAIN_COMPILATION_NAME) {
+                (compilerOptions as KotlinJvmCompilerOptions).moduleName.value(
+                    project.name.replace(invalidModuleNameCharactersRegex, "_")
+                ).disallowChanges()
+            } else {
+                (compilerOptions as KotlinJvmCompilerOptions).moduleName.value(
+                    "${project.name}_${this@configureEach.name}".replace(invalidModuleNameCharactersRegex, "_")
+                ).disallowChanges()
+            }
+        }
+    }
+}
+
+fun Project.applyWorkaroundForKt85412ForTestCompilations() {
+    // workaround for KT-85412
+    // main compilations are handled separately in this file
+    extensions.findByType<KotlinJvmExtension>()?.target?.compilations?.configureEach {
+        if (name.contains("test", ignoreCase = true)) {
+            compileTaskProvider.configure {
+                (compilerOptions as KotlinJvmCompilerOptions).moduleName.value(
+                    "${project.name}_${this@configureEach.name}".replace(invalidModuleNameCharactersRegex, "_")
+                ).disallowChanges()
+            }
+        }
     }
 }
 
@@ -667,7 +704,7 @@ fun Project.configureKotlinCompileTasksGradleCompatibility() {
  */
 @OptIn(ExperimentalBuildToolsApi::class, ExperimentalKotlinGradlePluginApi::class)
 fun Project.configureBuildToolsApiVersionForGradleCompatibility() {
-    if (extra.properties["avoidSettingCompilerVersionForBTA"].toString().toBoolean()) return
+    if (extra.has("avoidSettingCompilerVersionForBTA") && extra["avoidSettingCompilerVersionForBTA"].toString().toBoolean()) return
     val catalogs = extensions.getByType<VersionCatalogsExtension>()
     val libsCatalog = catalogs.named("libs")
     val kgpCompilerVersion = libsCatalog.findVersion("kotlin.for.gradle.plugins.compilation").get().requiredVersion

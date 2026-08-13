@@ -3,14 +3,13 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:OptIn(ExperimentalArgumentApi::class)
+
 package org.jetbrains.kotlin.arguments.dsl
 
+import org.jetbrains.kotlin.arguments.dsl.base.ExperimentalArgumentApi
 import org.jetbrains.kotlin.arguments.dsl.base.asReleaseDependent
-import org.jetbrains.kotlin.arguments.dsl.types.BooleanType
-import org.jetbrains.kotlin.arguments.dsl.types.IntType
-import org.jetbrains.kotlin.arguments.dsl.types.PathType
-import org.jetbrains.kotlin.arguments.dsl.types.StringArrayType
-import org.jetbrains.kotlin.arguments.dsl.types.StringType
+import org.jetbrains.kotlin.arguments.dsl.types.*
 
 val BooleanType.Companion.defaultFalse: BooleanType
     get() = BooleanType(
@@ -43,3 +42,12 @@ val IntType.Companion.defaultOne: IntType
 
 val PathType.Companion.defaultNull: PathType
     get() = PathType()
+
+val StringListType.Companion.defaultEmpty: StringListType
+    get() = StringListType()
+
+val SearchPathType.Companion.defaultNull: SearchPathType
+    get() = SearchPathType()
+
+val PathListType.Companion.defaultEmpty: PathListType
+    get() = PathListType()

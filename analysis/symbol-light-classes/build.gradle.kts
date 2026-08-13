@@ -5,6 +5,7 @@ plugins {
     id("java-test-fixtures")
     id("project-tests-convention")
     id("test-data-manager")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -15,15 +16,14 @@ dependencies {
     implementation(project(":compiler:backend.common.jvm"))
     implementation(project(":analysis:analysis-api-platform-interface"))
     implementation(project(":analysis:analysis-api"))
-    implementation(project(":analysis:analysis-internal-utils"))
     implementation(project(":analysis:decompiled:light-classes-for-decompiled"))
     implementation(intellijCore())
     implementation(kotlinxCollectionsImmutable())
+    implementation(libs.caffeine)
 
     testFixturesImplementation(project(":analysis:decompiled:light-classes-for-decompiled"))
     testFixturesApi(project(":analysis:decompiled:decompiler-to-file-stubs"))
     testFixturesApi(testFixtures(project(":analysis:analysis-test-framework")))
-    testFixturesApi(testFixtures(project(":analysis:decompiled:decompiler-to-file-stubs")))
     testFixturesApi(testFixtures(project(":analysis:analysis-api-impl-base")))
     testFixturesApi(testFixtures(project(":analysis:analysis-api-fir")))
     testFixturesApi(testFixtures(project(":compiler:tests-common-new")))
@@ -42,13 +42,31 @@ sourceSets {
 }
 
 projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)) {
-        dependsOn(":dist")
-        dependsOn(":plugins:plugin-sandbox:plugin-annotations:distAnnotations")
-        workingDir = rootDir
+    testTask(
+        jUnitMode = JUnitMode.JUnit5,
+        javaLauncher = JdkMajorVersion.JDK_1_8,
+        defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)
+    ) {
+        testInputsCheck {
+            allowFlightRecorder = true
+        }
     }
 
+    testGenerator("org.jetbrains.kotlin.light.classes.symbol.TestGeneratorKt")
+
     withJvmStdlibAndReflect()
+    withStdlibCommon()
+    withJsRuntime()
+    withTestJar()
+    withMockJdkAnnotationsJar()
+    withMockJdkRuntime()
+    withScriptRuntime()
+    withPluginSandboxAnnotations()
+
+    @OptIn(KotlinCompilerDistUsage::class)
+    withDist()
+
+    testData(project.isolated, "testData")
 }
 
 tasks.withType<KotlinJvmCompile>().configureEach {

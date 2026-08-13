@@ -105,7 +105,7 @@ object PositioningStrategies {
         }
 
         private fun getElementToMark(declaration: KtDeclaration): PsiElement {
-            val (returnTypeRef, nameIdentifierOrPlaceholder) = when (declaration) {
+            val [returnTypeRef, nameIdentifierOrPlaceholder] = when (declaration) {
                 is KtCallableDeclaration -> Pair(declaration.typeReference, declaration.nameIdentifier)
                 is KtPropertyAccessor -> Pair(declaration.typeReference, declaration.namePlaceholder)
                 else -> Pair(null, null)
@@ -796,22 +796,18 @@ object PositioningStrategies {
             }
             val argumentList = qualifiedAccess as? KtValueArgumentList
                 ?: qualifiedAccess.getChildOfType()
-            return when {
-                argumentList != null -> {
-                    val rightParenthesis = argumentList.rightParenthesis ?: return markElement(qualifiedAccess)
-                    val lastArgument = argumentList.children.findLast { it is KtValueArgument }
-                    if (lastArgument != null) {
-                        markRange(lastArgument, rightParenthesis)
-                    } else {
-                        val leftParenthesis = argumentList.leftParenthesis
-                        markRange(leftParenthesis ?: qualifiedAccess, rightParenthesis)
-                    }
+
+            if (argumentList != null) {
+                val rightParenthesis = argumentList.rightParenthesis ?: return markElement(qualifiedAccess)
+                if (!argumentList.children.any { it is KtValueArgument }) {
+                    val leftParenthesis = argumentList.leftParenthesis
+                    return markRange(leftParenthesis ?: qualifiedAccess, rightParenthesis)
                 }
+            }
 
-                qualifiedAccess is KtCallExpression -> markElement(
-                    qualifiedAccess.getChildOfType<KtNameReferenceExpression>() ?: qualifiedAccess
-                )
-
+            return when (qualifiedAccess) {
+                is KtCallExpression -> markElement(qualifiedAccess.getChildOfType<KtNameReferenceExpression>() ?: qualifiedAccess)
+                is KtAnnotationEntry -> markElement(qualifiedAccess.calleeExpression?.constructorReferenceExpression ?: qualifiedAccess)
                 else -> markElement(qualifiedAccess)
             }
         }
@@ -1065,6 +1061,15 @@ object PositioningStrategies {
     val REFERENCE_BY_QUALIFIED: PositioningStrategy<PsiElement> = FindReferencePositioningStrategy(false)
     val REFERENCED_NAME_BY_QUALIFIED: PositioningStrategy<PsiElement> = FindReferencePositioningStrategy(true)
 
+    val RECEIVER_OF_DOT_QUALIFIED: PositioningStrategy<PsiElement> = object : PositioningStrategy<PsiElement>() {
+        override fun mark(element: PsiElement): List<TextRange> {
+            if (element is KtDotQualifiedExpression) {
+                return mark(element.receiverExpression)
+            }
+            return DEFAULT.mark(element)
+        }
+    }
+
     val REIFIED_MODIFIER: PositioningStrategy<KtModifierListOwner> =
         ModifierSetBasedPositioningStrategy(KtTokens.REIFIED_KEYWORD)
 
@@ -1233,7 +1238,12 @@ object PositioningStrategies {
                 is KtCallableReferenceExpression -> element.callableReference
                 is KtCallExpression -> element.calleeExpression ?: element
                 is KtConstructorDelegationCall -> element.calleeExpression ?: element
-                is KtSuperTypeCallEntry -> element.calleeExpression
+                is KtSuperTypeCallEntry -> element.calleeExpression.also {
+                    if (it.textRange.isEmpty) {
+                        val grandParent = element.parent.parent
+                        if (grandParent is KtEnumEntry) return mark(grandParent)
+                    }
+                }
                 is KtOperationExpression -> element.operationReference
                 is KtWhenConditionInRange -> element.operationReference
                 is KtAnnotationEntry -> element.calleeExpression ?: element

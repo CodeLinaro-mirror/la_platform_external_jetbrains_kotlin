@@ -39,9 +39,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
-import org.jetbrains.kotlin.resolve.ImportPath
 import org.jetbrains.kotlin.resolve.checkers.OptInNames
 import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isCompatibleTarget
@@ -59,11 +57,18 @@ import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE_
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OPT_IN
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.RETURN_VALUE_CHECKER_MODE
 import org.jetbrains.kotlin.test.directives.model.*
+import org.jetbrains.kotlin.test.services.BatchingPackageInserter
+import org.jetbrains.kotlin.test.services.IrCheckersDisabledByTestDirectives
+import org.jetbrains.kotlin.test.services.IrCheckersEnabledByTestDirectives
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
+import org.jetbrains.kotlin.test.services.addAnnotations
+import org.jetbrains.kotlin.test.services.child
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
+import org.jetbrains.kotlin.test.services.packageFqNameForKLib
 import org.jetbrains.kotlin.utils.addIfNotNull
+import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import java.io.File
 
 internal open class ExtTestCaseGroupProvider : TestCaseGroupProvider, TestDisposable(parentDisposable = null) {
@@ -83,7 +88,7 @@ internal open class ExtTestCaseGroupProvider : TestCaseGroupProvider, TestDispos
             if (testDataDir in excludes)
                 return@computeIfAbsent TestCaseGroup.AllDisabled
 
-            val (excludedTestDataFiles, testDataFiles) = testDataDir.listFiles()
+            val [excludedTestDataFiles, testDataFiles] = testDataDir.listFiles()
                 ?.filter { file -> file.isFile && file.extension == "kt" }
                 ?.partition { file -> file in excludes }
                 ?: return@computeIfAbsent null
@@ -193,7 +198,6 @@ private class ExtTestDataFile(
                 && structure.directives[LANGUAGE_VERSION].intersect(INCOMPATIBLE_LANGUAGE_VERSIONS).isEmpty()
                 && !(FILECHECK_STAGE in structure.directives
                 && (cacheMode as? CacheMode.WithStaticCache)?.useStaticCacheForUserLibraries == true)
-                && !(optimizationMode != OptimizationMode.OPT && "OptimizeTLSDataLoads" in structure.directives[FILECHECK_STAGE])
                 && !(testDataFileSettings.languageSettings.contains("+${LanguageFeature.MultiPlatformProjects.name}")
                 && testMode == TestMode.ONE_STAGE_MULTI_MODULE)
                 && structure.defFilesContents.all { it.defFileContentsIsSupportedOn(settings.get<KotlinNativeTargets>().testTarget) }
@@ -205,18 +209,17 @@ private class ExtTestDataFile(
         args += structure.directives[FREE_COMPILER_ARGS]
         testDataFileSettings.languageSettings.mapTo(args) { "-XXLanguage:$it" }
         testDataFileSettings.optInsForCompiler.sorted().mapTo(args) { "-opt-in=$it" }
-        if (!structure.directives[CodegenTestDirectives.DISABLE_IR_VISIBILITY_CHECKS].containsNativeOrAny &&
-            !defaultDirectives[CodegenTestDirectives.DISABLE_IR_VISIBILITY_CHECKS].containsNativeOrAny
-        ) {
-            args.add("-Xverify-ir-visibility")
+
+        val disableIrCheckers = IrCheckersDisabledByTestDirectives
+            .filter { structure.directives[it.key].containsNativeOrAny || defaultDirectives[it.key].containsNativeOrAny }.values
+        if (disableIrCheckers.isNotEmpty()) {
+            args.add("-Xdisable-ir-checkers=" + disableIrCheckers.joinToString(","))
         }
 
-        if ((structure.directives.contains(CodegenTestDirectives.ENABLE_IR_NESTED_OFFSETS_CHECKS) ||
-                    defaultDirectives.contains(CodegenTestDirectives.ENABLE_IR_NESTED_OFFSETS_CHECKS)) &&
-            !structure.directives[CodegenTestDirectives.DISABLE_IR_NESTED_OFFSETS_CHECKS].containsNativeOrAny &&
-            !defaultDirectives[CodegenTestDirectives.DISABLE_IR_NESTED_OFFSETS_CHECKS].containsNativeOrAny
-        ) {
-            args.add("-Xverify-ir-nested-offsets")
+        val additionalIrCheckers = IrCheckersEnabledByTestDirectives
+            .filter { structure.directives.contains(it.key) || defaultDirectives.contains(it.key) }.values
+        if (additionalIrCheckers.isNotEmpty()) {
+            args.add("-Xadditional-ir-checkers=" + additionalIrCheckers.joinToString(","))
         }
 
         args += "-opt-in=kotlin.native.internal.InternalForKotlinNative" // for `Any.isPermanent()` and `Any.isStack()`
@@ -238,7 +241,7 @@ private class ExtTestDataFile(
     fun createTestCase(settings: Settings, sharedModules: ThreadSafeCache<String, TestModule.Shared?>): TestCase {
         assertTrue(isRelevant)
 
-        var testKind = parseTestKind(structure.directives) ?: settings.get<TestKind>()
+        var testKind = settings.testKind(structure.directives)
         val definitelyStandaloneTest = testKind != TestKind.REGULAR
         val isStandaloneTest = definitelyStandaloneTest || determineIfStandaloneTest()
         if (testKind == TestKind.REGULAR && isStandaloneTest) {
@@ -247,7 +250,7 @@ private class ExtTestDataFile(
 
         patchPackageNames(isStandaloneTest)
         patchFileLevelAnnotations()
-        findEntryPoint()?.let { (entryPointFunctionFQN, entryPointIsSuspend) ->
+        findEntryPoint()?.let { [entryPointFunctionFQN, entryPointIsSuspend] ->
             when (testKind) {
                 TestKind.REGULAR, TestKind.STANDALONE -> {
                     generateTestLauncher(isStandaloneTest, entryPointFunctionFQN)
@@ -301,26 +304,7 @@ private class ExtTestDataFile(
     }
 
     /**
-     * For every Kotlin file (*.kt) stored in this text:
-     *
-     * - If there is a "package" declaration, patch it to prepend unique package prefix.
-     *   Example: package foo -> package codegen.box.annotations.genericAnnotations.foo
-     *
-     * - If there is no "package" declaration, add one with the package name equal to unique package prefix.
-     *   Example (new line added): package codegen.box.annotations.genericAnnotations
-     *
-     * - All "import" declarations are patched to reflect appropriate changes in "package" declarations.
-     *   Example: import foo.* -> import codegen.box.annotations.genericAnnotations.foo.*
-     *
-     * - All fully-qualified references are patched to reflect appropriate changes in "package" declarations.
-     *   Example: val x = foo.Bar() -> val x = codegen.box.annotations.genericAnnotations.foo.Bar()
-     *
-     * The "unique package prefix" is computed individually for every test file and reflects relative path to the test file.
-     * Example: codegen/box/annotations/genericAnnotations.kt -> codegen.box.annotations.genericAnnotations
-     *
-     * Note that packages with fully-qualified name starting with "kotlin." and "helpers." are kept unchanged.
-     * Examples: package kotlin.coroutines -> package kotlin.coroutines
-     *           import kotlin.test.* -> import kotlin.test.*
+     * See comment to [org.jetbrains.kotlin.test.services.BatchingPackageInserter]
      */
     private fun patchPackageNames(isStandaloneTest: Boolean): Unit = with(structure) {
         if (isStandaloneTest) return // Don't patch packages for standalone tests.
@@ -333,172 +317,13 @@ private class ExtTestDataFile(
         }
 
         filesToTransform.forEach { handler ->
-            handler.accept(object : KtVisitor<Unit, Set<Name>>() {
-                override fun visitKtElement(element: KtElement, parentAccessibleDeclarationNames: Set<Name>) {
-                    element.getChildrenOfType<KtElement>().forEach { child ->
-                        child.accept(this, parentAccessibleDeclarationNames)
-                    }
-                }
-
-                override fun visitKtFile(file: KtFile, unused: Set<Name>) {
-                    // Patch package directive.
-                    val oldPackageDirective = file.packageDirective
-                    val oldPackageName = oldPackageDirective?.fqName ?: FqName.ROOT
-
-                    val newPackageName = oldToNewPackageNameMapping.getValue(file.packageFqNameForKLib)
-                    val newPackageDirective = handler.psiFactory.createPackageDirective(newPackageName)
-
-                    if (oldPackageDirective != null) {
-                        // Replace old package directive by the new one.
-                        oldPackageDirective.replace(newPackageDirective).ensureSurroundedByNewLines()
-                    } else {
-                        // Insert the package directive immediately after file-level annotations.
-                        file.addAfter(newPackageDirective, file.fileAnnotationList).ensureSurroundedByNewLines()
-                    }
-
-                    if (!file.name.endsWith(".def")) { // don't process .def file contents after package directive
-                        // Add @ReflectionPackageName annotation to make the compiler use original package name in the reflective information.
-                        val annotationText =
-                            "kotlin.native.internal.ReflectionPackageName(${oldPackageName.asString().quoteAsKotlinStringLiteral()})"
-                        val fileAnnotationList = handler.psiFactory.createFileAnnotationListWithAnnotation(annotationText)
-                        file.addAnnotations(fileAnnotationList)
-
-                        visitKtElement(file, file.collectAccessibleDeclarationNames())
-                    }
-                }
-
-                override fun visitPackageDirective(directive: KtPackageDirective, unused: Set<Name>) = Unit
-
-                override fun visitImportDirective(importDirective: KtImportDirective, unused: Set<Name>) {
-                    // Patch import directive if necessary.
-                    val importedFqName = importDirective.importedFqName
-                    if (importedFqName == null
-                        || importedFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME)
-                        || importedFqName.startsWith(KOTLINX_PACKAGE_NAME)
-                        || importedFqName.startsWith(HELPERS_PACKAGE_NAME)
-                        || importedFqName.startsWith(CNAMES_PACKAGE_NAME)
-                        || importedFqName.startsWith(OBJCNAMES_PACKAGE_NAME)
-                        || importedFqName.startsWith(PLATFORM_PACKAGE_NAME)
-                    ) {
-                        return
-                    }
-
-                    val newImportPath = ImportPath(
-                        fqName = basePackageName.child(importedFqName),
-                        isAllUnder = importDirective.isAllUnder,
-                        alias = importDirective.aliasName?.let(Name::identifier)
-                    )
-                    importDirective.replace(handler.psiFactory.createImportDirective(newImportPath))
-                }
-
-                override fun visitTypeAlias(typeAlias: KtTypeAlias, parentAccessibleDeclarationNames: Set<Name>) =
-                    super.visitTypeAlias(typeAlias, parentAccessibleDeclarationNames + typeAlias.collectAccessibleDeclarationNames())
-
-                override fun visitClassOrObject(classOrObject: KtClassOrObject, parentAccessibleDeclarationNames: Set<Name>) =
-                    super.visitClassOrObject(
-                        classOrObject,
-                        parentAccessibleDeclarationNames + classOrObject.collectAccessibleDeclarationNames()
-                    )
-
-                override fun visitClassBody(classBody: KtClassBody, parentAccessibleDeclarationNames: Set<Name>) =
-                    super.visitClassBody(classBody, parentAccessibleDeclarationNames + classBody.collectAccessibleDeclarationNames())
-
-                override fun visitPropertyAccessor(accessor: KtPropertyAccessor, parentAccessibleDeclarationNames: Set<Name>) =
-                    transformDeclarationWithBody(accessor, parentAccessibleDeclarationNames)
-
-                override fun visitNamedFunction(function: KtNamedFunction, parentAccessibleDeclarationNames: Set<Name>) =
-                    transformDeclarationWithBody(function, parentAccessibleDeclarationNames)
-
-                override fun visitPrimaryConstructor(constructor: KtPrimaryConstructor, parentAccessibleDeclarationNames: Set<Name>) =
-                    transformDeclarationWithBody(constructor, parentAccessibleDeclarationNames)
-
-                override fun visitSecondaryConstructor(constructor: KtSecondaryConstructor, parentAccessibleDeclarationNames: Set<Name>) =
-                    transformDeclarationWithBody(constructor, parentAccessibleDeclarationNames)
-
-                private fun transformDeclarationWithBody(
-                    declarationWithBody: KtDeclarationWithBody,
-                    parentAccessibleDeclarationNames: Set<Name>
-                ) {
-                    val (expressions, nonExpressions) = declarationWithBody.getChildrenOfType<KtElement>().partition { it is KtExpression }
-
-                    val accessibleDeclarationNames =
-                        parentAccessibleDeclarationNames + declarationWithBody.collectAccessibleDeclarationNames()
-                    nonExpressions.forEach { it.accept(this, accessibleDeclarationNames) }
-
-                    val bodyAccessibleDeclarationNames =
-                        accessibleDeclarationNames + declarationWithBody.valueParameters.map { it.nameAsSafeName }
-                    expressions.forEach { it.accept(this, bodyAccessibleDeclarationNames) }
-                }
-
-                override fun visitExpression(expression: KtExpression, parentAccessibleDeclarationNames: Set<Name>) =
-                    if (expression is KtFunctionLiteral)
-                        transformDeclarationWithBody(expression, parentAccessibleDeclarationNames)
-                    else
-                        super.visitExpression(expression, parentAccessibleDeclarationNames)
-
-                override fun visitBlockExpression(expression: KtBlockExpression, parentAccessibleDeclarationNames: Set<Name>) {
-                    val accessibleDeclarationNames = parentAccessibleDeclarationNames.toMutableSet()
-                    expression.getChildrenOfType<KtElement>().forEach { child ->
-                        child.accept(this, accessibleDeclarationNames)
-                        accessibleDeclarationNames.addIfNotNull(child.name?.let(Name::identifier))
-                    }
-                }
-
-                override fun visitDotQualifiedExpression(
-                    dotQualifiedExpression: KtDotQualifiedExpression,
-                    accessibleDeclarationNames: Set<Name>
-                ) {
-                    val names = dotQualifiedExpression.collectNames()
-
-                    val newDotQualifiedExpression =
-                        visitPossiblyTypeReferenceWithFullyQualifiedName(names, accessibleDeclarationNames) { newPackageName ->
-                            val newDotQualifiedExpression = handler.psiFactory
-                                .createFile("val x = ${newPackageName.asString()}.${dotQualifiedExpression.text}")
-                                .getChildOfType<KtProperty>()!!
-                                .getChildOfType<KtDotQualifiedExpression>()!!
-
-                            dotQualifiedExpression.replace(newDotQualifiedExpression) as KtDotQualifiedExpression
-                        } ?: dotQualifiedExpression
-
-                    super.visitDotQualifiedExpression(newDotQualifiedExpression, accessibleDeclarationNames)
-                }
-
-                override fun visitUserType(userType: KtUserType, accessibleDeclarationNames: Set<Name>) {
-                    val names = userType.collectNames()
-
-                    val newUserType =
-                        visitPossiblyTypeReferenceWithFullyQualifiedName(names, accessibleDeclarationNames) { newPackageName ->
-                            val newUserType = handler.psiFactory
-                                .createFile("val x: ${newPackageName.asString()}.${userType.text}")
-                                .getChildOfType<KtProperty>()!!
-                                .getChildOfType<KtTypeReference>()!!
-                                .typeElement as KtUserType
-
-                            userType.replace(newUserType) as KtUserType
-                        } ?: userType
-
-                    newUserType.typeArgumentList?.let { visitKtElement(it, accessibleDeclarationNames) }
-                }
-
-                private fun <T : KtElement> visitPossiblyTypeReferenceWithFullyQualifiedName(
-                    names: List<Name>,
-                    accessibleDeclarationNames: Set<Name>,
-                    action: (newSubPackageName: FqName) -> T
-                ): T? {
-                    if (names.size < 2) return null
-
-                    if (names.first() in accessibleDeclarationNames) return null
-
-                    for (index in 1 until names.size) {
-                        val subPackageName = names.fqNameBeforeIndex(index)
-                        val newPackageName = oldToNewPackageNameMapping[subPackageName]
-                        if (newPackageName != null)
-                            return action(newPackageName.removeSuffix(subPackageName))
-                    }
-
-                    return null
-                }
-            }, emptySet())
+            val visitor = BatchingPackageInserter.PackageNamePatcher(
+                handler.psiFactory,
+                oldToNewPackageNameMapping,
+                basePackageName,
+                transformHelpersPackage = false
+            )
+            handler.accept(visitor, emptySet())
         }
     }
 
@@ -524,19 +349,6 @@ private class ExtTestDataFile(
                     }
                 })
             }
-        }
-    }
-
-    private fun KtFile.addAnnotations(fileAnnotationList: KtFileAnnotationList) {
-        val oldFileAnnotationList = this.fileAnnotationList
-        if (oldFileAnnotationList != null) {
-            // Add new annotations to the old ones.
-            fileAnnotationList.annotationEntries.forEach {
-                oldFileAnnotationList.add(it).ensureSurroundedByNewLines()
-            }
-        } else {
-            // Insert the annotations list immediately before package directive.
-            this.addBefore(fileAnnotationList, packageDirective).ensureSurroundedByNewLines()
         }
     }
 
@@ -600,7 +412,9 @@ private class ExtTestDataFile(
             """.trimIndent()
         }
         structure.addFileToMainModule("Generated_Box_Main.kt", fileText)
-        structure.addFileToMainModule("coroutineHelpers.kt", File("compiler/testData/debug/nativeTestHelpers/coroutineHelpers.kt").readText())
+        val coroutineHelpersText = this::class.java.getResourceAsStream("/coroutineHelpers.kt")?.bufferedReader()?.readText()
+            ?: error("Resource /coroutineHelpers.kt not found on the classpath")
+        structure.addFileToMainModule("coroutineHelpers.kt", coroutineHelpersText)
     }
 
     private fun doCreateTestCase(
@@ -628,7 +442,7 @@ private class ExtTestDataFile(
             else -> null
         }
         val outputMatcher = lldbSpec?.let {
-            OutputMatcher(Output.STDOUT) { output -> lldbSpec.checkLLDBOutput(output, settings.get()) }
+            OutputMatcher { output -> lldbSpec.checkLLDBOutput(output, settings.get()) }
         } ?: parseOutputRegex(structure.directives)
 
         val expectedExitCode = if (testKind == TestKind.STANDALONE_NO_TR) parseExpectedExitCode(structure.directives)
@@ -708,11 +522,6 @@ private class ExtTestDataFile(
 
         private val BOX_FUNCTION_NAME = Name.identifier("box")
         private val OPT_IN_ANNOTATION_NAME = Name.identifier("OptIn")
-        private val HELPERS_PACKAGE_NAME = Name.identifier("helpers")
-        private val KOTLINX_PACKAGE_NAME = Name.identifier("kotlinx")
-        private val CNAMES_PACKAGE_NAME = Name.identifier("cnames")
-        private val OBJCNAMES_PACKAGE_NAME = Name.identifier("objcnames")
-        private val PLATFORM_PACKAGE_NAME = Name.identifier("platform")
 
         private val MANDATORY_SOURCE_TRANSFORMERS: ExternalSourceTransformers = listOf(DiagnosticsRemovingSourceTransformer)
     }
@@ -751,7 +560,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
 
         val filesToTransform: Iterable<CurrentFileHandler>
             get() = filesAndModules.parsedFiles.filter { it.key.name.endsWith(".kt") || it.key.name.endsWith(".def") }
-                .map { (extTestFile, psiFile) ->
+                .map { [extTestFile, psiFile] ->
                     object : CurrentFileHandler {
                         override val packageFqName get() = psiFile.packageFqNameForKLib
                         override val module = object : CurrentFileHandler.ModuleHandler {
@@ -777,7 +586,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
             val supportModule = generateSharedSupportModule(findOrGenerateSharedModule)
 
             // Update texts of parsed test files.
-            filesAndModules.parsedFiles.forEach { (extTestFile, psiFile) -> extTestFile.text = psiFile.text }
+            filesAndModules.parsedFiles.forEach { [extTestFile, psiFile] -> extTestFile.text = psiFile.text }
 
             // Transform internal model into Kotlin/Native test infrastructure test model.
             fun transformDependency(extTestModule: KotlinBaseTest.TestModule): String =
@@ -922,7 +731,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
         }
 
         private fun recordRegisteredDirectives(module: ExtTestModule?, directives: Directives) {
-            for ((name, valuesPerLine) in directives.allDirectives) {
+            for ([name, valuesPerLine] in directives.allDirectives) {
                 for (rawValue in valuesPerLine ?: listOf(null)) {
                     // Convert Directive to RegisteredDirective
                     val splitValues = rawValue?.split(RegisteredDirectivesParser.SPACES_PATTERN)
@@ -968,14 +777,14 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
 
             val modules = generatedFiles.map { it.module }.associateBy { it.name }
 
-            val (supportModuleFiles, nonSupportModuleFiles) = generatedFiles.partition { it.module.isSupport }
+            val [supportModuleFiles, nonSupportModuleFiles] = generatedFiles.partition { it.module.isSupport }
             val parsedFiles = nonSupportModuleFiles.associateWith { psiFactory.createFile(it.name, it.text) }
             val nonParsedFiles = supportModuleFiles.toMutableList()
 
             // Explicitly add support module to other modules' dependencies (as it is not listed there by default).
             val supportModule = modules[SUPPORT_MODULE_NAME]
             if (supportModule != null) {
-                modules.forEach { (moduleName, module) ->
+                modules.forEach { [moduleName, module] ->
                     if (moduleName != SUPPORT_MODULE_NAME && supportModule !in module.dependencies) {
                         module.dependencies += supportModule
                     }
@@ -1051,15 +860,3 @@ fun Settings.isIgnoredTarget(testDataFile: File): Boolean {
         disposeRootInWriteAction(disposable)
     }
 }
-
-private val KtFile.packageFqNameForKLib: FqName
-    get() = when (name.substringAfterLast(".")) {
-        "kt" -> packageFqName
-        "def" -> {
-            // Without package directive, CInterop tool puts declarations to a package with kinda odd name, as such:
-            // name of .def file without extension, splitted by dot-separated parts, and reversed.
-            if (packageFqName != FqName.ROOT) packageFqName
-            else FqName.fromSegments(name.removeSuffix(".def").split(".").reversed())
-        }
-        else -> TODO("File extension is not yet supported: $name")
-    }

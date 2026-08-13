@@ -60,7 +60,7 @@ KtSuperTypeCallEntry(176,185): 'MyClass()'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(176,183): 'MyClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaDelegatedConstructorCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -85,7 +85,23 @@ KtUserType(176,183): 'MyClass'
   NO_CANDIDATES
 
 KtNameReferenceExpression(176,183): 'MyClass'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaDelegatedConstructorCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      kind = SUPER_CALL
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyClass
+        symbol = <constructor>(): MyClass
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtValueArgumentList(183,185): '()'
   NO_CANDIDATES
@@ -130,7 +146,7 @@ KtCallExpression(245,254): 'MyClass()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(245,252): 'MyClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -172,7 +188,7 @@ KtParameterList(321,323): '()'
   NO_CANDIDATES
 
 KtNameReferenceExpression(326,341): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -221,7 +237,7 @@ KtProperty(375,421): 'val ClassMemberAlias = MyClass.NestedInheritor'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(398,421): 'MyClass.NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -240,7 +256,7 @@ KtDotQualifiedExpression(398,421): 'MyClass.NestedInheritor'
     isInBestCandidates = false
 
 KtNameReferenceExpression(398,405): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -259,7 +275,7 @@ KtNameReferenceExpression(398,405): 'MyClass'
     isInBestCandidates = false
 
 KtNameReferenceExpression(406,421): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -323,7 +339,7 @@ KtCallExpression(456,491): 'receive<MyClass>(NestedInheritor!!)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(456,463): 'receive'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -383,7 +399,7 @@ KtPostfixExpression(473,490): 'NestedInheritor!!'
   NO_CANDIDATES
 
 KtNameReferenceExpression(473,488): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -441,7 +457,7 @@ KtCallExpression(496,527): 'receive<MyClass>(myClassProp!!)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(496,503): 'receive'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -501,7 +517,7 @@ KtPostfixExpression(513,526): 'myClassProp!!'
   NO_CANDIDATES
 
 KtNameReferenceExpression(513,524): 'myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -562,7 +578,7 @@ KtCallExpression(532,562): 'receive<MyClass>(stringProp!!)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(532,539): 'receive'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -623,7 +639,7 @@ KtPostfixExpression(549,561): 'stringProp!!'
   NO_CANDIDATES
 
 KtNameReferenceExpression(549,559): 'stringProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -683,7 +699,7 @@ KtCallExpression(567,607): 'receive<MyClass>(getNestedInheritor()!!)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(567,574): 'receive'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -896,7 +912,7 @@ KtCallExpression(655,791): 'mapOf<MyClass, Int>(MyClass.myClassProp to 1,  MyCla
     isInBestCandidates = true
 
 KtNameReferenceExpression(655,660): 'mapOf'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -917,7 +933,7 @@ KtNameReferenceExpression(655,660): 'mapOf'
     diagnostic = ERROR<TOO_MANY_ARGUMENTS: Too many arguments for 'fun <K, V> mapOf(): Map<K, V>'.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -954,7 +970,7 @@ KtNameReferenceExpression(655,660): 'mapOf'
     diagnostic = ERROR<TOO_MANY_ARGUMENTS: Too many arguments for 'fun <K, V> mapOf(pair: Pair<K, V>): Map<K, V>'.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1046,7 +1062,7 @@ KtValueArgument(675,699): 'MyClass.myClassProp to 1'
   NO_CANDIDATES
 
 KtBinaryExpression(675,699): 'MyClass.myClassProp to 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1086,7 +1102,7 @@ KtBinaryExpression(675,699): 'MyClass.myClassProp to 1'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(675,694): 'MyClass.myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1107,7 +1123,7 @@ KtDotQualifiedExpression(675,694): 'MyClass.myClassProp'
     isInBestCandidates = true
 
 KtNameReferenceExpression(675,682): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1126,7 +1142,7 @@ KtNameReferenceExpression(675,682): 'MyClass'
     isInBestCandidates = false
 
 KtNameReferenceExpression(683,694): 'myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1147,7 +1163,7 @@ KtNameReferenceExpression(683,694): 'myClassProp'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(695,697): 'to'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1193,7 +1209,7 @@ KtValueArgument(702,725): 'MyClass.stringProp to 2'
   NO_CANDIDATES
 
 KtBinaryExpression(702,725): 'MyClass.stringProp to 2'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1233,7 +1249,7 @@ KtBinaryExpression(702,725): 'MyClass.stringProp to 2'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(702,720): 'MyClass.stringProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1254,7 +1270,7 @@ KtDotQualifiedExpression(702,720): 'MyClass.stringProp'
     isInBestCandidates = true
 
 KtNameReferenceExpression(702,709): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1273,7 +1289,7 @@ KtNameReferenceExpression(702,709): 'MyClass'
     isInBestCandidates = false
 
 KtNameReferenceExpression(710,720): 'stringProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1294,7 +1310,7 @@ KtNameReferenceExpression(710,720): 'stringProp'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(721,723): 'to'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1340,7 +1356,7 @@ KtValueArgument(727,755): 'MyClass.NestedInheritor to 3'
   NO_CANDIDATES
 
 KtBinaryExpression(727,755): 'MyClass.NestedInheritor to 3'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1380,7 +1396,7 @@ KtBinaryExpression(727,755): 'MyClass.NestedInheritor to 3'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(727,750): 'MyClass.NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1399,7 +1415,7 @@ KtDotQualifiedExpression(727,750): 'MyClass.NestedInheritor'
     isInBestCandidates = false
 
 KtNameReferenceExpression(727,734): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1418,7 +1434,7 @@ KtNameReferenceExpression(727,734): 'MyClass'
     isInBestCandidates = false
 
 KtNameReferenceExpression(735,750): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1437,7 +1453,7 @@ KtNameReferenceExpression(735,750): 'NestedInheritor'
     isInBestCandidates = false
 
 KtOperationReferenceExpression(751,753): 'to'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1483,7 +1499,7 @@ KtValueArgument(757,790): 'MyClass.getNestedInheritor() to 4'
   NO_CANDIDATES
 
 KtBinaryExpression(757,790): 'MyClass.getNestedInheritor() to 4'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1523,7 +1539,7 @@ KtBinaryExpression(757,790): 'MyClass.getNestedInheritor() to 4'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(757,785): 'MyClass.getNestedInheritor()'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1544,7 +1560,7 @@ KtDotQualifiedExpression(757,785): 'MyClass.getNestedInheritor()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(757,764): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1584,7 +1600,7 @@ KtCallExpression(765,785): 'getNestedInheritor()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(765,783): 'getNestedInheritor'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1608,7 +1624,7 @@ KtValueArgumentList(783,785): '()'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(786,788): 'to'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1729,7 +1745,7 @@ KtArrayAccessExpression(803,819): 'map[myClassProp]'
     isInBestCandidates = false
 
 KtNameReferenceExpression(803,806): 'map'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1750,7 +1766,7 @@ KtContainerNode(806,819): '[myClassProp]'
   NO_CANDIDATES
 
 KtNameReferenceExpression(807,818): 'myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1851,7 +1867,7 @@ KtArrayAccessExpression(831,846): 'map[stringProp]'
     isInBestCandidates = false
 
 KtNameReferenceExpression(831,834): 'map'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1872,7 +1888,7 @@ KtContainerNode(834,846): '[stringProp]'
   NO_CANDIDATES
 
 KtNameReferenceExpression(835,845): 'stringProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1971,7 +1987,7 @@ KtArrayAccessExpression(858,878): 'map[NestedInheritor]'
     isInBestCandidates = false
 
 KtNameReferenceExpression(858,861): 'map'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1992,7 +2008,7 @@ KtContainerNode(861,878): '[NestedInheritor]'
   NO_CANDIDATES
 
 KtNameReferenceExpression(862,877): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2091,7 +2107,7 @@ KtArrayAccessExpression(890,915): 'map[getNestedInheritor()]'
     isInBestCandidates = false
 
 KtNameReferenceExpression(890,893): 'map'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -2313,7 +2329,7 @@ KtNameReferenceExpression(1216,1223): 'MyClass'
   NO_CANDIDATES
 
 KtNameReferenceExpression(1226,1237): 'myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -2334,7 +2350,7 @@ KtNameReferenceExpression(1226,1237): 'myClassProp'
     isInBestCandidates = true
 
 KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2370,7 +2386,7 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2404,11 +2420,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun MyClass.contains(that: MyClass): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun MyClass.contains(that: MyClass): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2445,11 +2460,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>, R : ClosedRange<T>, Iterable<T>> R.contains(element: T?): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>, R : ClosedRange<T>, Iterable<T>> R.contains(element: T?): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2485,11 +2499,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>, R : OpenEndRange<T>, Iterable<T>> R.contains(element: T?): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>, R : OpenEndRange<T>, Iterable<T>> R.contains(element: T?): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2523,11 +2536,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2561,11 +2573,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2599,11 +2610,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2637,11 +2647,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Double>.contains(value: Float): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Double>.contains(value: Float): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2675,11 +2684,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Float>.contains(value: Double): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Float>.contains(value: Double): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2713,11 +2721,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2751,11 +2758,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2789,11 +2795,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2827,11 +2832,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2865,11 +2869,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2903,11 +2906,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2941,11 +2943,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2979,11 +2980,10 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3017,12 +3017,11 @@ KtBinaryExpression(1242,1284): 'a !in MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
 KtNameReferenceExpression(1242,1243): 'a'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -3039,7 +3038,7 @@ KtNameReferenceExpression(1242,1243): 'a'
       typeArgumentsMapping = {}
     isInBestCandidates = true
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -3057,7 +3056,7 @@ KtNameReferenceExpression(1242,1243): 'a'
     isInBestCandidates = false
 
 KtOperationReferenceExpression(1244,1247): '!in'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3093,7 +3092,7 @@ KtOperationReferenceExpression(1244,1247): '!in'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3127,11 +3126,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun MyClass.contains(that: MyClass): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun MyClass.contains(that: MyClass): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3168,11 +3166,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>, R : ClosedRange<T>, Iterable<T>> R.contains(element: T?): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>, R : ClosedRange<T>, Iterable<T>> R.contains(element: T?): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3208,11 +3205,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>, R : OpenEndRange<T>, Iterable<T>> R.contains(element: T?): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>, R : OpenEndRange<T>, Iterable<T>> R.contains(element: T?): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3246,11 +3242,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3284,11 +3279,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3322,11 +3316,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Byte>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Byte>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3360,11 +3353,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Double>.contains(value: Float): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Double>.contains(value: Float): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3398,11 +3390,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Float>.contains(value: Double): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Float>.contains(value: Double): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3436,11 +3427,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3474,11 +3464,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3512,11 +3501,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Int>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Int>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3550,11 +3538,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3588,11 +3575,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3626,11 +3612,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Long>.contains(value: Short): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Long>.contains(value: Short): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3664,11 +3649,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Byte): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Byte): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3702,11 +3686,10 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Int): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Int): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3740,12 +3723,11 @@ KtOperationReferenceExpression(1244,1247): '!in'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun ClosedRange<Short>.contains(value: Long): Boolean>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun ClosedRange<Short>.contains(value: Long): Boolean' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
 KtBinaryExpression(1248,1284): 'MyClass.myClassProp..NestedInheritor'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3781,7 +3763,7 @@ KtBinaryExpression(1248,1284): 'MyClass.myClassProp..NestedInheritor'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3817,12 +3799,11 @@ KtBinaryExpression(1248,1284): 'MyClass.myClassProp..NestedInheritor'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>> T.rangeTo(that: T): ClosedRange<T>>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>> T.rangeTo(that: T): ClosedRange<T>' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
 KtDotQualifiedExpression(1248,1267): 'MyClass.myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -3843,7 +3824,7 @@ KtDotQualifiedExpression(1248,1267): 'MyClass.myClassProp'
     isInBestCandidates = true
 
 KtNameReferenceExpression(1248,1255): 'MyClass'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3862,7 +3843,7 @@ KtNameReferenceExpression(1248,1255): 'MyClass'
     isInBestCandidates = false
 
 KtNameReferenceExpression(1256,1267): 'myClassProp'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -3883,7 +3864,7 @@ KtNameReferenceExpression(1256,1267): 'myClassProp'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(1267,1269): '..'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3919,7 +3900,7 @@ KtOperationReferenceExpression(1267,1269): '..'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3955,12 +3936,11 @@ KtOperationReferenceExpression(1267,1269): '..'
           contextParameters = []
           callableId = null)
       }
-    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-    fun <T : Comparable<T>> T.rangeTo(that: T): ClosedRange<T>>
+    diagnostic = ERROR<UNRESOLVED_REFERENCE_WRONG_RECEIVER: Candidate 'fun <T : Comparable<T>> T.rangeTo(that: T): ClosedRange<T>' is inapplicable because of a receiver type mismatch.>
     isInBestCandidates = false
 
 KtNameReferenceExpression(1269,1284): 'NestedInheritor'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.contracts.description.*
 import org.jetbrains.kotlin.psi.KtContractEffect
 import org.jetbrains.kotlin.psi.KtImplementationDetail
 import org.jetbrains.kotlin.psi.stubs.KotlinContractEffectStub
+import org.jetbrains.kotlin.psi.stubs.KotlinStubElement
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 import org.jetbrains.kotlin.psi.stubs.elements.deserializeTypeBean
 import org.jetbrains.kotlin.psi.stubs.elements.serializeTypeBean
@@ -25,6 +26,10 @@ class KotlinContractEffectStubImpl(parent: StubElement<*>?) : KotlinPlaceHolderS
     override fun copyInto(newParent: StubElement<*>?): KotlinContractEffectStubImpl = KotlinContractEffectStubImpl(
         parent = newParent,
     )
+
+    @KtImplementationDetail
+    override fun isEquivalentTo(other: KotlinStubElement<*>): Boolean =
+        other is KotlinContractEffectStubImpl && super.isEquivalentTo(other)
 }
 
 enum class KotlinContractEffectType {
@@ -122,6 +127,12 @@ enum class KotlinContractEffectType {
             )
         }
     },
+    RETURNS_RESULT_OF {
+        override fun deserialize(dataStream: StubInputStream): KtContractDescriptionElement<KotlinTypeBean, Nothing?> {
+            val declaration = PARAMETER_REFERENCE.deserialize(dataStream)
+            return KtReturnsResultOfDeclaration(declaration as KtValueParameterReference)
+        }
+    },
     ;
 
     abstract fun deserialize(dataStream: StubInputStream): KtContractDescriptionElement<KotlinTypeBean, Nothing?>
@@ -169,6 +180,14 @@ class KotlinContractSerializationVisitor(val dataStream: StubOutputStream) :
         dataStream.writeVarInt(KotlinContractEffectType.CALLS.ordinal)
         dataStream.writeVarInt(callsEffect.valueParameterReference.parameterIndex)
         dataStream.writeVarInt(callsEffect.kind.ordinal)
+    }
+
+    override fun visitReturnsResultOfEffectDeclaration(
+        returnsResultOfEffect: KtReturnsResultOfDeclaration<KotlinTypeBean, Nothing?>,
+        data: Nothing?,
+    ) {
+        dataStream.writeVarInt(KotlinContractEffectType.RETURNS_RESULT_OF.ordinal)
+        dataStream.writeVarInt(returnsResultOfEffect.valueParameterReference.parameterIndex)
     }
 
     override fun visitLogicalBinaryOperationContractExpression(

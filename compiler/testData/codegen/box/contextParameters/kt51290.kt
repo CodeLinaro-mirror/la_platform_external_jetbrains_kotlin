@@ -1,5 +1,4 @@
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 
 data class Language(var name: String)
 

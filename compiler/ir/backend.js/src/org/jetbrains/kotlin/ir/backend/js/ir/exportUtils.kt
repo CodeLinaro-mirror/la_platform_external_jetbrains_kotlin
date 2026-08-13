@@ -1,16 +1,18 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.ir.backend.js.ir
 
+import org.jetbrains.kotlin.backend.common.suspendFunction
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.backend.js.initEntryInstancesFun
+import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.PrepareSuspendFunctionsForExportLowering.Companion.promisifiedWrapperFunction
 import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.isPromisifiedMemberWrapper
 import org.jetbrains.kotlin.ir.backend.js.tsexport.Exportability
 import org.jetbrains.kotlin.ir.backend.js.tsexport.ExportedVisibility
@@ -22,27 +24,21 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 
 internal fun IrClass.exportability(): Exportability {
-    when (kind) {
-        ClassKind.ANNOTATION_CLASS ->
-            return Exportability.Prohibited("Class ${fqNameWhenAvailable} with kind: ${kind}")
-
-        ClassKind.OBJECT,
-        ClassKind.CLASS,
-        ClassKind.INTERFACE,
-        ClassKind.ENUM_CLASS,
-        ClassKind.ENUM_ENTRY -> {
-        }
-    }
-
     if (isJsImplicitExport()) {
         return Exportability.Implicit
     }
 
-    if (isSingleFieldValueClass)
-        return Exportability.Prohibited("Inline class ${fqNameWhenAvailable}")
-
     return Exportability.Allowed
 }
+
+private val bridgeOrigins = hashSetOf(
+    JsLoweredDeclarationOrigin.BRIDGE_WITHOUT_STABLE_NAME,
+    JsLoweredDeclarationOrigin.BRIDGE_PROPERTY_ACCESSOR,
+    JsLoweredDeclarationOrigin.BRIDGE_WITH_STABLE_NAME,
+)
+
+internal fun IrFunction?.isBridge(): Boolean =
+    this != null && origin in bridgeOrigins
 
 internal fun IrSimpleFunction.exportability(context: JsIrBackendContext, specializedName: String? = null): Exportability {
     if (isInline && typeParameters.any { it.isReified })
@@ -51,9 +47,10 @@ internal fun IrSimpleFunction.exportability(context: JsIrBackendContext, special
         return Exportability.Prohibited("Suspend function")
     if (isFakeOverride && !isAllowedFakeOverriddenDeclaration(context))
         return Exportability.NotNeeded
-    if (origin == JsLoweredDeclarationOrigin.BRIDGE_WITHOUT_STABLE_NAME ||
-        origin == JsLoweredDeclarationOrigin.BRIDGE_PROPERTY_ACCESSOR ||
-        origin == JsLoweredDeclarationOrigin.BRIDGE_WITH_STABLE_NAME ||
+    if (isBridge())
+        return Exportability.NotNeeded
+
+    if (
         origin == JsLoweredDeclarationOrigin.OBJECT_GET_INSTANCE_FUNCTION ||
         origin == JsLoweredDeclarationOrigin.JS_SHADOWED_EXPORT ||
         origin == JsLoweredDeclarationOrigin.ENUM_GET_INSTANCE_FUNCTION
@@ -121,7 +118,7 @@ internal fun shouldDeclarationBeExportedImplicitlyOrExplicitly(
     context: JsIrBackendContext,
     source: IrDeclaration = declaration
 ): Boolean {
-    return declaration.isJsImplicitExport() || shouldDeclarationBeExported(declaration, context, source)
+    return declaration.couldBeConvertedToExplicitExport() == false || shouldDeclarationBeExported(declaration, context, source)
 }
 
 private fun shouldDeclarationBeExported(
@@ -285,6 +282,64 @@ internal val IrConstructor.exportedVisibility: ExportedVisibility
         Modality.FINAL if visibility == DescriptorVisibilities.PROTECTED -> ExportedVisibility.PRIVATE
         else -> visibility.toExportedVisibility()
     }
+
+internal fun IrClass.hasNotExportedAbstractMembers(): Boolean {
+    /**
+     * We only process interfaces because it's impossible to cover the following case:
+     * an abstract class that extends another abstract class which contain an ignored abstract member
+     * but the current inheritor overrides them all and converting them into non-abstract members
+     * Example of code:
+     * ```kotlin
+     * @JsExport
+     * abstract class A {
+     *   @JsExport.Ignore
+     *   abstract fun a(): Int
+     * }
+     *
+     *
+     * @JsExport
+     * interface B {
+     *   @JsExport.Ignore
+     *   fun b(): Int
+     * }
+     *
+     * @JsExport
+     * abstract class ProblemOne : A(), B {
+     *    override fun a(): Int = 1
+     *    // Here we should generate our magic `__doNotUseItOrImplementIt` both as abstract and non-abstract member
+     *    // It's impossible to express in TypeScript
+     * }
+     * ```
+     */
+    if (!isInterface) return false
+    for (declaration in declarations) {
+        val candidate = getExportCandidate(declaration) ?: continue
+
+        if (
+            candidate !is IrOverridableDeclaration<*> ||
+            candidate.isFakeOverride ||
+            candidate.overriddenSymbols.isNotEmpty()
+        ) continue
+
+        // Since we built a lot of bridges for the suspend function export, the check is more complicated
+        if (candidate.origin == IrDeclarationOrigin.LOWERED_SUSPEND_FUNCTION) {
+            val originalSuspendFunction = (candidate as IrSimpleFunction).suspendFunction
+                ?.takeIf { it.origin == IrDeclarationOrigin.DEFINED } ?: continue
+
+            if (originalSuspendFunction.promisifiedWrapperFunction == null) {
+                return true
+            } else continue
+        }
+
+
+        if (
+            candidate.isJsExportIgnore() &&
+            candidate.origin == IrDeclarationOrigin.DEFINED
+        ) return true
+    }
+
+    return false
+}
 
 internal fun IrClass.forEachExportedMember(
     context: JsIrBackendContext,

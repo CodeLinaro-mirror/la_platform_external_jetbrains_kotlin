@@ -20,6 +20,8 @@ import org.gradle.work.NormalizeLineEndings
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.buildtools.api.SourcesChanges
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.KotlinWasmCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.copyK2JSCompilerArguments
 import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerEnvironment
 import org.jetbrains.kotlin.compilerRunner.IncrementalCompilationEnvironment
@@ -36,6 +38,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.Create
 import org.jetbrains.kotlin.gradle.report.BuildReportMode
 import org.jetbrains.kotlin.gradle.targets.js.internal.LibraryFilterCachingService
 import org.jetbrains.kotlin.gradle.targets.js.internal.UsesLibraryFilterCachingService
+import org.jetbrains.kotlin.gradle.targets.js.ir.WASM_BACKEND
 import org.jetbrains.kotlin.gradle.tasks.internal.KotlinJsOptionsCompat
 import org.jetbrains.kotlin.gradle.utils.chainedDisallowChanges
 import org.jetbrains.kotlin.gradle.utils.getFile
@@ -120,14 +123,6 @@ abstract class Kotlin2JsCompile @Inject constructor(
     @get:Internal
     internal var executionTimeFreeCompilerArgs: List<String>? = null
 
-    @get:Deprecated(
-        message = "Task.moduleName is not used in Kotlin/JS. Scheduled for removal in Kotlin 2.3.",
-        level = DeprecationLevel.ERROR,
-    )
-    @get:Optional
-    @get:Input
-    abstract override val moduleName: Property<String>
-
     @get:Internal
     internal abstract val mainCompilationModuleName: Property<String>
 
@@ -194,7 +189,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
                 listOfNotNull(
                     pluginClasspath, kotlinPluginData?.orNull?.classpath
                 ).reduce(FileCollection::plus).toPathsArray()
-            }
+            } ?: emptyArray()
         }
 
         dependencyClasspath { args ->
@@ -212,8 +207,8 @@ abstract class Kotlin2JsCompile @Inject constructor(
         }
 
         sources { args ->
-            if (!args.sourceMapPrefix.isNullOrEmpty()) {
-                args.sourceMapBaseDirs = sourceMapBaseDir.get().asFile.absolutePath
+            if (args.sourceMap && (!args.sourceMapPrefix.isNullOrEmpty() || sourceMapBaseDir.isPresent)) {
+                args.sourceMapBaseDirs = sourceMapBaseDir.orElse(projectDirectory).getFile().absolutePath
             }
 
             if (multiPlatformEnabled.get()) {
@@ -248,10 +243,10 @@ abstract class Kotlin2JsCompile @Inject constructor(
         .from(friendPaths)
         .filter { libraryFilter(it) }
 
+    private val projectDirectory: Directory = project.layout.projectDirectory
+
     @get:Internal
-    internal val sourceMapBaseDir: Property<Directory> = objectFactory
-        .directoryProperty()
-        .value(project.layout.projectDirectory)
+    internal abstract val sourceMapBaseDir: DirectoryProperty
 
     private val File.asLibraryFilterCacheKey: LibraryFilterCachingService.LibraryFilterCacheKey
         get() = LibraryFilterCachingService.LibraryFilterCacheKey(
@@ -299,7 +294,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
 
     protected open fun contributeAdditionalCompilerArguments(context: ContributeCompilerArgumentsContext<K2JSCompilerArguments>) {
         context.primitive { args ->
-            args.irProduceKlibDir = true
+            args.nopack = true
         }
     }
 
@@ -367,11 +362,21 @@ abstract class Kotlin2JsCompile @Inject constructor(
             compilerArgumentsLogLevel = kotlinCompilerArgumentsLogLevel.get()
         )
         processArgsBeforeCompile(args)
-        compilerRunner.runJsCompilerAsync(
-            args,
-            environment,
-            taskOutputsBackup
-        )
+        @Suppress("DEPRECATION")
+        if (args.wasm || args.freeArgs.contains(WASM_BACKEND)) {
+            val wasmArgs = copyK2JSCompilerArguments(args, KotlinWasmCompilerArguments())
+            compilerRunner.runWasmCompilerAsync(
+                wasmArgs,
+                environment,
+                taskOutputsBackup
+            )
+        } else {
+            compilerRunner.runJsCompilerAsync(
+                args,
+                environment,
+                taskOutputsBackup
+            )
+        }
         compilerRunner.errorsFiles?.let { gradleMessageCollector.flush(it) }
 
     }

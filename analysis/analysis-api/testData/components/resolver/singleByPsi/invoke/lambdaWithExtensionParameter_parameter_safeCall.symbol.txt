@@ -1,2 +1,7 @@
 KtNameReferenceExpression(81,87): 'action'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      action: test.Foo.() -> kotlin.Unit
+    ]

@@ -3,7 +3,7 @@
 import KotlinRuntime
 import KotlinRuntimeSupport
 
-public protocol Barable: KotlinRuntime.KotlinBase, main.Foeble {
+public protocol Barable: KotlinRuntime.KotlinBase, main.Foeble, main._Barable {
     var baz: any main.Foeble {
         get
     }
@@ -11,11 +11,11 @@ public protocol Barable: KotlinRuntime.KotlinBase, main.Foeble {
         arg: any main.Foeble
     ) -> any main.Barable
 }
-public protocol Bazzable: KotlinRuntime.KotlinBase {
+public protocol Bazzable: KotlinRuntime.KotlinBase, main._Bazzable {
 }
-public protocol ContainerProtocol: KotlinRuntime.KotlinBase {
+public protocol ContainerProtocol: KotlinRuntime.KotlinBase, main._ContainerProtocol {
 }
-public protocol Foeble: KotlinRuntime.KotlinBase {
+public protocol Foeble: KotlinRuntime.KotlinBase, main._Foeble {
     var baz: any main.Foeble {
         get
     }
@@ -23,47 +23,47 @@ public protocol Foeble: KotlinRuntime.KotlinBase {
         arg: any main.Foeble
     ) -> any main.Foeble
 }
-public protocol SealedBazzable: KotlinRuntime.KotlinBase, main.SealedFoeble {
+public protocol SealedBazzable: KotlinRuntime.KotlinBase, main.SealedFoeble, main._SealedBazzable {
 }
-public protocol SealedFoeble: KotlinRuntime.KotlinBase {
+public protocol SealedFoeble: KotlinRuntime.KotlinBase, main._SealedFoeble {
 }
-public protocol SiblingProtocol: KotlinRuntime.KotlinBase {
+public protocol SiblingProtocol: KotlinRuntime.KotlinBase, main._SiblingProtocol {
 }
 @objc(_Barable)
-package protocol _Barable: main._Foeble {
+public protocol _Barable: main._Foeble {
 }
 @objc(_Bazzable)
-package protocol _Bazzable {
+public protocol _Bazzable {
 }
 @objc(_ContainerProtocol)
-package protocol _ContainerProtocol {
+public protocol _ContainerProtocol {
 }
-public protocol _ContainerProtocol_NestedProtocol: KotlinRuntime.KotlinBase {
+public protocol _ContainerProtocol_NestedProtocol: KotlinRuntime.KotlinBase, main.__ContainerProtocol_NestedProtocol {
 }
-public protocol _ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol: KotlinRuntime.KotlinBase {
+public protocol _ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol: KotlinRuntime.KotlinBase, main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol {
 }
 @objc(_Foeble)
-package protocol _Foeble {
+public protocol _Foeble {
 }
 @objc(_SealedBazzable)
-package protocol _SealedBazzable: main._SealedFoeble {
+public protocol _SealedBazzable: main._SealedFoeble {
 }
 @objc(_SealedFoeble)
-package protocol _SealedFoeble {
+public protocol _SealedFoeble {
 }
-public protocol _SealedFoeble_SealedBarable: KotlinRuntime.KotlinBase, main.SealedFoeble {
+public protocol _SealedFoeble_SealedBarable: KotlinRuntime.KotlinBase, main.SealedFoeble, main.__SealedFoeble_SealedBarable {
 }
 @objc(_SiblingProtocol)
-package protocol _SiblingProtocol {
+public protocol _SiblingProtocol {
 }
 @objc(__ContainerProtocol_NestedProtocol)
-package protocol __ContainerProtocol_NestedProtocol {
+public protocol __ContainerProtocol_NestedProtocol {
 }
 @objc(__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol)
-package protocol __ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol {
+public protocol __ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol {
 }
 @objc(__SealedFoeble_SealedBarable)
-package protocol __SealedFoeble_SealedBarable: main._SealedFoeble {
+public protocol __SealedFoeble_SealedBarable: main._SealedFoeble {
 }
 public final class Bar: KotlinRuntime.KotlinBase, main.Barable, main._Barable, main.Foeble, main._Foeble, main.Bazzable, main._Bazzable {
     public var baz: main.Bar {
@@ -72,16 +72,15 @@ public final class Bar: KotlinRuntime.KotlinBase, main.Barable, main._Barable, m
         }
     }
     public init() {
-        if Self.self != main.Bar.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.Bar ") }
         let __kt = __root___Bar_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        __root___Bar_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { __root___Bar_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
     public func bar(
         arg: any main.Foeble
@@ -96,16 +95,15 @@ public final class Foo: KotlinRuntime.KotlinBase, main.Foeble, main._Foeble {
         }
     }
     public init() {
-        if Self.self != main.Foo.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.Foo ") }
         let __kt = __root___Foo_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        __root___Foo_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { __root___Foo_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
     public func bar(
         arg: any main.Foeble
@@ -126,7 +124,7 @@ public final class MyObject: KotlinRuntime.KotlinBase {
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class SomeBazzable: KotlinRuntime.KotlinBase, main.SealedBazzable, main._SealedBazzable {
@@ -142,63 +140,59 @@ public final class SomeBazzable: KotlinRuntime.KotlinBase, main.SealedBazzable, 
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 open class _ContainerProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != main._ContainerProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._ContainerProtocol_NestedClass ") }
         let __kt = ContainerProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        ContainerProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { ContainerProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 open class _ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedClass ") }
         let __kt = packagewithprotocols_ContainerProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        packagewithprotocols_ContainerProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { packagewithprotocols_ContainerProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class _ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public final class NestedClass: KotlinRuntime.KotlinBase {
         public init() {
-            if Self.self != main._ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass.NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass.NestedClass ") }
             let __kt = packagewithprotocols_SiblingProtocol_NestedClass_NestedClass_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            packagewithprotocols_SiblingProtocol_NestedClass_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { packagewithprotocols_SiblingProtocol_NestedClass_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     public init() {
-        if Self.self != main._ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass ") }
         let __kt = packagewithprotocols_SiblingProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        packagewithprotocols_SiblingProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { packagewithprotocols_SiblingProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class _SealedFoeble_SomeBarable: KotlinRuntime.KotlinBase, main._SealedFoeble_SealedBarable, main.__SealedFoeble_SealedBarable {
@@ -214,7 +208,7 @@ public final class _SealedFoeble_SomeBarable: KotlinRuntime.KotlinBase, main._Se
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class _SealedFoeble_SomeFoeble: KotlinRuntime.KotlinBase, main.SealedFoeble, main._SealedFoeble {
@@ -230,63 +224,59 @@ public final class _SealedFoeble_SomeFoeble: KotlinRuntime.KotlinBase, main.Seal
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class _SiblingProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public final class NestedClass: KotlinRuntime.KotlinBase {
         public init() {
-            if Self.self != main._SiblingProtocol_NestedClass.NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._SiblingProtocol_NestedClass.NestedClass ") }
             let __kt = SiblingProtocol_NestedClass_NestedClass_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            SiblingProtocol_NestedClass_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { SiblingProtocol_NestedClass_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     public init() {
-        if Self.self != main._SiblingProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main._SiblingProtocol_NestedClass ") }
         let __kt = SiblingProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        SiblingProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { SiblingProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 open class __ContainerProtocol_NestedProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != main.__ContainerProtocol_NestedProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.__ContainerProtocol_NestedProtocol_NestedClass ") }
         let __kt = ContainerProtocol_NestedProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        ContainerProtocol_NestedProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { ContainerProtocol_NestedProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 open class __ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass ") }
         let __kt = packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public var list: [any main.Foeble] {
@@ -294,7 +284,7 @@ public var list: [any main.Foeble] {
         return __root___list_get() as! Swift.Array<any main.Foeble>
     }
     set {
-        return __root___list_set__TypesOfArguments__Swift_Array_anyU20main_Foeble___(newValue)
+        return { __root___list_set__TypesOfArguments__Swift_Array_anyU20main_Foeble___(newValue); return () }()
     }
 }
 public var normal: any main.Foeble {
@@ -302,7 +292,7 @@ public var normal: any main.Foeble {
         return KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: __root___normal_get()) as! any main.Foeble
     }
     set {
-        return __root___normal_set__TypesOfArguments__anyU20main_Foeble__(newValue.__externalRCRef())
+        return { __root___normal_set__TypesOfArguments__anyU20main_Foeble__(newValue.__externalRCRef()); return () }()
     }
 }
 public var nullable: (any main.Foeble)? {
@@ -310,28 +300,28 @@ public var nullable: (any main.Foeble)? {
         return { switch __root___nullable_get() { case nil: .none; case let res: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: res) as! any main.Foeble; } }()
     }
     set {
-        return __root___nullable_set__TypesOfArguments__Swift_Optional_anyU20main_Foeble___(newValue.map { it in it.__externalRCRef() } ?? nil)
+        return { __root___nullable_set__TypesOfArguments__Swift_Optional_anyU20main_Foeble___(newValue.map { it in it.__externalRCRef() } ?? nil); return () }()
     }
 }
 public func foo(
     _ receiver: any main.ContainerProtocol
 ) -> Swift.Void {
-    return __root___foo__TypesOfArguments__anyU20main_ContainerProtocol__(receiver.__externalRCRef())
+    return { __root___foo__TypesOfArgumentsE__anyU20main_ContainerProtocol__(receiver.__externalRCRef()); return () }()
 }
 public func foo(
     _ receiver: main.__ContainerProtocol_NestedProtocol_NestedClass
 ) -> Swift.Void {
-    return __root___foo__TypesOfArguments__main___ContainerProtocol_NestedProtocol_NestedClass__(receiver.__externalRCRef())
+    return { __root___foo__TypesOfArgumentsE__main___ContainerProtocol_NestedProtocol_NestedClass__(receiver.__externalRCRef()); return () }()
 }
 public func foo(
     _ receiver: main._SiblingProtocol_NestedClass
 ) -> Swift.Void {
-    return __root___foo__TypesOfArguments__main__SiblingProtocol_NestedClass__(receiver.__externalRCRef())
+    return { __root___foo__TypesOfArgumentsE__main__SiblingProtocol_NestedClass__(receiver.__externalRCRef()); return () }()
 }
 public func foo(
     _ receiver: any main._ContainerProtocol_NestedProtocol
 ) -> Swift.Void {
-    return __root___foo__TypesOfArguments__anyU20main__ContainerProtocol_NestedProtocol__(receiver.__externalRCRef())
+    return { __root___foo__TypesOfArgumentsE__anyU20main__ContainerProtocol_NestedProtocol__(receiver.__externalRCRef()); return () }()
 }
 public func list(
     value: [any main.Foeble]
@@ -459,6 +449,34 @@ extension KotlinRuntimeSupport._KotlinExistential: main._SealedFoeble_SealedBara
 }
 extension KotlinRuntimeSupport._KotlinExistential: main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol where Wrapped : main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol {
 }
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._ContainerProtocol {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._SiblingProtocol {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._Foeble {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._Barable {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._Bazzable {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._SealedFoeble {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main._SealedBazzable {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.packagewithprotocols._ContainerProtocol {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.packagewithprotocols._SiblingProtocol {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.repeating_conformances._Foeble {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.repeating_conformances._Barable {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main.__ContainerProtocol_NestedProtocol {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main.__SealedFoeble_SealedBarable {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol {
+}
 extension main._SealedFoeble_SealedBarable where Self : KotlinRuntimeSupport._KotlinBridgeable {
 }
 extension main._SealedFoeble_SealedBarable {
@@ -497,7 +515,7 @@ extension ExportedKotlinPackages.packagewithprotocols {
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer!,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            switch __externalRCRefUnsafe {
+            switch packagewithprotocols_ENUM_WITH_INTERFACE_INHERITANCE_ordinal(__externalRCRefUnsafe) {
             default: fatalError()
             }
         }
@@ -507,42 +525,40 @@ extension ExportedKotlinPackages.packagewithprotocols {
             }
         }
     }
-    public protocol ContainerProtocol: KotlinRuntime.KotlinBase {
+    public protocol ContainerProtocol: KotlinRuntime.KotlinBase, ExportedKotlinPackages.packagewithprotocols._ContainerProtocol {
     }
-    public protocol SiblingProtocol: KotlinRuntime.KotlinBase {
+    public protocol SiblingProtocol: KotlinRuntime.KotlinBase, ExportedKotlinPackages.packagewithprotocols._SiblingProtocol {
     }
     @objc(_ContainerProtocol)
-    package protocol _ContainerProtocol {
+    public protocol _ContainerProtocol {
     }
     @objc(_SiblingProtocol)
-    package protocol _SiblingProtocol {
+    public protocol _SiblingProtocol {
     }
     public final class INHERITANCE_COUPLE: main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedClass, ExportedKotlinPackages.packagewithprotocols.ContainerProtocol, ExportedKotlinPackages.packagewithprotocols._ContainerProtocol {
         public override init() {
-            if Self.self != ExportedKotlinPackages.packagewithprotocols.INHERITANCE_COUPLE.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.packagewithprotocols.INHERITANCE_COUPLE ") }
             let __kt = packagewithprotocols_INHERITANCE_COUPLE_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            packagewithprotocols_INHERITANCE_COUPLE_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { packagewithprotocols_INHERITANCE_COUPLE_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     public final class INHERITANCE_SINGLE_PROTO: main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedClass {
         public override init() {
-            if Self.self != ExportedKotlinPackages.packagewithprotocols.INHERITANCE_SINGLE_PROTO.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.packagewithprotocols.INHERITANCE_SINGLE_PROTO ") }
             let __kt = packagewithprotocols_INHERITANCE_SINGLE_PROTO_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            packagewithprotocols_INHERITANCE_SINGLE_PROTO_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { packagewithprotocols_INHERITANCE_SINGLE_PROTO_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     public final class OBJECT_WITH_INTERFACE_INHERITANCE: KotlinRuntime.KotlinBase, ExportedKotlinPackages.packagewithprotocols.ContainerProtocol, ExportedKotlinPackages.packagewithprotocols._ContainerProtocol {
@@ -558,249 +574,247 @@ extension ExportedKotlinPackages.packagewithprotocols {
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     public static func foo(
         _ receiver: any ExportedKotlinPackages.packagewithprotocols.ContainerProtocol
     ) -> Swift.Void {
-        return packagewithprotocols_foo__TypesOfArguments__anyU20ExportedKotlinPackages_packagewithprotocols_ContainerProtocol__(receiver.__externalRCRef())
+        return { packagewithprotocols_foo__TypesOfArgumentsE__anyU20ExportedKotlinPackages_packagewithprotocols_ContainerProtocol__(receiver.__externalRCRef()); return () }()
     }
     public static func foo(
         _ receiver: main.__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass
     ) -> Swift.Void {
-        return packagewithprotocols_foo__TypesOfArguments__main___ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass__(receiver.__externalRCRef())
+        return { packagewithprotocols_foo__TypesOfArgumentsE__main___ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol_NestedClass__(receiver.__externalRCRef()); return () }()
     }
     public static func foo(
         _ receiver: main._ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass
     ) -> Swift.Void {
-        return packagewithprotocols_foo__TypesOfArguments__main__ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass__(receiver.__externalRCRef())
+        return { packagewithprotocols_foo__TypesOfArgumentsE__main__ExportedKotlinPackages_packagewithprotocols_SiblingProtocol_NestedClass__(receiver.__externalRCRef()); return () }()
     }
     public static func foo(
         _ receiver: any main._ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol
     ) -> Swift.Void {
-        return packagewithprotocols_foo__TypesOfArguments__anyU20main__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol__(receiver.__externalRCRef())
+        return { packagewithprotocols_foo__TypesOfArgumentsE__anyU20main__ExportedKotlinPackages_packagewithprotocols_ContainerProtocol_NestedProtocol__(receiver.__externalRCRef()); return () }()
     }
 }
 extension ExportedKotlinPackages.repeating_conformances {
-    public protocol Barable: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Foeble {
+    public protocol Barable: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Foeble, ExportedKotlinPackages.repeating_conformances._Barable {
     }
-    public protocol Foeble: KotlinRuntime.KotlinBase {
+    public protocol Foeble: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances._Foeble {
     }
     @objc(_Barable)
-    package protocol _Barable: ExportedKotlinPackages.repeating_conformances._Foeble {
+    public protocol _Barable: ExportedKotlinPackages.repeating_conformances._Foeble {
     }
     @objc(_Foeble)
-    package protocol _Foeble {
+    public protocol _Foeble {
     }
     open class Child1: ExportedKotlinPackages.repeating_conformances.Parent1 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Child1.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Child1 ") }
             let __kt = repeating_conformances_Child1_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Child1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Child1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Child2: ExportedKotlinPackages.repeating_conformances.Parent2 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Child2.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Child2 ") }
             let __kt = repeating_conformances_Child2_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Child2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Child2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Child3: ExportedKotlinPackages.repeating_conformances.Parent3 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Child3.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Child3 ") }
             let __kt = repeating_conformances_Child3_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Child3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Child3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Child4: ExportedKotlinPackages.repeating_conformances.Parent4 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Child4.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Child4 ") }
             let __kt = repeating_conformances_Child4_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Child4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Child4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Child5: ExportedKotlinPackages.repeating_conformances.Parent5 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Child5.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Child5 ") }
             let __kt = repeating_conformances_Child5_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Child5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Child5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class GrandChild1: ExportedKotlinPackages.repeating_conformances.Child1 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.GrandChild1.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.GrandChild1 ") }
             let __kt = repeating_conformances_GrandChild1_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_GrandChild1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_GrandChild1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class GrandChild2: ExportedKotlinPackages.repeating_conformances.Child2 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.GrandChild2.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.GrandChild2 ") }
             let __kt = repeating_conformances_GrandChild2_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_GrandChild2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_GrandChild2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class GrandChild3: ExportedKotlinPackages.repeating_conformances.Child3 {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.GrandChild3.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.GrandChild3 ") }
             let __kt = repeating_conformances_GrandChild3_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_GrandChild3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_GrandChild3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class GrandChild4: ExportedKotlinPackages.repeating_conformances.Child4, ExportedKotlinPackages.repeating_conformances.Barable, ExportedKotlinPackages.repeating_conformances._Barable {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.GrandChild4.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.GrandChild4 ") }
             let __kt = repeating_conformances_GrandChild4_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_GrandChild4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_GrandChild4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class GrandChild5: ExportedKotlinPackages.repeating_conformances.Child5, ExportedKotlinPackages.repeating_conformances.Barable, ExportedKotlinPackages.repeating_conformances._Barable, ExportedKotlinPackages.repeating_conformances.Foeble, ExportedKotlinPackages.repeating_conformances._Foeble {
         public override init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.GrandChild5.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.GrandChild5 ") }
             let __kt = repeating_conformances_GrandChild5_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_GrandChild5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_GrandChild5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Parent1: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Foeble, ExportedKotlinPackages.repeating_conformances._Foeble {
         public init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Parent1.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Parent1 ") }
             let __kt = repeating_conformances_Parent1_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Parent1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Parent1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Parent2: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Foeble, ExportedKotlinPackages.repeating_conformances._Foeble {
         public init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Parent2.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Parent2 ") }
             let __kt = repeating_conformances_Parent2_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Parent2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Parent2_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Parent3: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Barable, ExportedKotlinPackages.repeating_conformances._Barable {
         public init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Parent3.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Parent3 ") }
             let __kt = repeating_conformances_Parent3_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Parent3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Parent3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Parent4: KotlinRuntime.KotlinBase, ExportedKotlinPackages.repeating_conformances.Foeble, ExportedKotlinPackages.repeating_conformances._Foeble {
         public init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Parent4.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Parent4 ") }
             let __kt = repeating_conformances_Parent4_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Parent4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Parent4_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
     open class Parent5: KotlinRuntime.KotlinBase {
         public init() {
-            if Self.self != ExportedKotlinPackages.repeating_conformances.Parent5.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.repeating_conformances.Parent5 ") }
             let __kt = repeating_conformances_Parent5_init_allocate()
-            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-            repeating_conformances_Parent5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+            { repeating_conformances_Parent5_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
         }
         package override init(
             __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
         }
     }
+}
+@_cdecl("Barable_bar__TypesOfArguments__anyU20main_Foeble____reverse_swift")
+package func Barable_bar__TypesOfArguments__anyU20main_Foeble____reverse_swift(_ `self`: Swift.UnsafeMutableRawPointer, _ arg: Swift.UnsafeMutableRawPointer) -> Swift.UnsafeMutableRawPointer {
+    let _self = KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: `self`) as! any main.Barable
+    let _result: any main.Barable = _self.bar(arg: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: arg) as! any main.Foeble)
+    return _result.__externalRCRef()
+}
+
+@_cdecl("Foeble_bar__TypesOfArguments__anyU20main_Foeble____reverse_swift")
+package func Foeble_bar__TypesOfArguments__anyU20main_Foeble____reverse_swift(_ `self`: Swift.UnsafeMutableRawPointer, _ arg: Swift.UnsafeMutableRawPointer) -> Swift.UnsafeMutableRawPointer {
+    let _self = KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: `self`) as! any main.Foeble
+    let _result: any main.Foeble = _self.bar(arg: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: arg) as! any main.Foeble)
+    return _result.__externalRCRef()
 }

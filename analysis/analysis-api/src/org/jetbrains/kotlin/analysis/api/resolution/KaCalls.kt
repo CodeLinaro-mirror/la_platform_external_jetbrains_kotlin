@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.analysis.api.components.KaResolver
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.signatures.KaCallableSignature
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.resolution.KtResolvableCall
@@ -149,3 +150,31 @@ public val KaSingleOrMultiCall.calls: List<KaSingleCall<*, *>>
         is KaSingleCall<*, *> -> listOf(this)
         is KaMultiCall -> calls
     }
+
+/**
+ * The flattened list of [KaSymbol]s for the resolved calls.
+ *
+ * - If [this] is an instance of [KaSingleCall], the list will contain only the [KaSingleCall.signature]'s symbol
+ * - If [this] is an instance of [KaMultiCall], the list will contain symbols from all [KaMultiCall.calls]
+ */
+@KaExperimentalApi
+public val KaSingleOrMultiCall.symbols: List<KaSymbol>
+    get() = when (this) {
+        is KaSingleCall<*, *> -> listOf(symbol)
+        is KaMultiCall -> calls.map { it.signature.symbol }
+    }
+
+/**
+ * The resolved [KaCallableSymbol] of the [KaSingleCall].
+ *
+ * This is a short-cut for [KaCallableSignature.symbol].
+ */
+@OptIn(KaExperimentalApi::class)
+@KaExperimentalApi
+// A workaround to provide the helper utility but don't break the use site
+// since in most cases it conflicts with `KaCallableMemberCall.symbol`.
+// The workaround could be moved to the `KaCallableMemberCall.symbol` side once the API is stabilized.
+@Suppress("INVISIBLE_REFERENCE")
+@kotlin.internal.LowPriorityInOverloadResolution
+public val <S : KaCallableSymbol, C : KaCallableSignature<S>> KaSingleCall<S, C>.symbol: S
+    get() = signature.symbol

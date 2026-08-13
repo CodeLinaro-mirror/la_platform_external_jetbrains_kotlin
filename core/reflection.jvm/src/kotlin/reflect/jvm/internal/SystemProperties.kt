@@ -16,14 +16,14 @@ package kotlin.reflect.jvm.internal
  *
  * See KT-75463 and related issues for more information.
  */
-internal val useK1Implementation = runCatching {
+internal var useK1Implementation = runCatching {
     System.getProperty("kotlin.reflect.jvm.useK1Implementation")
 }.getOrNull()?.toBoolean() == true
 
 /**
  * Fake overrides implementation for new kotlin-reflect is in progress. This feature flag turns it on
  */
-internal val newFakeOverridesImplementation = runCatching {
+internal var newFakeOverridesImplementation = runCatching {
     System.getProperty("kotlin.reflect.jvm.newFakeOverridesImplementation")
 }.getOrNull()?.toBoolean() == true
 
@@ -46,6 +46,6 @@ internal val newFakeOverridesImplementation = runCatching {
  * Note: at the moment, using reflection for Kotlin built-in classes that are mapped to Java classes is not fully supported when this
  * property is enabled. Such classes will be seen as their corresponding Java counterparts.
  */
-internal val loadMetadataDirectly = runCatching {
+internal var loadMetadataDirectly = runCatching {
     System.getProperty("kotlin.reflect.jvm.loadMetadataDirectly")
 }.getOrNull()?.toBoolean() == true

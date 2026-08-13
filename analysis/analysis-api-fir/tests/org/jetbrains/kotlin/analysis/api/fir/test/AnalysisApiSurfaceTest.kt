@@ -5,35 +5,39 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.test
 
-import com.intellij.psi.util.descendantsOfType
-import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import com.intellij.psi.PsiClass
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.analyzeCopy
+import org.jetbrains.kotlin.analysis.api.components.buildSubstitutor
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPsiJavaClassSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPsiJavaTypeParameterSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirTypeParameterSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.pointers.KaFirPrimaryConstructorSymbolPointer
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionMode
-import org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall
-import org.jetbrains.kotlin.analysis.api.resolution.singleCallOrNull
-import org.jetbrains.kotlin.analysis.api.resolution.symbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
-import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
+import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaType
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.LLSourceLikeTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiExecutionTest
-import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
+import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
+import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.assertions
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtPsiFactory
+import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstance
+import org.jetbrains.org.objectweb.asm.Type
 import org.junit.jupiter.api.Test
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.reflect.full.isSubclassOf
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-class AnalysisApiSurfaceTest : AbstractAnalysisApiExecutionTest("analysis/analysis-api-fir/testData/surface") {
-    override val configurator = AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = false)
+class AnalysisApiSurfaceTest : AbstractAnalysisApiExecutionTest("testData/surface") {
+    override val configurator = LLSourceLikeTestConfigurator()
 
     @Test
     fun supertypeIteration(mainFile: KtFile) {
@@ -47,54 +51,6 @@ class AnalysisApiSurfaceTest : AbstractAnalysisApiExecutionTest("analysis/analys
             // Iterate through the sequence multiple times
             assertEquals(allSupertypeSequence.toList(), allSupertypeSequence.toList())
             assertEquals(directSupertypeSequence.toList(), directSupertypeSequence.toList())
-        }
-    }
-
-    @Test
-    fun codeFragmentCopy(mainFile: KtFile, testServices: TestServices) {
-        val assertions = testServices.assertions
-
-        val simpleClass = mainFile.declarations.single() as KtClass
-        val method = simpleClass.declarations.first() as KtNamedFunction
-        assertions.assertEquals("method", method.name)
-
-        val context = simpleClass.declarations.last() as KtNamedFunction
-        assertions.assertEquals("context", context.name)
-
-        val codeFragment = KtPsiFactory(mainFile.project).createExpressionCodeFragment("method()", context)
-        val codeFragmentExpression = codeFragment.getContentElement() as KtCallExpression
-
-        val codeFragmentCopy = codeFragment.copy() as KtExpressionCodeFragment
-        val codeFragmentCopyExpression = codeFragmentCopy.getContentElement() as KtCallExpression
-
-        analyze(codeFragmentExpression) {
-            assertions.assertTrue(useSiteModule::class.isSubclassOf(KaDanglingFileModule::class))
-
-            val callableSymbol = codeFragmentExpression.resolveSymbol()
-            // Check whether the code fragment is configured correctly
-            assertions.assertEquals(method, callableSymbol?.psi)
-
-            // Check whether elements from the original file are analyzable
-            assertions.assertTrue(simpleClass.canBeAnalysed())
-
-            // Elements from the fragment copy are not expected to be analyzable in the context of original
-            // since each code fragment has its own session
-            assertions.assertFalse(codeFragmentCopyExpression.canBeAnalysed())
-        }
-
-        analyze(codeFragmentCopyExpression) {
-            assertions.assertTrue(useSiteModule::class.isSubclassOf(KaDanglingFileModule::class))
-
-            val callableSymbol = codeFragmentCopyExpression.resolveSymbol()
-
-            // Check whether the code fragment copy is configured correctly
-            assertions.assertEquals(method, callableSymbol?.psi)
-
-            // Check whether elements from the original file are analyzable
-            assertions.assertTrue(simpleClass.canBeAnalysed())
-
-            // Elements from the original fragment should be analyzable in the context of copy
-            assertions.assertTrue(codeFragmentExpression.canBeAnalysed())
         }
     }
 
@@ -113,7 +69,7 @@ class AnalysisApiSurfaceTest : AbstractAnalysisApiExecutionTest("analysis/analys
                 .single()
 
             // Get the implicit primary constructor
-            val constructor = enumEntrySymbol.enumEntryInitializer!!.memberScope.constructors.toList().single()
+            val constructor = enumEntrySymbol.initializer!!.memberScope.constructors.toList().single()
 
             val pointer = constructor.createPointer()
             assertIs<KaFirPrimaryConstructorSymbolPointer>(pointer, "Expected primary constructor pointer")
@@ -124,81 +80,119 @@ class AnalysisApiSurfaceTest : AbstractAnalysisApiExecutionTest("analysis/analys
     }
 
     @Test
-    @OptIn(KtExperimentalApi::class, KaExperimentalApi::class)
-    fun companionBlocks(ktFile: KtFile) {
-        analyze(ktFile) {
-            fun checkMembers(classId: ClassId, vararg expectedMemberCallableIds: String) {
-                val classSymbol = findClass(classId)
-                    ?: error("Could not find the class '$classId'")
-
-                val actualText = classSymbol.combinedMemberScope.callables
-                    .toList()
-                     .mapNotNull { it.callableId?.toString() }
-                    .sorted()
-
-                assertEquals(expectedMemberCallableIds.toList(), actualText)
+    fun javaTypeParameterSubstitutor(mainFile: KtFile) {
+        analyze(mainFile) {
+            fun checkSubstitution(classSymbol: KaNamedClassSymbol) {
+                val substitutor = buildSubstitutor {
+                    substitution(classSymbol.typeParameters.single(), builtinTypes.int)
+                }
+                val substitutedType = substitutor.substitute(classSymbol.defaultType) as KaClassType
+                val typeArgument = substitutedType.typeArguments.single()
+                assertEquals(builtinTypes.int, typeArgument.type, "Type argument should be Int after substitution")
             }
 
-            checkMembers(
-                ClassId.fromString("org/example/Foo"),
-                "kotlin/Any.equals",
-                "kotlin/Any.hashCode",
-                "kotlin/Any.toString",
-                "org/example/Foo.ordinaryFunction",
-                "org/example/Foo.ordinaryProperty",
-            )
+            val regularClassSymbol = findClass(ClassId.fromString("test/JavaBox")) as KaNamedClassSymbol
+            val psiBasedClassSymbol = (regularClassSymbol.psi as PsiClass).namedClassSymbol as KaFirPsiJavaClassSymbol
 
-            checkMembers(
-                ClassId.fromString("org/example/Direction"),
-                "kotlin/Enum.clone",
-                "kotlin/Enum.equals",
-                "kotlin/Enum.finalize",
-                "kotlin/Enum.hashCode",
-                "kotlin/Enum.name",
-                "kotlin/Enum.ordinal",
-                "kotlin/Enum.toString",
-                "org/example/Direction.EAST",
-                "org/example/Direction.NORTH",
-                "org/example/Direction.SOUTH",
-                "org/example/Direction.WEST",
-                "org/example/Direction.compareTo",
-                "org/example/Direction.entries",
-                "org/example/Direction.getDeclaringClass",
-                "org/example/Direction.valueOf",
-                "org/example/Direction.values",
-            )
+            assertIs<KaFirTypeParameterSymbol>(regularClassSymbol.typeParameters.single())
+            assertIs<KaFirPsiJavaTypeParameterSymbol>(psiBasedClassSymbol.typeParameters.single())
 
-            val actualResolutionResult = ktFile.descendantsOfType<KtProperty>()
-                .filter { it.isLocal && it.name.orEmpty().startsWith("ret") }
-                .mapNotNull { it.initializer }
-                .associate { initializer ->
-                    val initializerText = initializer.text
+            checkSubstitution(regularClassSymbol)
+            checkSubstitution(psiBasedClassSymbol)
+        }
+    }
 
-                    val targetSymbol = (initializer as KtDotQualifiedExpression).selectorExpression
-                        ?.resolveToCall()
-                        ?.singleCallOrNull<KaCallableMemberCall<*, *>>()
-                        ?.symbol
+    @Test
+    fun deprecatedMapToJvmType(mainFile: KtFile) {
+        val testFunction = mainFile.declarations.firstIsInstance<KtFunction>()
+        assertEquals("test", testFunction.name)
 
-                    initializerText to targetSymbol?.callableId
-                }
-                .entries
-                .map { (key, value) -> "$key: $value" }
+        analyze(testFunction) {
+            val valueParameter = testFunction.valueParameters.single()
 
-            val expectedResolutionResult = listOf(
-                "foo.ordinaryProperty: org/example/Foo.ordinaryProperty",
-                "foo.ordinaryFunction(): org/example/Foo.ordinaryFunction",
-                "foo.companionBlockProperty: null",
-                "foo.companionBlockFunction(): null",
-                "Foo.companionBlockProperty: null",
-                "Foo.companionBlockFunction(): null",
-                "String.empty: null",
-                "String.fromNumber(9001): null",
-                "Direction.values(): org/example/Direction.values",
-                "Direction.entries: org/example/Direction.entries",
-                "Direction.valueOf(\"SOUTH\"): org/example/Direction.valueOf",
-            )
+            val kotlinType = valueParameter.symbol.returnType
 
-            assertEquals(expectedResolutionResult, actualResolutionResult)
+            val memberMethod = this@analyze::class.java
+                .getMethod("mapToJvmType", KaType::class.java, TypeMappingMode::class.java)
+
+            assert(memberMethod.isSynthetic)
+
+            val contextParameterBridgeMethod = Class
+                .forName("org.jetbrains.kotlin.analysis.api.components.KaJavaInteroperabilityComponentKt")
+                .getMethod("mapToJvmType", KaSession::class.java, KaType::class.java, TypeMappingMode::class.java)
+
+            assert(contextParameterBridgeMethod.isSynthetic)
+
+            val expectedResult = Type.getType("LFoo;")
+
+            val memberResult = memberMethod.invoke(this@analyze, kotlinType, TypeMappingMode.DEFAULT)
+            assertEquals(expectedResult, memberResult)
+
+            val contextParameterBridgeResult = contextParameterBridgeMethod.invoke(null, this@analyze, kotlinType, TypeMappingMode.DEFAULT)
+            assertEquals(expectedResult, contextParameterBridgeResult)
+        }
+    }
+
+    @Test
+    fun deprecatedFunctionTypeKind(mainFile: KtFile) {
+        val testFunction = mainFile.declarations.firstIsInstance<KtFunction>()
+        assertEquals("test", testFunction.name)
+
+        analyze(testFunction) {
+            val valueParameter = testFunction.valueParameters.single()
+
+            val kotlinType = valueParameter.symbol.returnType
+
+            val memberMethod = this@analyze::class.java
+                .getMethod("getFunctionTypeKind", KaType::class.java)
+
+            // For some reason, getters of HIDDEN-deprecated interface properties aren't synthetic
+            assert(!memberMethod.isSynthetic)
+
+            val contextParameterBridgeMethod = Class
+                .forName("org.jetbrains.kotlin.analysis.api.components.KaTypeInformationProviderKt")
+                .getMethod("getFunctionTypeKind", KaSession::class.java, KaType::class.java)
+
+            assert(contextParameterBridgeMethod.isSynthetic)
+
+            val expectedResult = FunctionTypeKind.Function
+
+            val memberResult = memberMethod.invoke(this@analyze, kotlinType)
+            assertEquals(expectedResult, memberResult)
+
+            val contextParameterBridgeResult = contextParameterBridgeMethod.invoke(null, this@analyze, kotlinType)
+            assertEquals(expectedResult, contextParameterBridgeResult)
+        }
+    }
+
+    @Test
+    fun deprecatedAnnotationApplicableTargets(mainFile: KtFile) {
+        val annotationClass = mainFile.declarations.firstIsInstance<KtClass>()
+        assertEquals("MyAnnotation", annotationClass.name)
+
+        analyze(annotationClass) {
+            val classSymbol = annotationClass.classSymbol!!
+
+            val memberMethod = this@analyze::class.java
+                .getMethod("getAnnotationApplicableTargets", KaClassSymbol::class.java)
+
+            // For some reason, getters of HIDDEN-deprecated interface properties aren't synthetic
+            assert(!memberMethod.isSynthetic)
+
+            val contextParameterBridgeMethod = Class
+                .forName("org.jetbrains.kotlin.analysis.api.components.KaSymbolInformationProviderKt")
+                .getMethod("getAnnotationApplicableTargets", KaSession::class.java, KaClassSymbol::class.java)
+
+            assert(contextParameterBridgeMethod.isSynthetic)
+
+            @Suppress("UNCHECKED_CAST")
+            val memberResult = memberMethod.invoke(this@analyze, classSymbol) as Set<KotlinTarget>
+            assert(KotlinTarget.CLASS in memberResult)
+            assert(KotlinTarget.FUNCTION in memberResult)
+
+            @Suppress("UNCHECKED_CAST")
+            val contextParameterBridgeResult = contextParameterBridgeMethod.invoke(null, this@analyze, classSymbol) as Set<KotlinTarget>
+            assertEquals(memberResult, contextParameterBridgeResult)
         }
     }
 }

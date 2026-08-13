@@ -143,7 +143,7 @@ KtSuperTypeCallEntry(186,195): 'Base<C>()'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(186,193): 'Base<C>'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaDelegatedConstructorCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -170,7 +170,25 @@ KtUserType(186,193): 'Base<C>'
   NO_CANDIDATES
 
 KtNameReferenceExpression(186,190): 'Base'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaDelegatedConstructorCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      kind = SUPER_CALL
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = one.two.Base<C>
+        symbol = <constructor>(): one.two.Base<B>
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {
+        B -> (C)
+      }
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtTypeArgumentList(190,193): '<C>'
   NO_CANDIDATES
@@ -359,7 +377,7 @@ KtCallExpression(392,405): 'NestedClass()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(392,403): 'NestedClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -383,7 +401,7 @@ KtProperty(410,432): 'val inner = c1.Inner()'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(422,432): 'c1.Inner()'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -404,7 +422,7 @@ KtDotQualifiedExpression(422,432): 'c1.Inner()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(422,424): 'c1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -443,7 +461,7 @@ KtCallExpression(425,432): 'Inner()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(425,430): 'Inner'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

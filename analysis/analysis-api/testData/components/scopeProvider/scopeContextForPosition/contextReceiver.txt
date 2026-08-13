@@ -51,7 +51,6 @@ scopes:
         classId: Context
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -76,14 +75,14 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: /test
-        compilerVisibility: Public
         contextParameters: [
           KaContextParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -111,6 +110,7 @@ scopes:
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -146,4 +146,3 @@ scopes:
     constructors: 0
 
   DefaultStarImportingScope, index = 7
-

@@ -5,41 +5,47 @@
 
 package org.jetbrains.kotlin.cli.pipeline
 
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
+import org.jetbrains.kotlin.cli.common.treatWarningsAsErrors
+import org.jetbrains.kotlin.cli.hasMessageCollectorErrors
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.phaser.Action
 import org.jetbrains.kotlin.config.phaser.ActionState
 import org.jetbrains.kotlin.util.PhaseType
 
 abstract class CheckCompilationErrors : Action<PipelineArtifact, PipelineContext> {
-    object CheckMessageCollector : CheckCompilationErrors() {
-        override fun invoke(
-            state: ActionState,
-            output: PipelineArtifact,
-            c: PipelineContext,
-        ) {
-            if (c.messageCollector.hasErrors()) {
-                throw PipelineStepException()
-            }
-        }
-    }
-
     object CheckDiagnosticCollector : CheckCompilationErrors() {
         override fun invoke(
             state: ActionState,
             output: PipelineArtifact,
             c: PipelineContext,
         ) {
-            if (c.kaptMode) return
-            if (c.diagnosticCollector.hasErrors || c.messageCollector.hasErrors()) {
+            val configuration = output.configuration
+            if (checkHasErrors(configuration)) {
                 throw PipelineStepException()
             }
         }
 
-        fun reportDiagnosticsToMessageCollector(c: PipelineContext) {
-            FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(
-                c.diagnosticCollector, c.messageCollector,
-                c.renderDiagnosticInternalName
-            )
+        fun checkHasErrorsAndReportToMessageCollector(configuration: CompilerConfiguration): Boolean {
+            if (checkHasErrors(configuration)) {
+                reportToMessageCollector(configuration)
+                return true
+            }
+            return false
+        }
+
+        fun reportToMessageCollector(configuration: CompilerConfiguration) {
+            FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(configuration.diagnosticsCollector, configuration)
+        }
+
+        fun checkHasErrors(configuration: CompilerConfiguration): Boolean {
+            if (configuration.diagnosticsCollector.hasErrors || configuration.hasMessageCollectorErrors()) return true
+            if (configuration.treatWarningsAsErrors) {
+                // In the message collector check for `-Werror` is included into `hasErrors()`
+                return configuration.diagnosticsCollector.hasWarningsForWError
+            }
+            return false
         }
     }
 }
@@ -47,6 +53,7 @@ abstract class CheckCompilationErrors : Action<PipelineArtifact, PipelineContext
 object PerformanceNotifications {
     object InitializationStarted : AbstractNotification(PhaseType.Initialization, start = true)
     object InitializationFinished : AbstractNotification(PhaseType.Initialization, start = false)
+
     // frontend
     object AnalysisStarted : AbstractNotification(PhaseType.Analysis, start = true)
     object AnalysisFinished : AbstractNotification(PhaseType.Analysis, start = false)
@@ -85,9 +92,9 @@ object PerformanceNotifications {
             c: PipelineContext,
         ) {
             if (start) {
-                c.performanceManager.notifyPhaseStarted(phaseType)
+                c.performanceManager?.notifyPhaseStarted(phaseType)
             } else {
-                c.performanceManager.notifyPhaseFinished(phaseType)
+                c.performanceManager?.notifyPhaseFinished(phaseType)
             }
         }
     }

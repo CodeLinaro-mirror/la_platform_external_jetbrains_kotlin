@@ -17,7 +17,7 @@ plugins {
     id("native-dependencies")
 }
 
-val library = solib("callbacks")
+val library = solib("kotlinx", "cinterop", "jvmcallbacks")
 
 native {
     val isWindows = PlatformInfo.isWindows()
@@ -66,6 +66,7 @@ native {
 
 dependencies {
     implementation(project(":compiler:util"))
+    implementation(project(":native:unsafe-mem"))
     implementation(project(":kotlin-stdlib"))
     implementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 }

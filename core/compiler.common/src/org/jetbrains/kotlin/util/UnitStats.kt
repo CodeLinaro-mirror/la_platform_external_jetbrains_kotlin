@@ -47,6 +47,7 @@ data class UnitStats(
     val irPreLoweringStats: Time?,
     val irSerializationStats: Time?,
     val klibWritingStats: Time?,
+    val irLinkingStats: Time?,
     val irLoweringStats: Time?,
     val backendStats: Time?,
 
@@ -74,6 +75,7 @@ data class UnitStats(
                 irPreLoweringStats +
                 irSerializationStats +
                 klibWritingStats +
+                irLinkingStats +
                 irLoweringStats +
                 backendStats +
                 findJavaClassStats?.time +
@@ -107,9 +109,19 @@ enum class PhaseType {
     Initialization,
     Analysis,
     TranslationToIr,
+
+    /** Phase: IR lowerings of the first compilation stage (applicable only to Klib-based compilers). */
     IrPreLowering,
+
+    /** Phase: Serialization of IR and metadata trees into byte arrays (applicable only to Klib-based compilers). */
     IrSerialization,
+
+    /** Phase: Writing the IR and metadata (as raw byte arrays) to a file system (applicable only to Klib-based compilers). */
     KlibWriting,
+
+    /** Phase: Deserialization and linkage of IR, building fake overrides and the partial linkage (applicable only to Klib-based compilers). */
+    IrLinking,
+
     IrLowering,
     Backend,
 }
@@ -119,6 +131,7 @@ enum class PlatformType {
     JS,
     Common,
     Native,
+    Wasm,
 }
 
 /**
@@ -209,6 +222,7 @@ fun UnitStats.forEachPhaseMeasurement(action: (PhaseType, Time?) -> Unit) {
     action(PhaseType.IrPreLowering, irPreLoweringStats)
     action(PhaseType.IrSerialization, irSerializationStats)
     action(PhaseType.KlibWriting, klibWritingStats)
+    action(PhaseType.IrLinking, irLinkingStats)
     action(PhaseType.IrLowering, irLoweringStats)
     action(PhaseType.Backend, backendStats)
 }
@@ -225,6 +239,7 @@ val phaseTypeName = mapOf(
     PhaseType.IrPreLowering to "IR PRE-LOWERING",
     PhaseType.IrSerialization to "IR SERIALIZATION",
     PhaseType.KlibWriting to "KLIB WRITING",
+    PhaseType.IrLinking to "IR LINKING",
     PhaseType.IrLowering to "IR LOWERING",
     PhaseType.Backend to "BACKEND",
 )
@@ -250,7 +265,7 @@ fun PerformanceManager.forEachStringMeasurement(action: (String) -> Unit) {
 
             dynamicStats?.filter { it.parentPhaseType == phaseType }?.let { filteredDynamicStats ->
                 if (detailedPerf) {
-                    filteredDynamicStats.forEach { (_, dynamicName, dynamicTime) ->
+                    filteredDynamicStats.forEach { (val _ = parentPhaseType, val dynamicName = name, val dynamicTime = time) ->
                         action(
                             "%20s%8s ms".format("DYNAMIC PHASE", dynamicTime.millis) +
                                     if (linesCount != 0) {

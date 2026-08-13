@@ -377,7 +377,7 @@ KtCallExpression(78,104): 'print(javaClass.something)'
     isInBestCandidates = false
 
 KtNameReferenceExpression(78,83): 'print'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -410,7 +410,7 @@ KtNameReferenceExpression(78,83): 'print'
       }
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -444,7 +444,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Boolean' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -478,7 +478,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -512,7 +512,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Char' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -546,7 +546,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'CharArray' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -580,7 +580,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -614,7 +614,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -647,7 +647,7 @@ KtNameReferenceExpression(78,83): 'print'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -681,7 +681,7 @@ KtNameReferenceExpression(78,83): 'print'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Long' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -722,7 +722,7 @@ KtValueArgument(84,103): 'javaClass.something'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(84,103): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -743,7 +743,7 @@ KtDotQualifiedExpression(84,103): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(84,93): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -751,9 +751,10 @@ KtNameReferenceExpression(84,93): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -784,7 +785,7 @@ KtNameReferenceExpression(84,93): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -802,7 +803,7 @@ KtNameReferenceExpression(84,93): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(94,103): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -823,7 +824,7 @@ KtNameReferenceExpression(94,103): 'something'
     isInBestCandidates = true
 
 KtBinaryExpression(109,132): 'javaClass.something = 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -845,7 +846,7 @@ KtBinaryExpression(109,132): 'javaClass.something = 1'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(109,128): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -867,7 +868,7 @@ KtDotQualifiedExpression(109,128): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(109,118): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -875,9 +876,10 @@ KtNameReferenceExpression(109,118): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -908,7 +910,7 @@ KtNameReferenceExpression(109,118): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -926,7 +928,7 @@ KtNameReferenceExpression(109,118): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(119,128): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -948,7 +950,7 @@ KtNameReferenceExpression(119,128): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(129,130): '='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -973,7 +975,7 @@ KtConstantExpression(131,132): '1'
   NO_CANDIDATES
 
 KtBinaryExpression(137,161): 'javaClass.something += 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -1031,7 +1033,7 @@ KtBinaryExpression(137,161): 'javaClass.something += 1'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(137,156): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1052,7 +1054,7 @@ KtDotQualifiedExpression(137,156): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(137,146): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1060,9 +1062,10 @@ KtNameReferenceExpression(137,146): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1093,7 +1096,7 @@ KtNameReferenceExpression(137,146): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1111,7 +1114,7 @@ KtNameReferenceExpression(137,146): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(147,156): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1132,7 +1135,7 @@ KtNameReferenceExpression(147,156): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(157,159): '+='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -1193,7 +1196,7 @@ KtConstantExpression(160,161): '1'
   NO_CANDIDATES
 
 KtPostfixExpression(166,187): 'javaClass.something++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1235,7 +1238,7 @@ KtPostfixExpression(166,187): 'javaClass.something++'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(166,185): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1256,7 +1259,7 @@ KtDotQualifiedExpression(166,185): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(166,175): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1264,9 +1267,10 @@ KtNameReferenceExpression(166,175): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1297,7 +1301,7 @@ KtNameReferenceExpression(166,175): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1315,7 +1319,7 @@ KtNameReferenceExpression(166,175): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(176,185): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1336,7 +1340,7 @@ KtNameReferenceExpression(176,185): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(185,187): '++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1378,7 +1382,7 @@ KtOperationReferenceExpression(185,187): '++'
     isInBestCandidates = true
 
 KtPrefixExpression(192,213): '--javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = DEC
@@ -1420,7 +1424,7 @@ KtPrefixExpression(192,213): '--javaClass.something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(192,194): '--'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = DEC
@@ -1462,7 +1466,7 @@ KtOperationReferenceExpression(192,194): '--'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(194,213): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1483,7 +1487,7 @@ KtDotQualifiedExpression(194,213): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(194,203): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1491,9 +1495,10 @@ KtNameReferenceExpression(194,203): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1524,7 +1529,7 @@ KtNameReferenceExpression(194,203): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1542,7 +1547,7 @@ KtNameReferenceExpression(194,203): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(204,213): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1564,7 +1569,7 @@ KtNameReferenceExpression(204,213): 'something'
     isInBestCandidates = true
 
 KtPostfixExpression(219,230): 'something++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1592,9 +1597,10 @@ KtPostfixExpression(219,230): 'something++'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1625,16 +1631,17 @@ KtPostfixExpression(219,230): 'something++'
     isInBestCandidates = true
 
 KtNameReferenceExpression(219,228): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1665,7 +1672,7 @@ KtNameReferenceExpression(219,228): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(228,230): '++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1693,9 +1700,10 @@ KtOperationReferenceExpression(228,230): '++'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1726,7 +1734,7 @@ KtOperationReferenceExpression(228,230): '++'
     isInBestCandidates = true
 
 KtPostfixExpression(235,248): '(something)++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1754,9 +1762,10 @@ KtPostfixExpression(235,248): '(something)++'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1790,16 +1799,17 @@ KtParenthesizedExpression(235,246): '(something)'
   NO_CANDIDATES
 
 KtNameReferenceExpression(236,245): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1830,7 +1840,7 @@ KtNameReferenceExpression(236,245): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(246,248): '++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundVariableAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1858,9 +1868,10 @@ KtOperationReferenceExpression(246,248): '++'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1891,16 +1902,17 @@ KtOperationReferenceExpression(246,248): '++'
     isInBestCandidates = true
 
 KtBinaryExpression(253,268): '(something) = 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1935,16 +1947,17 @@ KtParenthesizedExpression(253,264): '(something)'
   NO_CANDIDATES
 
 KtNameReferenceExpression(254,263): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -1976,16 +1989,17 @@ KtNameReferenceExpression(254,263): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(265,266): '='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -2020,7 +2034,7 @@ KtConstantExpression(267,268): '1'
   NO_CANDIDATES
 
 KtBinaryExpression(273,298): '(javaClass.something) = 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -2045,7 +2059,7 @@ KtParenthesizedExpression(273,294): '(javaClass.something)'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(274,293): 'javaClass.something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -2067,7 +2081,7 @@ KtDotQualifiedExpression(274,293): 'javaClass.something'
     isInBestCandidates = true
 
 KtNameReferenceExpression(274,283): 'javaClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -2075,9 +2089,10 @@ KtNameReferenceExpression(274,283): 'javaClass'
         symbol = KaReceiverParameterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -2108,7 +2123,7 @@ KtNameReferenceExpression(274,283): 'javaClass'
       }
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -2126,7 +2141,7 @@ KtNameReferenceExpression(274,283): 'javaClass'
     isInBestCandidates = true
 
 KtNameReferenceExpression(284,293): 'something'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -2148,7 +2163,7 @@ KtNameReferenceExpression(284,293): 'something'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(295,296): '='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:

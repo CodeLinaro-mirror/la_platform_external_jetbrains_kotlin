@@ -34,6 +34,8 @@ public final class JvmAnnotationNames {
     @SuppressWarnings("unused")
     public static final int METADATA_FIR_FLAG = 1 << 6;
     public static final int METADATA_PUBLIC_ABI_FLAG = 1 << 7;
+    public static final int METADATA_SYNTHETIC_CLASS_VISIBILITY_BIT_FIRST = 8;
+    public static final int METADATA_SYNTHETIC_CLASS_VISIBILITY_BIT_LAST = 10;
 
     public static final Name DEFAULT_ANNOTATION_MEMBER_NAME = Name.identifier("value");
 
@@ -60,10 +62,6 @@ public final class JvmAnnotationNames {
     public static final FqName PURELY_IMPLEMENTS_ANNOTATION = new FqName("kotlin.jvm.PurelyImplements");
 
     public static final FqName KOTLIN_JVM_INTERNAL = new FqName("kotlin.jvm.internal");
-
-    public static final FqName SERIALIZED_IR_FQ_NAME = new FqName("kotlin.jvm.internal.SerializedIr");
-    public static final String SERIALIZED_IR_DESC = "L" + JvmClassName.byFqNameWithoutInnerClasses(SERIALIZED_IR_FQ_NAME).getInternalName() + ";";
-    public static final String SERIALIZED_IR_BYTES_FIELD_NAME = "b";
 
     public static final String SOURCE_DEBUG_EXTENSION_DESC = "Lkotlin/jvm/internal/SourceDebugExtension;";
 

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.native
 
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.apple.swiftPMDependencies
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.DUMMY_FRAMEWORK_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.POD_IMPORT_TASK_NAME
@@ -14,6 +15,8 @@ import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Compan
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.SYNC_TASK_NAME
 import org.jetbrains.kotlin.gradle.targets.native.cocoapods.CocoapodsPluginDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.uklibs.applyMultiplatform
+
 import org.jetbrains.kotlin.gradle.util.assertProcessRunResult
 import org.jetbrains.kotlin.gradle.util.removingTrailingNewline
 import org.jetbrains.kotlin.gradle.util.replaceText
@@ -403,8 +406,8 @@ class CocoaPodsIT : KGPBaseTest() {
     @GradleTest
     fun testCinteropExplicitHeaderAndFmodules(gradleVersion: GradleVersion) {
         nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion) {
-            buildGradleKts.addPod("AFNetworking", "headers = \"AFNetworking.h\"")
-            buildWithCocoapodsWrapper("cinteropAFNetworkingIosArm64") {
+            buildGradleKts.addPod("Reachability", "headers = \"Reachability.h\"")
+            buildWithCocoapodsWrapper("cinteropReachabilityIosArm64") {
                 assertOutputDoesNotContain("-compiler-option -fmodules")
             }
         }
@@ -524,7 +527,7 @@ class CocoaPodsIT : KGPBaseTest() {
             build("syncFramework", buildOptions = buildOptions) {
                 // Check that an output framework is a dynamic framework
                 val framework = projectPath.resolve("build/cocoapods/framework/$frameworkName.framework/$frameworkName")
-                assertProcessRunResult(runProcess(listOf("file", framework.absolutePathString()), projectPath.toFile())) {
+                runProcess(listOf("file", framework.absolutePathString()), projectPath.toFile()).assertProcessRunResult {
                     assertTrue(isSuccessful)
                     assertTrue(output.contains("universal binary with 2 architectures"))
                     assertTrue(output.contains("(for architecture x86_64)"))
@@ -582,6 +585,38 @@ class CocoaPodsIT : KGPBaseTest() {
             buildAndFail("syncFramework", buildOptions = buildOptions) {
                 assertOutputContains("/native-cocoapods-template/src/commonMain/kotlin/A.kt:5:2: error: Syntax error: Expecting a top level declaration")
                 assertOutputContains("error: Compilation finished with errors")
+            }
+        }
+    }
+
+    @DisplayName("syncFramework fails when SwiftPM dependencies are declared alongside CocoaPods")
+    @GradleTest
+    fun testSyncFrameworkFailsWhenSwiftPMDependenciesPresent(gradleVersion: GradleVersion) {
+        nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion) {
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    swiftPMDependencies {
+                        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+                        swiftPackage(
+                            url = "https://github.com/example/Foo.git",
+                            version = "1.0.0",
+                            products = listOf("Foo"),
+                        )
+                    }
+                }
+            }
+
+            val buildOptions = this.buildOptions.copy(
+                nativeOptions = this.buildOptions.nativeOptions.copy(
+                    cocoapodsPlatform = "iphonesimulator",
+                    cocoapodsArchs = "arm64",
+                    cocoapodsConfiguration = "Debug",
+                ),
+            )
+            buildAndFail("syncFramework", buildOptions = buildOptions) {
+                assertTasksFailed(":checkSwiftPMDependencies")
+                assertOutputContains("You are using CocoaPods integration with SwiftPM dependencies. Please follow the migration guide https://kotl.in/cocoapods-to-swiftpm-migration")
+                assertOutputContains("Direct SwiftPM dependencies: Foo")
             }
         }
     }
@@ -930,6 +965,8 @@ class CocoaPodsIT : KGPBaseTest() {
     }
 
     @DisplayName("Configuration cache works in a complex scenario")
+    // FIXME: KT-84980 - remove this min version
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_0)
     @GradleTest
     fun testConfigurationCacheWorksInAComplexScenario(gradleVersion: GradleVersion) {
         val buildOptions = defaultBuildOptions.copy(
@@ -1144,9 +1181,9 @@ class CocoaPodsIT : KGPBaseTest() {
                 """
                     ios.deploymentTarget = "15.0"
                     
-                    pod("AFNetworking", version="4.0.1")            
+                    pod("MBProgressHUD", version="1.2.0")            
                     pod("SDWebImage", version="5.21.5")
-                    pod("Reachability", version="3.7.6")
+                    pod("Masonry", version="1.1.0")
                     pod("Sentry", version="9.3.0", headers="Sentry.h")
             
                     pod("Intercom") {
@@ -1157,17 +1194,17 @@ class CocoaPodsIT : KGPBaseTest() {
             )
 
             build(":iosArm64Binaries") {
-                assertTasksExecuted(":podBuildAFNetworkingIos")
+                assertTasksExecuted(":podBuildMBProgressHUDIos")
                 assertTasksExecuted(":podBuildIntercomIos")
-                assertTasksExecuted(":podBuildReachabilityIos")
+                assertTasksExecuted(":podBuildMasonryIos")
                 assertTasksExecuted(":podBuildSDWebImageIos")
                 assertTasksExecuted(":podBuildSentryIos")
             }
 
             build(":iosArm64Binaries") {
-                assertTasksUpToDate(":podBuildAFNetworkingIos")
+                assertTasksUpToDate(":podBuildMBProgressHUDIos")
                 assertTasksUpToDate(":podBuildIntercomIos")
-                assertTasksUpToDate(":podBuildReachabilityIos")
+                assertTasksUpToDate(":podBuildMasonryIos")
                 assertTasksUpToDate(":podBuildSDWebImageIos")
                 assertTasksUpToDate(":podBuildSentryIos")
             }

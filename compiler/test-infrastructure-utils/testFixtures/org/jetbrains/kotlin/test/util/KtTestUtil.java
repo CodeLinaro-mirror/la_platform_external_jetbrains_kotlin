@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -20,11 +20,11 @@ import kotlin.collections.SetsKt;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime;
 import org.jetbrains.kotlin.idea.KotlinLanguage;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.test.KtAssert;
 import org.jetbrains.kotlin.test.TargetBackend;
+import org.jetbrains.kotlin.test.TestInfrastructureException;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.jetbrains.kotlin.utils.ExceptionUtilsKt;
 
@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -81,7 +82,13 @@ public class KtTestUtil {
         virtualFile.setCharset(StandardCharsets.UTF_8);
         PsiFileFactoryImpl factory = (PsiFileFactoryImpl) PsiFileFactory.getInstance(project);
         //noinspection ConstantConditions
-        return (KtFile) factory.trySetupPsiForFile(virtualFile, KotlinLanguage.INSTANCE, true, false);
+        KtFile file = (KtFile) factory.trySetupPsiForFile(virtualFile, KotlinLanguage.INSTANCE, true, false);
+        Objects.requireNonNull(file, "PsiFileFactory.trySetupPsiForFile returned null");
+        if (name.endsWith(".repl.kts")) {
+            Objects.requireNonNull(file.getScript()).markAsReplSnippet();
+        }
+
+        return file;
     }
 
     public static String doLoadFile(String myFullDataPath, String name) throws IOException {
@@ -140,7 +147,7 @@ public class KtTestUtil {
             jdkPath = getStringProperty(propertyVariant2);
         }
         if (jdkPath == null) {
-            throw new AssertionError("Environment variable " + mainProperty + " is not set!");
+            throw new TestInfrastructureException("Environment variable " + mainProperty + " is not set!", null);
         }
 
         return new File(jdkPath);
@@ -179,6 +186,10 @@ public class KtTestUtil {
         return getHomeDirectory() + "/compiler/testData";
     }
 
+    public static File getTestDataFileLocatedInCompilerTestData(String subPath) {
+        return transformTestDataPath("compiler/testData/" + subPath);
+    }
+
     @NotNull
     public static String getHomeDirectory() {
         return homeDir;
@@ -196,7 +207,7 @@ public class KtTestUtil {
         if (property!= null) {
             return new File(property);
         } else {
-            return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/rt.jar");
+            return new File(getHomeDirectory(), "third-party/mockJDKs/mockJDK/jre/lib/rt.jar");
         }
     }
 
@@ -207,7 +218,7 @@ public class KtTestUtil {
         if (property!= null) {
             return new File(property);
         } else {
-            return new File(getHomeDirectory(), "compiler/testData/mockJDKModified/rt.jar");
+            return new File(getHomeDirectory(), "third-party/mockJDKs/mockJDKModified/rt.jar");
         }
     }
 
@@ -245,7 +256,7 @@ public class KtTestUtil {
         if (property!= null) {
             return new File(property);
         } else {
-            return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/annotations.jar");
+            return new File(getHomeDirectory(), "third-party/mockJDKs/mockJDK/jre/lib/annotations.jar");
         }
     }
 

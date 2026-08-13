@@ -3,21 +3,18 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.maven.plugin.test
+package org.jetbrains.kotlin.maven.test
 
-import bsh.Interpreter
-import groovy.lang.Binding
-import groovy.util.GroovyScriptEngine
 import org.apache.maven.shared.verifier.Verifier
-import org.jetbrains.kotlin.maven.test.MavenBuildOptions
-import org.jetbrains.kotlin.maven.test.isTeamCityRun
-import org.jetbrains.kotlin.maven.test.printLog
-import org.junit.jupiter.api.Assertions.assertTrue
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
-import java.io.StringReader
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.nio.file.Path
 import kotlin.io.path.*
+
+// Maven IT are generally short-lived and throughput-focused, thus the flags
+private const val EXTRA_MAVEN_OPTS =
+    "-Xmx1g -XX:+UseParallelGC -XX:TieredStopAtLevel=1"
+
+private val NESTED_MAVEN_CLI_ARGUMENTS = arrayOf("-B", "-ntp", "-nsu")
 
 class MavenTestProject(
     val name: String,
@@ -25,7 +22,13 @@ class MavenTestProject(
     val workDir: Path,
     val settingsFile: Path,
     val buildOptions: MavenBuildOptions,
+    val mavenVersion: String,
 ) {
+    val jdk8: String get() = context.getJavaHomeString(TestVersions.Java.JDK_1_8)
+    val jdk11: String get() = context.getJavaHomeString(TestVersions.Java.JDK_11)
+    val jdk17: String get() = context.getJavaHomeString(TestVersions.Java.JDK_17)
+    val jdk21: String get() = context.getJavaHomeString(TestVersions.Java.JDK_21)
+
     fun build(
         vararg args: String,
         environmentVariables: Map<String, String> = emptyMap(),
@@ -33,25 +36,76 @@ class MavenTestProject(
         buildOptions: MavenBuildOptions = this.buildOptions,
         code: (Verifier.() -> Unit)? = null,
     ): Verifier {
+        // Maven 4+ requires JDK 17+ as runtime
+        if (mavenVersion.startsWith("4")) {
+            assumeTrue(
+                buildOptions.javaVersion.numericVersion >= 17,
+                "Maven $mavenVersion requires JDK 17+ as runtime, but ${buildOptions.javaVersion} was requested"
+            )
+        }
+
         val verifier = Verifier(
             workDir.absolutePathString(),
             null, // settingsFile is used only to extract local repo from there, but we pass it explicitly below
             false,
         )
 
-        val javaHome = context.javaHomeProvider(buildOptions.javaVersion).absolutePathString()
-        verifier.setEnvironmentVariable("JAVA_HOME", javaHome)
+        verifier.isAutoclean = false
+
+        val javaHome = context.jdkProvider.getJavaHome(buildOptions.javaVersion) ?:
+            throw RuntimeException("Can't find path for ${buildOptions.javaVersion}")
+        verifier.setEnvironmentVariable("JAVA_HOME", javaHome.absolutePathString())
 
         for ((key, value) in environmentVariables) {
             verifier.setEnvironmentVariable(key, value)
         }
+
+        // === Fork isolation start
+
+        // Append shared Maven opts that speedup tests and have no semantic-changing value
+        val mavenOpts = listOf(EXTRA_MAVEN_OPTS, environmentVariables["MAVEN_OPTS"])
+            .filterNot { it.isNullOrBlank() }
+            .joinToString(" ")
+        verifier.setEnvironmentVariable("MAVEN_OPTS", mavenOpts)
+        // Isolate .m2 for fork wrappers, see also: https://maven.apache.org/tools/wrapper/
+        // wrapper unpacks Maven distributions under: $MAVEN_USER_HOME/wrapper/dists
+        verifier.setEnvironmentVariable(
+            "MAVEN_USER_HOME",
+            environmentVariables["MAVEN_USER_HOME"] ?: context.mavenUserHome.absolutePathString()
+        )
+        /*
+         * Bear with me.
+         * On Windows, mvnw.cmd (line 112 if it matters) does the following:
+         * ```
+         * $TMP_DOWNLOAD_DIR_HOLDER = New-TemporaryFile
+         * $TMP_DOWNLOAD_DIR = New-Item -Itemtype Directory -Path "$TMP_DOWNLOAD_DIR_HOLDER.dir"
+         * $TMP_DOWNLOAD_DIR_HOLDER.Delete() | Out-Null
+         * ```
+         * It creates a tmp file, then creates a working directory to download wrapper to with the name `tmpfile.dir` then it removes the file.
+         * The very next (parallel) invocation WILL REUSE THE TEMPORARY FILE and will clash working dirs, leading the most obscure errors.
+         * To keep our sanity intact, we split temporary directories by forks.
+         */
+        val nestedMavenTempDir = context.mavenTempDir.createDirectories().absolutePathString()
+        verifier.setEnvironmentVariable("TMP", environmentVariables["TMP"] ?: nestedMavenTempDir)
+        verifier.setEnvironmentVariable("TEMP", environmentVariables["TEMP"] ?: nestedMavenTempDir)
+        verifier.setEnvironmentVariable("TMPDIR", environmentVariables["TMPDIR"] ?: nestedMavenTempDir)
+
+        // Fork isolation end  ===
 
         verifier.setLocalRepo(context.sharedMavenLocal.absolutePathString())
 
         verifier.logFileName = "build.log"
 
         verifier.setSystemProperty("kotlin.version", context.kotlinVersion)
+        verifier.addCliArguments(*NESTED_MAVEN_CLI_ARGUMENTS)
         verifier.addCliArguments("--settings", settingsFile.absolutePathString())
+
+        if (buildOptions.toolchains.isNotEmpty()) {
+            val toolchainsXml = workDir.resolve("toolchains.xml")
+            val entries = buildOptions.toolchains.map { context.toolchain(it) }
+            toolchainsXml.writeToolchainsXml(entries)
+            verifier.addCliArguments("--global-toolchains", toolchainsXml.absolutePathString())
+        }
 
         val buildOptionsArgs = buildOptions.asCliArgs().toTypedArray()
 
@@ -84,41 +138,6 @@ class MavenTestProject(
         return verifier
     }
 
-    fun runVerifyScript() {
-        if (workDir.resolve("verify.bsh").exists()) verifyBsh()
-        if (workDir.resolve("verify.groovy").exists()) verifyGroovy()
-    }
-
-    fun verifyBsh() {
-        val outputBuffer = ByteArrayOutputStream()
-        val printStream = PrintStream(outputBuffer, true)
-        val noReader = StringReader("")
-        try {
-            val bsh = Interpreter(
-                noReader, printStream, printStream, false
-            )
-            bsh.set("basedir", this.workDir.toString())
-            bsh.source(workDir.resolve("verify.bsh").absolutePathString())
-        } catch (e: Exception) {
-            val capturedOutput = outputBuffer.toString()
-            throw RuntimeException("Verification script failed. Output:\n$capturedOutput", e)
-        }
-    }
-
-    fun verifyGroovy() {
-        val groovyScriptEngine = GroovyScriptEngine(arrayOf(workDir.toUri().toURL()))
-        val args = Binding(
-            mapOf(
-                "basedir" to workDir.toFile(),
-                "kotlinVersion" to context.kotlinVersion
-            )
-        )
-        val res = groovyScriptEngine.run("verify.groovy", args)
-        if (res is Boolean) {
-            assertTrue(res) { "verify.groovy returned false" }
-        }
-    }
-
     @Suppress("unused")
     fun makeSnapshotTo(base: String) {
         check(!isTeamCityRun) { "Please remove `makeSnapshotTo()` call from test. It is utility for local debugging only!" }
@@ -129,4 +148,3 @@ class MavenTestProject(
         workDir.copyToRecursively(newWorkDir, overwrite = true, followLinks = true)
     }
 }
-

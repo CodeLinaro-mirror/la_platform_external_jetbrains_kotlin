@@ -2,6 +2,9 @@ import com.github.gradle.node.npm.task.NpmTask
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
+import org.jetbrains.kotlin.testFederation.SmokeTestConfig
+import org.jetbrains.kotlin.testFederation.TemporaryTestFederationApi
+import org.jetbrains.kotlin.testFederation.smokeTestConfig
 import java.util.*
 
 plugins {
@@ -59,9 +62,12 @@ dependencies {
     testCompileOnly(project(":compiler:util"))
     testCompileOnly(intellijCore())
     testFixturesApi(project(":compiler:backend.js"))
+    testFixturesApi(project(":js:js.parser"))
     testFixturesApi(project(":js:js.translator"))
     testFixturesApi(project(":js:typescript-export-standalone"))
     testFixturesApi(project(":compiler:incremental-compilation-impl"))
+    testFixturesImplementation(project(":kotlin-util-klib-metadata"))
+    testFixturesImplementation(project(":wasm:wasm.frontend"))
     testImplementation(libs.junit4)
     testFixturesApi(testFixtures(project(":kotlin-build-common")))
     testFixturesApi(testFixtures(project(":generators:test-generator")))
@@ -90,6 +96,11 @@ dependencies {
     // version (e.g. tests of kotlinx.serialization)
     testFixturesCompileOnly(libs.kotlinx.serialization.json)
     testRuntimeOnly(libs.kotlinx.serialization.json)
+
+    implicitDependencies("org.nodejs:node:$nodejsLtsVersion:win-x64@zip")
+    implicitDependencies("org.nodejs:node:$nodejsLtsVersion:linux-x64@tar.gz")
+    implicitDependencies("org.nodejs:node:$nodejsLtsVersion:darwin-x64@tar.gz")
+    implicitDependencies("org.nodejs:node:$nodejsLtsVersion:darwin-arm64@tar.gz")
 }
 
 optInToExperimentalCompilerApi()
@@ -115,6 +126,9 @@ fun Test.setUpJsBoxTests() {
     )
 
     forwardProperties()
+
+    @OptIn(TemporaryTestFederationApi::class)
+    smokeTestConfig = SmokeTestConfig.Enabled(autoSmokeTestPercentage = 1)
 }
 
 fun Test.forwardProperties() {
@@ -124,9 +138,10 @@ fun Test.forwardProperties() {
         }
     }
 
-    val allProperties = properties + rootLocalProperties
-
     val prefixForPropertiesToForward = "fd."
+    val filteredProperties: Provider<Map<String, String>> = providers.gradlePropertiesPrefixedBy(prefixForPropertiesToForward)
+    val allProperties = filteredProperties.get() + rootLocalProperties
+
     for ((key, value) in allProperties) {
         if (key is String && key.startsWith(prefixForPropertiesToForward)) {
             systemProperty(key.substring(prefixForPropertiesToForward.length), value!!)
@@ -148,7 +163,7 @@ projectTests {
     }
 
     testTask("invalidationTest", jUnitMode = JUnitMode.JUnit5, skipInLocalBuild = true) {
-        useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
+        useJsIrBoxTests(buildDir = layout.buildDirectory)
         include("org/jetbrains/kotlin/incremental/*")
         forwardProperties()
     }

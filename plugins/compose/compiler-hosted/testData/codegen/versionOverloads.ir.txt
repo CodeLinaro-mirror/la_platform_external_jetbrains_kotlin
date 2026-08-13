@@ -1,14 +1,22 @@
 MODULE_FRAGMENT
   FILE fqName:example fileName:versionOverloads.kt
     annotations:
-      OptIn(markerClass = [CLASS_REFERENCE 'CLASS IR_EXTERNAL_DECLARATION_STUB ANNOTATION_CLASS name:ExperimentalStdlibApi modality:OPEN visibility:public superTypes:[kotlin.Annotation]' type=kotlin.reflect.KClass<kotlin.ExperimentalStdlibApi>] type=kotlin.Array<out kotlin.reflect.KClass<out kotlin.Annotation>> varargElementType=kotlin.reflect.KClass<out kotlin.Annotation>)
+      OptIn(markerClass = [ExperimentalStdlibApi::class] type=kotlin.Array<out kotlin.reflect.KClass<out kotlin.Annotation>> varargElementType=kotlin.reflect.KClass<out kotlin.Annotation>)
     CLASS CLASS name:C modality:FINAL visibility:public superTypes:[kotlin.Any]
       annotations:
         StabilityInferred(parameters = 1)
       thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:example.C
-      FIELD name:$stable type:kotlin.Int visibility:public [final,static]
-        EXPRESSION_BODY
-          CONST Int type=kotlin.Int value=0
+      PROPERTY name:$stable visibility:public modality:FINAL [val]
+        FIELD name:$stable type:kotlin.Int visibility:public [final,static]
+          annotations:
+            JvmField
+          EXPRESSION_BODY
+            CONST Int type=kotlin.Int value=0
+        FUN GENERATED[androidx.compose.compiler.plugins.kotlin.lower.ComposeCompilerKey] name:example_C$stableprop_getter visibility:public modality:FINAL returnType:kotlin.Int [companion]
+          correspondingProperty: PROPERTY name:$stable visibility:public modality:FINAL [val]
+          BLOCK_BODY
+            RETURN type=kotlin.Nothing from='public final fun example_C$stableprop_getter (): kotlin.Int [companion] declared in example.C'
+              GET_FIELD 'FIELD name:$stable type:kotlin.Int visibility:public [final,static] declared in example.C' type=kotlin.Int origin=null
       CONSTRUCTOR visibility:public returnType:example.C [primary]
         BLOCK_BODY
           DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () [primary] declared in kotlin.Any'
@@ -33,7 +41,7 @@ MODULE_FRAGMENT
         VALUE_PARAMETER kind:Regular name:$changed index:3 type:kotlin.Int
         annotations:
           Composable
-          Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to the initial version.", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+          Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to the initial version.", replaceWith = <null>, level = DeprecationLevel.ERROR)
         BLOCK_BODY
           CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
@@ -72,7 +80,7 @@ MODULE_FRAGMENT
               then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
-          RETURN type=kotlin.String from='public final fun foo (a: kotlin.Int, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int): kotlin.String declared in example.C'
+          RETURN type=kotlin.Nothing from='public final fun foo (a: kotlin.Int, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int): kotlin.String declared in example.C'
             GET_VAR 'val tmp_0: kotlin.String [val] declared in example.C.foo' type=kotlin.String origin=null
       FUN VERSION_OVERLOAD_WRAPPER name:foo visibility:public modality:FINAL returnType:kotlin.String
         VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:example.C
@@ -83,7 +91,7 @@ MODULE_FRAGMENT
         VALUE_PARAMETER MASK_FOR_DEFAULT_FUNCTION kind:Regular name:$default index:5 type:kotlin.Int
         annotations:
           Composable
-          Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to version 1.", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+          Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to version 1.", replaceWith = <null>, level = DeprecationLevel.ERROR)
         BLOCK_BODY
           CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
@@ -136,7 +144,7 @@ MODULE_FRAGMENT
               then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
-          RETURN type=kotlin.String from='public final fun foo (a: kotlin.Int, b: kotlin.String?, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example.C'
+          RETURN type=kotlin.Nothing from='public final fun foo (a: kotlin.Int, b: kotlin.String?, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example.C'
             GET_VAR 'val tmp_1: kotlin.String [val] declared in example.C.foo' type=kotlin.String origin=null
       FUN name:foo visibility:public modality:FINAL returnType:kotlin.String
         VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:example.C
@@ -148,6 +156,7 @@ MODULE_FRAGMENT
         VALUE_PARAMETER MASK_FOR_DEFAULT_FUNCTION kind:Regular name:$default index:6 type:kotlin.Int
         annotations:
           Composable
+          FunctionKeyMeta(key = -1246486053, startOffset = 145, endOffset = 282)
         BLOCK_BODY
           CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
@@ -195,7 +204,7 @@ MODULE_FRAGMENT
               then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
             ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.C.foo' type=androidx.compose.runtime.Composer? origin=null
-          RETURN type=kotlin.String from='public final fun foo (a: kotlin.Int, b: kotlin.String?, c: kotlin.Boolean, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example.C'
+          RETURN type=kotlin.Nothing from='public final fun foo (a: kotlin.Int, b: kotlin.String?, c: kotlin.Boolean, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example.C'
             GET_VAR 'val tmp_2: kotlin.String [val] declared in example.C.foo' type=kotlin.String origin=null
     FUN VERSION_OVERLOAD_WRAPPER name:bar visibility:public modality:FINAL returnType:kotlin.String
       VALUE_PARAMETER kind:Regular name:a index:0 type:kotlin.Int
@@ -203,7 +212,7 @@ MODULE_FRAGMENT
       VALUE_PARAMETER kind:Regular name:$changed index:2 type:kotlin.Int
       annotations:
         Composable
-        Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to the initial version.", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+        Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to the initial version.", replaceWith = <null>, level = DeprecationLevel.ERROR)
       BLOCK_BODY
         CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
@@ -235,7 +244,7 @@ MODULE_FRAGMENT
             then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
         CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
-        RETURN type=kotlin.String from='public final fun bar (a: kotlin.Int, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int): kotlin.String declared in example'
+        RETURN type=kotlin.Nothing from='public final fun bar (a: kotlin.Int, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int): kotlin.String declared in example'
           GET_VAR 'val tmp_3: kotlin.String [val] declared in example.bar' type=kotlin.String origin=null
     FUN VERSION_OVERLOAD_WRAPPER name:bar visibility:public modality:FINAL returnType:kotlin.String
       VALUE_PARAMETER kind:Regular name:a index:0 type:kotlin.Int
@@ -245,7 +254,7 @@ MODULE_FRAGMENT
       VALUE_PARAMETER MASK_FOR_DEFAULT_FUNCTION kind:Regular name:$default index:4 type:kotlin.Int
       annotations:
         Composable
-        Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to version 1.", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+        Deprecated(message = "This method is kept for binary compatibility purposes, please use the main overload. This overload corresponds to version 1.", replaceWith = <null>, level = DeprecationLevel.ERROR)
       BLOCK_BODY
         CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
@@ -291,7 +300,7 @@ MODULE_FRAGMENT
             then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
         CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
-        RETURN type=kotlin.String from='public final fun bar (a: kotlin.Int, b: kotlin.String?, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example'
+        RETURN type=kotlin.Nothing from='public final fun bar (a: kotlin.Int, b: kotlin.String?, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example'
           GET_VAR 'val tmp_4: kotlin.String [val] declared in example.bar' type=kotlin.String origin=null
     FUN name:bar visibility:public modality:FINAL returnType:kotlin.String
       VALUE_PARAMETER kind:Regular name:a index:0 type:kotlin.Int
@@ -302,6 +311,7 @@ MODULE_FRAGMENT
       VALUE_PARAMETER MASK_FOR_DEFAULT_FUNCTION kind:Regular name:$default index:5 type:kotlin.Int
       annotations:
         Composable
+        FunctionKeyMeta(key = -1482845267, startOffset = 298, endOffset = 419)
       BLOCK_BODY
         CALL 'public final fun sourceInformationMarkerStart (composer: androidx.compose.runtime.Composer, key: kotlin.Int, sourceInformation: kotlin.String): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
@@ -349,13 +359,14 @@ MODULE_FRAGMENT
             then: CALL 'public final fun traceEventEnd (): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
         CALL 'public final fun sourceInformationMarkerEnd (composer: androidx.compose.runtime.Composer): kotlin.Unit declared in androidx.compose.runtime' type=kotlin.Unit origin=null
           ARG composer: GET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.bar' type=androidx.compose.runtime.Composer? origin=null
-        RETURN type=kotlin.String from='public final fun bar (a: kotlin.Int, b: kotlin.String?, c: kotlin.Boolean, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example'
+        RETURN type=kotlin.Nothing from='public final fun bar (a: kotlin.Int, b: kotlin.String?, c: kotlin.Boolean, $composer: androidx.compose.runtime.Composer?, $changed: kotlin.Int, $default: kotlin.Int): kotlin.String declared in example'
           GET_VAR 'val tmp_5: kotlin.String [val] declared in example.bar' type=kotlin.String origin=null
     FUN name:test visibility:public modality:FINAL returnType:kotlin.Unit
       VALUE_PARAMETER kind:Regular name:$composer index:0 type:androidx.compose.runtime.Composer? [assignable]
       VALUE_PARAMETER kind:Regular name:$changed index:1 type:kotlin.Int
       annotations:
         Composable
+        FunctionKeyMeta(key = 1109586197, startOffset = 433, endOffset = 578)
       BLOCK_BODY
         BLOCK type=kotlin.Unit origin=null
           SET_VAR '$composer: androidx.compose.runtime.Composer? [assignable] declared in example.test' type=kotlin.Unit origin=null

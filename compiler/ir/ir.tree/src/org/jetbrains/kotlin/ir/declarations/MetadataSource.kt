@@ -7,8 +7,8 @@ package org.jetbrains.kotlin.ir.declarations
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.mpp.DeclarationSymbolMarker
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
@@ -16,15 +16,9 @@ interface MetadataSource {
     val name: Name?
     val source: KtSourceElement? get() = null
 
-    interface File : MetadataSource {
-        var serializedIr: ByteArray?
-
-        fun asEvaluatedConstTrackerKey(): EvaluatedConstTracker.Key?
-    }
+    interface File : MetadataSource
 
     interface Class : MetadataSource {
-        var serializedIr: ByteArray?
-
         fun recordLocalClassType(type: FqName)
         fun asFirSymbol(): Any?
     }
@@ -46,15 +40,9 @@ sealed class DescriptorMetadataSource : MetadataSource {
     override val name: Name?
         get() = descriptor?.name
 
-    class File(val descriptors: List<DeclarationDescriptor>) : DescriptorMetadataSource(), MetadataSource.File {
-        override var serializedIr: ByteArray? = null
-
-        override fun asEvaluatedConstTrackerKey(): EvaluatedConstTracker.Key? = null
-    }
+    class File(val descriptors: List<DeclarationDescriptor>) : DescriptorMetadataSource(), MetadataSource.File
 
     class Class(override val descriptor: ClassDescriptor) : DescriptorMetadataSource(), MetadataSource.Class {
-        override var serializedIr: ByteArray? = null
-
         override fun recordLocalClassType(type: FqName) {}
 
         override fun asFirSymbol(): Any? = null
@@ -76,4 +64,8 @@ sealed class DescriptorMetadataSource : MetadataSource {
         override val isConst: Boolean get() = descriptor.isConst
         override val psi: PsiElement? get() = null
     }
+}
+
+interface DeclarationSymbolOwner {
+    val symbol: DeclarationSymbolMarker
 }

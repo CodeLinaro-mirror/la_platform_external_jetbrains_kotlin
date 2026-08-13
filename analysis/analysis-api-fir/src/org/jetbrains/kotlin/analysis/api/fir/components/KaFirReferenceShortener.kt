@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,6 +8,8 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.SmartPsiElementPointer
+import com.intellij.psi.util.parentOfType
+import com.intellij.psi.util.parentsOfType
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
@@ -20,6 +22,7 @@ import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.fir.utils.getAvailableScopesForPosition
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
+import org.jetbrains.kotlin.analysis.api.internals.KaInternalsReferenceShortener
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -29,8 +32,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolver.AllCandidatesResolver
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector
-import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
-import org.jetbrains.kotlin.analysis.utils.printer.parentsOfType
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildImport
@@ -71,7 +73,7 @@ import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 internal class KaFirReferenceShortener(
     override val analysisSessionProvider: () -> KaFirSession
-) : KaBaseSessionComponent<KaFirSession>(), KaReferenceShortener, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaInternalsReferenceShortener, KaFirSessionComponent {
     private val context by lazy { FirShorteningContext(analysisSession) }
 
     override fun collectPossibleReferenceShorteningsInElement(
@@ -531,13 +533,24 @@ private class ElementsToShortenCollector(
     val qualifiersToShorten: MutableList<ShortenQualifier> = mutableListOf()
     val labelsToShorten: MutableList<ShortenThisLabel> = mutableListOf()
 
+    private val contextSensitiveResolutionIsEnabled: Boolean
+        get() {
+            val languageVersionSettings = shorteningContext.analysisSession.firSession.languageVersionSettings
+            return languageVersionSettings.supportsFeature(LanguageFeature.ContextSensitiveResolutionUsingExpectedType)
+        }
+
     fun processTypeRef(resolvedTypeRef: FirResolvedTypeRef) {
         val typeElement = resolvedTypeRef.correspondingTypePsi ?: return
         if (typeElement.qualifier == null) return
 
         val classifierId = resolvedTypeRef.coneType.abbreviatedTypeOrSelf.lowerBoundIfFlexible().candidateClassId ?: return
 
-        findClassifierQualifierToShorten(classifierId, typeElement)?.let(::addElementToShorten)
+        findClassifierQualifierToShorten(
+            classifierId,
+            typeElement,
+            // TODO: Pass correct information after CSR shortening for types is available (KT-84719, KTIJ-38225)
+            wholeQualifierIsResolvableByContextSensitiveResolution = false
+        )?.let(::addElementToShorten)
     }
 
     /**
@@ -606,7 +619,11 @@ private class ElementsToShortenCollector(
             else -> return
         }
 
-        findClassifierQualifierToShorten(wholeClassQualifier, wholeQualifierElement)?.let(::addElementToShorten)
+        findClassifierQualifierToShorten(
+            wholeClassQualifier,
+            wholeQualifierElement,
+            resolvedQualifier.isResolvableByContextSensitiveResolution
+        )?.let(::addElementToShorten)
     }
 
     private val FirClassifierSymbol<*>.classIdIfExists: ClassId?
@@ -631,6 +648,7 @@ private class ElementsToShortenCollector(
         is FirNestedClassifierScope -> klass.classId
         is FirNestedClassifierScopeWithSubstitution -> originalScope.correspondingClassIdIfExists()
         is FirClassUseSiteMemberScope -> ownerClassLookupTag.classId
+        is FirNameAwareCompositeScope -> scopes.firstNotNullOf { it.correspondingClassIdIfExists() }
         else -> errorWithAttachment("FirScope ${this::class}` is expected to be one of FirNestedClassifierScope and FirClassUseSiteMemberScope to get ClassId") {
             withEntry("firScope", this@correspondingClassIdIfExists) { it.toString() }
         }
@@ -638,10 +656,11 @@ private class ElementsToShortenCollector(
 
     private fun ClassId.idWithoutCompanion() = if (shortClassName == SpecialNames.DEFAULT_NAME_FOR_COMPANION_OBJECT) outerClassId else this
 
-    private fun FirScope.isScopeForClass(): Boolean = when {
-        this is FirNestedClassifierScope -> true
-        this is FirNestedClassifierScopeWithSubstitution -> originalScope.isScopeForClass()
-        this is FirClassUseSiteMemberScope -> true
+    private fun FirScope.isScopeForClass(): Boolean = when (this) {
+        is FirNestedClassifierScope -> true
+        is FirNestedClassifierScopeWithSubstitution -> originalScope.isScopeForClass()
+        is FirClassUseSiteMemberScope -> true
+        is FirNameAwareCompositeScope -> scopes.any { it.isScopeForClass() }
         else -> false
     }
 
@@ -743,6 +762,7 @@ private class ElementsToShortenCollector(
                     is FirNestedClassifierScopeWithSubstitution -> originalScope.toPartialOrder()
                     is FirExplicitSimpleImportingScope -> ExplicitSimpleImporting
                     is FirPackageMemberScope -> PackageMember
+                    is FirNameAwareCompositeScope -> scopes.minOf { it.toPartialOrder() }
                     else -> Unclassified
                 }
             }
@@ -825,11 +845,20 @@ private class ElementsToShortenCollector(
         positionScopes: List<FirScope>,
         qualifierClassId: ClassId,
         qualifierElement: KtElement,
+        isResolvableByContextSensitiveResolution: Boolean,
     ): ElementToShorten? {
         val classSymbol = shorteningContext.toClassSymbol(qualifierClassId) ?: return null
 
         val option = classShortenStrategy(classSymbol)
         if (option == ShortenStrategy.DO_NOT_SHORTEN) return null
+
+        if (
+            contextSensitiveResolutionIsEnabled &&
+            shortenOptions.removeContextSensitiveResolutionQualifiers &&
+            isResolvableByContextSensitiveResolution
+        ) {
+            return createElementToShorten(qualifierElement)
+        }
 
         // If its parent has a type parameter, we do not shorten it ATM because it will lose its type parameter. See KTIJ-26072
         if (classSymbol.hasTypeParameterFromParent()) return null
@@ -887,6 +916,7 @@ private class ElementsToShortenCollector(
     private fun findClassifierQualifierToShorten(
         wholeQualifierClassId: ClassId,
         wholeQualifierElement: KtElement,
+        wholeQualifierIsResolvableByContextSensitiveResolution: Boolean,
     ): ElementToShorten? {
         val positionScopes = shorteningContext.findScopesAtPosition(
             wholeQualifierElement,
@@ -898,10 +928,17 @@ private class ElementsToShortenCollector(
         val allClassIds = wholeQualifierClassId.outerClassesWithSelf
         val allQualifiedElements = wholeQualifierElement.qualifiedElementsWithSelf
 
-        for ((classId, element) in allClassIds.zip(allQualifiedElements)) {
+        for ([classId, element] in allClassIds.zip(allQualifiedElements)) {
             if (!element.inSelection) continue
 
-            shortenClassifierQualifier(positionScopes, classId, element)?.let { return it }
+            val isWholeQualifier = element === wholeQualifierElement
+
+            shortenClassifierQualifier(
+                positionScopes,
+                classId,
+                element,
+                wholeQualifierIsResolvableByContextSensitiveResolution && isWholeQualifier,
+            )?.let { return it }
         }
 
         val lastQualifier = allQualifiedElements.last()
@@ -1171,6 +1208,15 @@ private class ElementsToShortenCollector(
         val option = callableShortenStrategy(propertySymbol)
         if (option == ShortenStrategy.DO_NOT_SHORTEN) return
 
+        if (
+            contextSensitiveResolutionIsEnabled &&
+            shortenOptions.removeContextSensitiveResolutionQualifiers &&
+            firPropertyAccess.isResolvableByContextSensitiveResolution
+        ) {
+            addElementToShorten(createElementToShorten(qualifiedProperty))
+            return
+        }
+
         shortenIfAlreadyImportedAsAlias(qualifiedProperty, propertySymbol.callableId?.asSingleFqName())?.let {
             addElementToShorten(it)
             return
@@ -1257,7 +1303,7 @@ private class ElementsToShortenCollector(
 
         val nameToImport = shorteningContext.convertToImportableName(calledSymbol)
 
-        val (matchedCallables, otherCallables) = availableCallables.partition { it.symbol.callableId == calledSymbol.callableId }
+        val [matchedCallables, otherCallables] = availableCallables.partition { it.symbol.callableId == calledSymbol.callableId }
 
         val importKindFromOption = ImportKind.fromShortenOption(option)
         val importKind = matchedCallables.minOfOrNull { it.importKind } ?: importKindFromOption ?: return null

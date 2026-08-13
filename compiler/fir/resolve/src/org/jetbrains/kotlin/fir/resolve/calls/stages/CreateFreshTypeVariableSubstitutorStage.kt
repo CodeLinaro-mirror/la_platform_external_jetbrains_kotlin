@@ -48,7 +48,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
             return
         }
         val csBuilder = candidate.system.getBuilder()
-        val (substitutor, freshVariables) =
+        val [substitutor, freshVariables] =
             createToFreshVariableSubstitutorAndAddInitialConstraints(declaration, csBuilder)
         candidate.initializeSubstitutorAndVariables(substitutor, freshVariables)
 
@@ -139,7 +139,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
      * }
      * ```
      *
-     * TODO: Get rid of this function once [LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible] is removed
+     * See also KDoc for [shouldExplicitArgumentBeFlexibleForGivenParameter] below.
      *
      * @return type which is chosen for EQUALS constraint
      */
@@ -149,7 +149,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
         typeParameter: FirTypeParameterRef,
     ): ConeKotlinType {
         val session = context.session
-        return if (typeParameter.shouldBeFlexible()) {
+        return if (type.shouldExplicitArgumentBeFlexibleForGivenParameter(typeParameter)) {
             when (type) {
                 is ConeRigidType -> type.withNullability(nullable = false, session.typeContext).toTrivialFlexibleType(session.typeContext)
                 /*
@@ -167,7 +167,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
                     isTrivial = false,
                 )
             }.run {
-                if (LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible.isEnabled()) {
+                if (LanguageFeature.DontMakeExplicitNullableJavaTypeArgumentsFlexible.isEnabled()) {
                     return@run this
                 }
                 if (!type.isMarkedNullable) {
@@ -176,7 +176,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
                 withAttributes(
                     attributes.add(
                         ExplicitTypeArgumentIfMadeFlexibleSyntheticallyTypeAttribute(
-                            type, LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible
+                            type, relevantFeature = LanguageFeature.DontMakeExplicitNullableJavaTypeArgumentsFlexible
                         )
                     )
                 )
@@ -186,16 +186,36 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
         }
     }
 
+    /**
+     * In case a explicit type argument is given, this function returns true if its type should be converted to a nullability-flexible type.
+     *
+     * In pre-2.4 language versions, this function returns true if the corresponding [typeParameter] has at least one flexible upper bound.
+     * In particular, it's applicable for all java type parameters without explicit bounds, as by default the bound is Any!
+     * Shortly, this allows to achieve more flexible rules for Java functions accepting or returning generic types.
+     *
+     * During K2 stabilization and cleanup after its release, we made several attempts to switch it off at all,
+     * as it seems that such a flexibility allows too much. As it causes too much breaking changes, beginning from language version 2.4
+     * we apply the feature [LanguageFeature.DontMakeExplicitNullableJavaTypeArgumentsFlexible].
+     * According to its name, beginning from 2.4 this function returns true only for NOT_NULL explicit type arguments.
+     * Of course, the requirement about at least one flexible upper bound for the [typeParameter] is still intact.
+     */
     context(context: ResolutionContext)
-    private fun FirTypeParameterRef.shouldBeFlexible(): Boolean {
-        val languageVersionSettings = context.session.languageVersionSettings
-        if (languageVersionSettings.supportsFeature(LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible)) {
+    private fun ConeKotlinType.shouldExplicitArgumentBeFlexibleForGivenParameter(typeParameter: FirTypeParameterRef): Boolean {
+        if (context.session.languageVersionSettings.supportsFeature(LanguageFeature.DontMakeExplicitNullableJavaTypeArgumentsFlexible) &&
+            with(context.typeContext) { isNullableType() }
+        ) {
             return false
         }
-        return symbol.resolvedBounds.any {
+        return mayExplicitArgumentBeFlexibleForGivenParameter(typeParameter)
+    }
+
+    context(context: ResolutionContext)
+    private fun mayExplicitArgumentBeFlexibleForGivenParameter(typeParameter: FirTypeParameterRef): Boolean {
+        return typeParameter.symbol.resolvedBounds.any {
             val type = it.coneType
             type is ConeFlexibleType || with(context.typeContext) {
-                (type.typeConstructor() as? ConeTypeParameterLookupTag)?.symbol?.fir?.shouldBeFlexible() ?: false
+                val boundingTypeParameter = (type.typeConstructor() as? ConeTypeParameterLookupTag)?.symbol?.fir ?: return@any false
+                mayExplicitArgumentBeFlexibleForGivenParameter(boundingTypeParameter)
             }
         }
     }
@@ -229,7 +249,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
             addConstraintsTheOldWay(toFreshVariables, freshTypeVariables, typeParameters)
         }
 
-        for ((lower, upper) in constraints) {
+        for ([lower, upper] in constraints) {
             csBuilder.addSubtypeConstraint(lower, upper, ConeDeclaredUpperBoundConstraintPosition())
         }
 
@@ -245,7 +265,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
         val typeAliasConstructorInfo = (declaration as? FirConstructor)?.typeAliasConstructorInfo
         val isTypealiasConstructor = typeAliasConstructorInfo != null
 
-        val (typeArgumentsForConstraining, typeParametersForConstraining) = when {
+        val [typeArgumentsForConstraining, typeParametersForConstraining] = when {
             isTypealiasConstructor -> {
                 val fullyExpandedType = declaration.unwrapSubstitutionOverrides().returnTypeRef.coneType.fullyExpandedType()
                 val arguments = fullyExpandedType.let(toFreshVariables::substituteOrSelf).typeArguments.toList()
@@ -259,7 +279,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
 
         val constraints = mutableListOf<Pair<ConeKotlinType, ConeKotlinType>>()
 
-        for ((index, parameter) in typeParametersForConstraining.withIndex()) {
+        for ([index, parameter] in typeParametersForConstraining.withIndex()) {
             val argumentType = typeArgumentsForConstraining.getOrNull(index)?.type?.let(toFreshVariables::substituteOrSelf) ?: continue
 
             for (bound in parameter.symbol.resolvedBounds) {

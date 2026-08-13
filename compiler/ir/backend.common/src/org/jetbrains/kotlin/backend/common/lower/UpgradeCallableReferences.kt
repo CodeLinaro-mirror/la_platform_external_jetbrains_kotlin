@@ -5,17 +5,20 @@
 
 package org.jetbrains.kotlin.backend.common.lower
 
-import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
-import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.*
+import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
+import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrRichFunctionReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrRichPropertyReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
@@ -28,11 +31,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 open class UpgradeCallableReferences(
     val context: LoweringContext,
-    val upgradeFunctionReferencesAndLambdas: Boolean = true,
-    val upgradePropertyReferences: Boolean = true,
-    val upgradeLocalDelegatedPropertyReferences: Boolean = true,
     val upgradeSamConversions: Boolean = true,
-    val upgradeExtractedAdaptedBlocks: Boolean = false,
     val castDispatchReceiver: Boolean = true,
     val generateFakeAccessorsForReflectionProperty: Boolean = false,
 ) : FileLoweringPass {
@@ -59,8 +58,6 @@ open class UpgradeCallableReferences(
         val expression: IrExpression,
     )
 
-    open fun selectSAMOverriddenFunction(irClass: IrClass): IrSimpleFunction = irClass.selectSAMOverriddenFunction()
-
     private inner class UpgradeTransformer : IrTransformer<IrDeclarationParent>() {
         private fun IrClass?.isRestrictedSuspension(): Boolean {
             if (this == null) return false
@@ -74,11 +71,11 @@ open class UpgradeCallableReferences(
             }
         }
 
-        private fun IrFunction.flattenParameters(hasBoundExtensionReceiver: Boolean) {
+        private fun IrFunction.flattenParameters(isLambda: Boolean) {
             for (parameter in parameters) {
                 require(parameter.kind != IrParameterKind.DispatchReceiver) { "No dispatch receiver allowed in wrappers" }
-                if (parameter.kind == IrParameterKind.ExtensionReceiver) {
-                    parameter.origin = if (hasBoundExtensionReceiver) BOUND_RECEIVER_PARAMETER else LAMBDA_EXTENSION_RECEIVER
+                if (parameter.kind == IrParameterKind.ExtensionReceiver && isLambda) {
+                    parameter.origin = IrDeclarationOrigin.LAMBDA_EXTENSION_RECEIVER
                 }
                 parameter.kind = IrParameterKind.Regular
             }
@@ -86,21 +83,18 @@ open class UpgradeCallableReferences(
 
         override fun visitFunctionExpression(expression: IrFunctionExpression, data: IrDeclarationParent): IrElement {
             expression.transformChildren(this, data)
-            if (!upgradeFunctionReferencesAndLambdas) return expression
             val isRestrictedSuspension = expression.function.isRestrictedSuspensionFunction()
-            expression.function.flattenParameters(hasBoundExtensionReceiver = false)
+            expression.function.flattenParameters(isLambda = true)
             return IrRichFunctionReferenceImpl(
                 startOffset = expression.startOffset,
                 endOffset = expression.endOffset,
                 type = expression.type,
                 reflectionTargetSymbol = null,
-                overriddenFunctionSymbol = selectSAMOverriddenFunction(expression.type.classOrFail.owner).symbol,
+                overriddenFunctionSymbol = expression.type.classOrFail.owner.selectSAMOverriddenFunction().symbol,
                 invokeFunction = expression.function,
                 origin = expression.origin,
                 isRestrictedSuspension = isRestrictedSuspension,
-            ).apply {
-                copyNecessaryAttributes(expression, this)
-            }
+            )
         }
 
         override fun visitElement(element: IrElement, data: IrDeclarationParent): IrElement {
@@ -130,40 +124,28 @@ open class UpgradeCallableReferences(
 
         private fun hasVarargConversion(wrapper: IrSimpleFunction, target: IrSimpleFunction): Boolean {
             return target.parameters.zip(wrapper.parameters)
-                .takeWhile { (original, _) -> original.defaultValue == null }
-                .any { (original, adapted) ->
+                .takeWhile { [original, _] -> original.defaultValue == null }
+                .any { [original, adapted] ->
                     // if original is (vararg x: T) than adapted can be either (Array<T> or T). conversion happened only in later case.
                     original.isVararg && original.type.arrayDepth() == adapted.type.arrayDepth() + 1
                 }
         }
 
         private val blockReferenceOrigins = setOf(
-            IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE, IrStatementOrigin.SUSPEND_CONVERSION,
+            IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE, IrStatementOrigin.FUNCTION_TYPE_EXPRESSION_CONVERSION,
             IrStatementOrigin.LAMBDA, IrStatementOrigin.INLINE_LAMBDA, IrStatementOrigin.FUN_INTERFACE_CONSTRUCTOR_REFERENCE, IrStatementOrigin.ANONYMOUS_FUNCTION,
         )
-
-        // TODO delete once the lowering is moved
-        private val usedLambdas = mutableSetOf<IrFunction>()
-
-        // TODO delete once the lowering is moved
-        override fun visitClass(declaration: IrClass, data: IrDeclarationParent): IrStatement {
-            return super.visitClass(declaration, data).also { declaration.declarations.removeIf { it in usedLambdas } }
-        }
 
         private fun IrBlock.parseAdaptedBlock() : AdaptedBlock? {
             if (origin !in blockReferenceOrigins) return null
             if (statements.size != 2) return null
-            val (function, reference) = statements
+            val [function, reference] = statements
             return when (reference) {
                 is IrFunctionReference -> {
-                    when (function) {
-                        is IrSimpleFunction -> AdaptedBlock(function, reference, null, reference.type)
-                        is IrContainerExpression if upgradeExtractedAdaptedBlocks && function.statements.isEmpty() -> {
-                            val lambda = reference.symbol.owner as IrSimpleFunction
-                            val lambdaToAdd = if (usedLambdas.add(lambda)) lambda else lambda.deepCopyWithSymbols()
-                            AdaptedBlock(lambdaToAdd, reference, null, reference.type)
-                        }
-                        else -> null
+                    if (function is IrSimpleFunction) {
+                        AdaptedBlock(function, reference, null, reference.type)
+                    } else {
+                        null
                     }
                 }
                 is IrTypeOperatorCall -> {
@@ -181,8 +163,8 @@ open class UpgradeCallableReferences(
         }
 
         override fun visitBlock(expression: IrBlock, data: IrDeclarationParent): IrExpression {
-            if (!upgradeFunctionReferencesAndLambdas) return super.visitBlock(expression, data)
-            val (function, reference, samType, referenceType) = expression.parseAdaptedBlock() ?: return super.visitBlock(expression, data)
+            (val function, val reference, val samType = samConversionType, val referenceType) = expression.parseAdaptedBlock()
+                ?: return super.visitBlock(expression, data)
             fixCallableReferenceComingFromKlib(reference)
             function.transformChildren(this, function)
             function.setDeclarationsParent(data)
@@ -190,12 +172,8 @@ open class UpgradeCallableReferences(
             function.isInline = false
             reference.transformChildren(this, data)
             val isRestrictedSuspension = function.isRestrictedSuspensionFunction()
-            function.flattenParameters(
-                function.parameters.any {
-                    it.kind == IrParameterKind.ExtensionReceiver && reference.arguments[it] != null
-                }
-            )
-            val (boundParameters, unboundParameters) = function.parameters.partition { reference.arguments[it.indexInParameters] != null }
+            function.flattenParameters(isLambda = false)
+            val [boundParameters, unboundParameters] = function.parameters.partition { reference.arguments[it.indexInParameters] != null }
             function.parameters = boundParameters + unboundParameters
             val reflectionTarget = reference.reflectionTarget.takeUnless { expression.origin.isLambda }
             return IrRichFunctionReferenceImpl(
@@ -203,7 +181,7 @@ open class UpgradeCallableReferences(
                 endOffset = expression.endOffset,
                 type = referenceType,
                 reflectionTargetSymbol = reflectionTarget,
-                overriddenFunctionSymbol = selectSAMOverriddenFunction(referenceType.classOrFail.owner).symbol,
+                overriddenFunctionSymbol = referenceType.classOrFail.owner.selectSAMOverriddenFunction().symbol,
                 invokeFunction = function,
                 origin = reference.origin,
                 hasSuspendConversion = reflectionTarget != null && reflectionTarget.isSuspend == false && function.isSuspend,
@@ -212,7 +190,6 @@ open class UpgradeCallableReferences(
                 isRestrictedSuspension = isRestrictedSuspension,
             ).apply {
                 boundValues.addAll(reference.arguments.filterNotNull())
-                copyNecessaryAttributes(reference, this)
             }.let {
                 if (samType != null) {
                     IrTypeOperatorCallImpl(
@@ -237,21 +214,14 @@ open class UpgradeCallableReferences(
                     startOffset = expression.startOffset
                     endOffset = expression.endOffset
                     type = expression.typeOperand
-                    overriddenFunctionSymbol = selectSAMOverriddenFunction(expression.typeOperand.classOrFail.owner).symbol
+                    overriddenFunctionSymbol = expression.typeOperand.classOrFail.owner.selectSAMOverriddenFunction().symbol
                 }
             }
             return super.visitTypeOperator(expression, data)
         }
 
-        private fun IrCallableReference<*>.getCapturedValues(referencedDeclaration: IrDeclaration) = buildList {
-            if (referencedDeclaration.hasMissingObjectDispatchReceiver()) {
-                val objectClass = referencedDeclaration.parentAsClass
-                val dispatchReceiver = IrGetObjectValueImpl(
-                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, objectClass.defaultType, objectClass.symbol
-                )
-                add(CapturedValue(SpecialNames.THIS, objectClass.defaultType, null, dispatchReceiver))
-            }
-            for ((parameter, argument) in getArgumentsWithIr()) {
+        private fun IrCallableReference<*>.getCapturedValues() = buildList {
+            for ([parameter, argument] in getArgumentsWithIr()) {
                 add(CapturedValue(parameter.name, argument.type, parameter, argument))
             }
         }
@@ -259,27 +229,24 @@ open class UpgradeCallableReferences(
         override fun visitFunctionReference(expression: IrFunctionReference, data: IrDeclarationParent): IrExpression {
             expression.transformChildren(this, data)
             fixCallableReferenceComingFromKlib(expression)
-            if (!upgradeFunctionReferencesAndLambdas) return expression
-            val arguments = expression.getCapturedValues(expression.symbol.owner)
+            val arguments = expression.getCapturedValues()
             return IrRichFunctionReferenceImpl(
                 startOffset = expression.startOffset,
                 endOffset = expression.endOffset,
                 type = expression.type,
                 reflectionTargetSymbol = (expression.reflectionTarget ?: expression.symbol).takeUnless { expression.origin.isLambda },
-                overriddenFunctionSymbol = selectSAMOverriddenFunction(expression.type.classOrFail.owner).symbol,
+                overriddenFunctionSymbol = expression.type.classOrFail.owner.selectSAMOverriddenFunction().symbol,
                 invokeFunction = expression.wrapFunction(arguments, data, expression.symbol.owner),
                 origin = expression.origin,
                 isRestrictedSuspension = expression.symbol.owner.isRestrictedSuspensionFunction(),
             ).apply {
                 boundValues += arguments.map { it.expression }
-                copyNecessaryAttributes(expression, this)
             }
         }
 
         override fun visitPropertyReference(expression: IrPropertyReference, data: IrDeclarationParent): IrExpression {
             expression.transformChildren(this, data)
             fixCallableReferenceComingFromKlib(expression)
-            if (!upgradePropertyReferences) return expression
             val getter = expression.getter?.owner
             val setter = expression.setter?.owner
             val getterFun: IrSimpleFunction
@@ -300,23 +267,14 @@ open class UpgradeCallableReferences(
                         )
                     }
                 } else {
-                    val getterArguments = expression.getCapturedValues(getter)
+                    val getterArguments = expression.getCapturedValues()
                     boundValues = getterArguments.map { it.expression }
                     getterFun = expression.wrapFunction(getterArguments, data, getter, isPropertySetter = false)
                     setterFun = runIf(expression.type.isKMutableProperty() && setter != null) {
                         requireNotNull(setter)
-                        val parameterIndexShift = when {
-                            getter.hasMissingObjectDispatchReceiver() && !setter.hasMissingObjectDispatchReceiver() -> 1
-                            setter.hasMissingObjectDispatchReceiver() && !getter.hasMissingObjectDispatchReceiver() -> -1
-                            else -> 0
-                        }
                         val setterArguments = getterArguments.map {
-                            it.copy(
-                                correspondingParameter = when (val p = it.correspondingParameter) {
-                                    null -> setter.dispatchReceiverParameter // maybe null if both hasMissingObjectDispatchReceiver()
-                                    else -> setter.parameters.getOrNull(p.indexInParameters + parameterIndexShift)
-                                }
-                            )
+                            val parameter = it.correspondingParameter ?: error("Getter argument $it has no corresponding parameter")
+                            it.copy(correspondingParameter = setter.parameters.getOrNull(parameter.indexInParameters))
                         }
                         expression.wrapFunction(setterArguments, data, setter, isPropertySetter = true)
                     }
@@ -342,7 +300,6 @@ open class UpgradeCallableReferences(
                 origin = expression.origin,
             ).apply {
                 this.boundValues.addAll(boundValues)
-                copyNecessaryAttributes(expression, this)
             }
         }
 
@@ -388,7 +345,6 @@ open class UpgradeCallableReferences(
             data: IrDeclarationParent
         ): IrExpression {
             expression.transformChildren(this, data)
-            if (!upgradeLocalDelegatedPropertyReferences) return expression
             return IrRichPropertyReferenceImpl(
                 startOffset = expression.startOffset,
                 endOffset = expression.endOffset,
@@ -401,9 +357,7 @@ open class UpgradeCallableReferences(
                     expression.buildUnsupportedForLocalFunction(emptyList(), data, it.name, it.isSuspend, isPropertySetter = true)
                 },
                 origin = expression.origin
-            ).apply {
-                copyNecessaryAttributes(expression, this)
-            }
+            )
         }
 
         private fun IrCallableReference<*>.buildUnsupportedForLocalFunction(
@@ -553,7 +507,7 @@ open class UpgradeCallableReferences(
                         type = typeSubstitutor.substitute(referencedFunction.returnType),
                         typeArguments = cleanedTypeArguments,
                     ).apply {
-                        for ((parameter, forwardParameter) in referencedFunction.parameters.zip(forwardOrder)) {
+                        for ([parameter, forwardParameter] in referencedFunction.parameters.zip(forwardOrder)) {
                             val rawArgument = builder.irGet(forwardParameter)
                             this.arguments[parameter] =
                                 if (!castDispatchReceiver && parameter.kind == IrParameterKind.DispatchReceiver) rawArgument
@@ -570,7 +524,7 @@ open class UpgradeCallableReferences(
             wrapperFunctionParameters: List<IrValueParameter>,
         ): List<IrValueParameter> {
             val boundIndices = buildMap {
-                for ((index, param) in captured.withIndex()) {
+                for ([index, param] in captured.withIndex()) {
                     if (param.correspondingParameter != null) {
                         put(param.correspondingParameter, index)
                     }
@@ -589,12 +543,4 @@ open class UpgradeCallableReferences(
             }
         }
     }
-
-    protected open fun copyNecessaryAttributes(oldReference: IrFunctionExpression, newReference: IrRichFunctionReference) {}
-    protected open fun copyNecessaryAttributes(oldReference: IrFunctionReference, newReference: IrRichFunctionReference) {}
-    protected open fun copyNecessaryAttributes(oldReference: IrPropertyReference, newReference: IrRichPropertyReference) {}
-    protected open fun copyNecessaryAttributes(oldReference: IrLocalDelegatedPropertyReference, newReference: IrRichPropertyReference) {}
-    protected open fun IrDeclaration.hasMissingObjectDispatchReceiver(): Boolean = false
 }
-
-val LAMBDA_EXTENSION_RECEIVER by IrDeclarationOriginImpl.Regular

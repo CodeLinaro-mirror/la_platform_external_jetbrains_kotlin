@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.gradle.dependencyResolutionTests.tcs
 
 import org.jetbrains.kotlin.gradle.dependencyResolutionTests.mavenCentralCacheRedirector
+import org.jetbrains.kotlin.gradle.dependencyResolutionTests.kotlinBuildDeps
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.assertMatches
@@ -28,6 +29,7 @@ class IdeTransformedMetadataDependencyResolverTest {
             enableDefaultStdlibDependency(false)
             enableDependencyVerification(false)
             applyMultiplatformPlugin()
+            repositories.kotlinBuildDeps()
             repositories.mavenCentralCacheRedirector()
         }
 
@@ -56,7 +58,7 @@ class IdeTransformedMetadataDependencyResolverTest {
 
         project.evaluate()
 
-        val unresolvedDependenciesDiagnosticMatcher = unresolvedDependenciesDiagnosticMatcher("com.arkivanov.mvikotlin:mvikotlin")
+        val unresolvedDependenciesDiagnosticMatcher = unresolvedDependenciesDiagnosticMatcher("com.arkivanov.mvikotlin:mvikotlin:3.0.2")
 
         // Expected to be unresolved in all intermediate main & test source sets
         IdeTransformedMetadataDependencyResolver.resolve(commonMain)
@@ -90,6 +92,7 @@ class IdeTransformedMetadataDependencyResolverTest {
             enableDefaultStdlibDependency(false)
             enableDependencyVerification(false)
             applyMultiplatformPlugin()
+            repositories.kotlinBuildDeps()
             repositories.mavenCentralCacheRedirector()
         }
 
@@ -139,7 +142,7 @@ class IdeTransformedMetadataDependencyResolverTest {
         val project = buildProject {
             enableDependencyVerification(false)
             applyMultiplatformPlugin()
-            repositories.mavenLocal()
+            repositories.kotlinBuildDeps()
             repositories.mavenCentralCacheRedirector()
             repositories.google()
             androidLibrary {

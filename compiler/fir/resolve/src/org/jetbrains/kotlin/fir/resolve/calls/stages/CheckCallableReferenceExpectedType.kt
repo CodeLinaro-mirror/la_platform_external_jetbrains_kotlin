@@ -45,17 +45,14 @@ internal object CheckCallableReferenceExpectedType : ResolutionStage() {
         val expectedType = candidate.callInfo.expectedType
         if (candidate.symbol !is FirCallableSymbol<*>) return
 
-        val resultingReceiverType = when (candidate.callInfo.lhs) {
-            is DoubleColonLHS.Type -> candidate.callInfo.lhs.type.takeIf {
-                candidate.callInfo.explicitReceiver?.unwrapSmartcastExpression() !is FirResolvedQualifier
-            }
-            else -> null
+        val resultingReceiverType = candidate.callInfo.lhsAsType?.type.takeIf {
+            candidate.callInfo.explicitReceiver?.unwrapSmartcastExpression() !is FirResolvedQualifier
         }
 
         val fir: FirCallableDeclaration = candidate.symbol.fir as FirCallableDeclaration
 
         val isExpectedTypeReflectionType = candidate.callInfo.expectedType?.isReflectFunctionType(candidate.callInfo.session) == true
-        val (rawResultingType, callableReferenceAdaptation) = buildResultingTypeAndAdaptation(
+        val [rawResultingType, callableReferenceAdaptation] = buildResultingTypeAndAdaptation(
             fir,
             resultingReceiverType,
             candidate,
@@ -173,7 +170,6 @@ private fun buildResultingTypeAndAdaptation(
                 parameters,
                 receiverType = receiverType.takeIf { fir.receiverParameter != null },
                 rawReturnType = returnType,
-                contextParameters = fir.contextParameters.map { it.returnTypeRef.coneType }
             ) to callableReferenceAdaptation
         }
         is FirVariable -> {
@@ -203,7 +199,8 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
     // Do not adapt references against KCallable type as it's impossible to map defaults/vararg to absent parameters of KCallable
     if (expectedType.isKCallableType()) return null
 
-    val (inputTypes, returnExpectedType) = extractInputOutputTypesFromCallableReferenceExpectedType(expectedType, session) ?: return null
+    (val inputTypes, val returnExpectedType = outputType) = extractInputOutputTypesFromCallableReferenceExpectedType(expectedType, session)
+        ?: return null
     val expectedArgumentsCount = inputTypes.size - unboundReceiverCount
     if (expectedArgumentsCount < 0) return null
 
@@ -226,7 +223,7 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
     val mappedVarargElements = linkedMapOf<FirValueParameter, MutableList<ConeResolutionAtom>>()
     val mappedArgumentTypes = arrayOfNulls<ConeKotlinType?>(fakeArguments.size)
 
-    for ((valueParameter, resolvedArgument) in argumentMapping.parameterToCallArgumentMap) {
+    for ([valueParameter, resolvedArgument] in argumentMapping.parameterToCallArgumentMap) {
         for (fakeArgumentAtom in resolvedArgument.arguments) {
             val fakeArgument = fakeArgumentAtom.expression
             val index = fakeArgument.index
@@ -234,7 +231,7 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
 
             val mappedArgument: ConeKotlinType?
             if (substitutedParameter.isVararg) {
-                val (varargType, newVarargMappingState) = varargParameterTypeByExpectedParameter(
+                val [varargType, newVarargMappingState] = varargParameterTypeByExpectedParameter(
                     candidate,
                     inputTypes[index + unboundReceiverCount],
                     substitutedParameter,
@@ -268,7 +265,7 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
     }
     if (mappedArgumentTypes.any { it == null }) return null
 
-    for ((valueParameter, varargElements) in mappedVarargElements) {
+    for ([valueParameter, varargElements] in mappedVarargElements) {
         mappedArguments[valueParameter] = ResolvedCallArgument.VarargArgument(varargElements)
     }
 

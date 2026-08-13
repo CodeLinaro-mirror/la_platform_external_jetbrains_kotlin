@@ -14,7 +14,6 @@ import org.gradle.api.tasks.*
 import org.gradle.work.NormalizeLineEndings
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants.ES_2015
 import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JsModuleKind
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.ContributeCompilerArgumentsContext
@@ -85,17 +84,6 @@ abstract class KotlinJsIrLink @Inject constructor(
     @get:Internal
     override val taskBuildCacheableOutputDirectory: DirectoryProperty
         get() = super.taskBuildCacheableOutputDirectory
-
-    @get:Internal
-    @get:Deprecated(
-        "Internal development property. Scheduled for removal in Kotlin 2.4.",
-        level = DeprecationLevel.ERROR
-    )
-    var mode: KotlinJsBinaryMode
-        get() = modeProperty.get()
-        set(value) {
-            modeProperty.set(value)
-        }
 
     @get:Input
     internal abstract val modeProperty: Property<KotlinJsBinaryMode>

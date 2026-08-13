@@ -1,2 +1,7 @@
-KtNameReferenceExpression(51,60): 'JavaClass'
-  null
+KtNameReferenceExpression(50,59): 'JavaClass'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      lib/JavaClass
+    ]

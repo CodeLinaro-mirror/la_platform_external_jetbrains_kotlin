@@ -9,11 +9,15 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
+import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
+import org.jetbrains.kotlin.fir.declarations.utils.hasExplicitBackingField
+import org.jetbrains.kotlin.fir.declarations.utils.hasStableParameterNames
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.diagnostics.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.*
@@ -34,13 +38,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
-import org.jetbrains.kotlin.fir.scopes.impl.FirAbstractSimpleImportingScope
-import org.jetbrains.kotlin.fir.scopes.impl.FirAbstractStarImportingScope
-import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultSimpleImportingScope
-import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultStarImportingScope
-import org.jetbrains.kotlin.fir.scopes.impl.FirPackageMemberScope
-import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectOrStaticData
-import org.jetbrains.kotlin.fir.scopes.impl.typeAliasConstructorInfo
+import org.jetbrains.kotlin.fir.scopes.impl.*
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -296,7 +294,7 @@ fun createFunctionType(
     receiverType: ConeKotlinType?,
     rawReturnType: ConeKotlinType,
     contextParameters: List<ConeKotlinType> = emptyList(),
-): ConeLookupTagBasedType {
+): ConeClassLikeType {
     val receiverAndParameterTypes =
         buildList {
             addAll(contextParameters)
@@ -419,11 +417,13 @@ fun FirResolvedQualifier.unsetResolvedToCompanionIf(condition: Boolean) {
 internal fun FirRegularClassSymbol.toImplicitResolvedQualifierReceiver(
     bodyResolveComponents: BodyResolveComponents,
     source: KtSourceElement?,
+    definitelyNotCompanion: Boolean = true,
 ): FirResolvedQualifier {
     val resolvedQualifier = buildResolvedQualifier {
         packageFqName = classId.packageFqName
         relativeClassFqName = classId.relativeClassName
-        resolvedToCompanionObject = false
+        resolvedToCompanionObject =
+            !definitelyNotCompanion && fullyExpandedClass(bodyResolveComponents.session)?.resolvedCompanionObjectSymbol != null
         symbol = this@toImplicitResolvedQualifierReceiver
         this.source = source
     }.apply {
@@ -562,6 +562,17 @@ fun BodyResolveComponents.transformExpressionUsingSmartcastInfo(
         return expression
     }
 
+    // TODO(KT-79370): This is a hack related to KT-85267, which should eventually be handled by resolution.
+    // Usually for call arguments, it should happen via PostponedArgumentsAnalyzer.processSimpleNameForContextSensitiveResolutionIdeAlternative
+    // But for smart casts, even non-stable, they're not handled properly by the Resolution & Inference.
+    // NB: This means that we effectively ignore CSR alternatives with smart casts, but that should not be a much of a problem
+    // as they should only be used for enum entries/sealed subobjects which are rarely subjects of smart casts.
+    // NB: KT-85267 is not reproduced since we've stopped visiting diagnostics on context-sensitive alternatives, but still
+    // it looks reasonable to clear it here.
+    if (AnalysisFlags.ideMode.isSet() && expression is FirQualifierWithContextSensitiveAlternative) {
+        expression.replaceContextSensitiveAlternative(null)
+    }
+
     return buildSmartCastExpression {
         originalExpression = expression
         smartcastStability = smartcastStatement.upperTypesStability
@@ -638,7 +649,7 @@ fun FirSafeCallExpression.propagateTypeFromQualifiedAccessAfterNullCheck(
         // Branch for things that shouldn't be used as expressions.
         // They are forced to return not-null `Unit`, regardless of the receiver.
         else -> {
-            StandardClassIds.Unit.constructClassLikeType(emptyArray(), isMarkedNullable = false)
+            StandardClassIds.Unit.constructClassLikeType()
         }
     }
 
@@ -789,7 +800,7 @@ fun createConeDiagnosticForCandidateWithError(
 
             ConeVisibilityError(symbol)
         }
-        CandidateApplicability.INAPPLICABLE_WRONG_RECEIVER -> ConeInapplicableWrongReceiver(listOf(candidate))
+        CandidateApplicability.INAPPLICABLE_WRONG_RECEIVER -> ConeInapplicableWrongReceiver(candidate)
         CandidateApplicability.K2_NO_COMPANION_OBJECT -> ConeNoCompanionObject(candidate)
         else -> {
             if (TypeParameterAsExpression in candidate.diagnostics) {
@@ -883,4 +894,19 @@ fun FirScope.toResolvedSymbolOrigin(): FirResolvedSymbolOrigin? = when (this) {
     is FirPackageMemberScope -> FirResolvedSymbolOrigin.Package
     is FirAbstractSimpleImportingScope -> FirResolvedSymbolOrigin.ExplicitImport
     else -> null
+}
+
+fun FirFunctionCall.isArrayOfCall(session: FirSession): Boolean {
+    val function = getOriginalFunction() ?: return false
+    return function.isArrayOfFunction(session, this.argumentList)
+}
+
+private fun FirFunctionCall.getOriginalFunction(): FirNamedFunctionSymbol? {
+    val symbol: FirBasedSymbol<*>? = when (val reference = calleeReference) {
+        is FirResolvedErrorReference -> reference.resolvedSymbol
+        is FirResolvedNamedReference -> reference.resolvedSymbol
+        is FirNamedReferenceWithCandidate -> reference.candidateSymbol
+        else -> null
+    }
+    return symbol as? FirNamedFunctionSymbol
 }

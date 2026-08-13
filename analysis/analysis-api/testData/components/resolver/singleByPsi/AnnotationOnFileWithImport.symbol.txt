@@ -1,2 +1,7 @@
 KtNameReferenceExpression(7,8): 'S'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Suppress
+    ]

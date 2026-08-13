@@ -13,6 +13,7 @@ import org.jetbrains.kotlinx.dataframe.api.select
 import org.jetbrains.kotlinx.dataframe.columns.*
 import org.jetbrains.kotlinx.dataframe.impl.columns.ColumnsList
 import org.jetbrains.kotlinx.dataframe.plugin.extensions.ColumnType
+import org.jetbrains.kotlinx.dataframe.plugin.extensions.KotlinTypeFacade
 import org.jetbrains.kotlinx.dataframe.plugin.impl.*
 import org.jetbrains.kotlinx.dataframe.plugin.impl.data.ColumnWithPathApproximation
 import org.jetbrains.kotlinx.dataframe.plugin.utils.Names
@@ -34,9 +35,24 @@ internal class SelectString : AbstractInterpreter<PluginDataFrameSchema>() {
     val Arguments.columns: List<String> by arg(defaultValue = Present(emptyList()))
 
     override fun Arguments.interpret(): PluginDataFrameSchema {
-        val df = receiver.insertImpliedColumns(columns)
-        return df.asDataFrame().select { columns.toColumnSet() }.toPluginDataFrameSchema()
+        return receiver.select(columns)
     }
+}
+
+internal class DataFrameGetColumns : AbstractInterpreter<PluginDataFrameSchema>() {
+    val Arguments.receiver: PluginDataFrameSchema by dataFrame()
+    val Arguments.first: String by arg()
+    val Arguments.other: List<String> by arg(defaultValue = Present(emptyList()))
+
+    override fun Arguments.interpret(): PluginDataFrameSchema {
+        val columns = listOf(first) + other
+        return receiver.select(columns)
+    }
+}
+
+context(_: Arguments)
+private fun PluginDataFrameSchema.select(columns: List<String>): PluginDataFrameSchema {
+    return insertImpliedColumns(columns).modify { select { columns.toColumnSet() } }
 }
 
 internal class Expr0 : AbstractInterpreter<ColumnsResolver>() {
@@ -65,6 +81,10 @@ internal class And0 : AbstractInterpreter<ColumnsResolver>() {
 
             override fun resolve(df: PluginDataFrameSchema): List<ColumnWithPathApproximation> {
                 return receiver.resolve(df) + other.resolve(df)
+            }
+
+            override fun toString(): String {
+                return "$receiver and $other"
             }
         }
     }
@@ -712,6 +732,7 @@ internal class NestedSelect : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// "myCol"()
 internal class StringInvokeUntyped : AbstractInterpreter<ColumnsResolver>() {
     val Arguments.receiver: String by arg()
 
@@ -720,6 +741,7 @@ internal class StringInvokeUntyped : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// "myCol"<Int>()
 internal class StringInvokeTyped : AbstractInterpreter<ColumnsResolver>() {
     val Arguments.receiver: String by arg()
     val Arguments.typeArg0 by type()
@@ -729,6 +751,7 @@ internal class StringInvokeTyped : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// "group"["myCol"]<Int>()
 internal class ColumnPathInvokeTyped : AbstractInterpreter<ColumnsResolver>() {
     val Arguments.receiver: ColumnPathApproximation by arg()
     val Arguments.typeArg0 by type()
@@ -738,6 +761,7 @@ internal class ColumnPathInvokeTyped : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// "group"["myCol"]
 internal class StringGetColumn : AbstractInterpreter<ColumnPathApproximation>() {
     val Arguments.receiver: String by arg()
     val Arguments.column: String by arg()
@@ -747,6 +771,7 @@ internal class StringGetColumn : AbstractInterpreter<ColumnPathApproximation>() 
     }
 }
 
+// "group"["anotherGroup"]["myCol"]
 internal class ColumnPathGetColumn : AbstractInterpreter<ColumnPathApproximation>() {
     val Arguments.receiver: ColumnPathApproximation by arg()
     val Arguments.column: String by arg()
@@ -756,7 +781,7 @@ internal class ColumnPathGetColumn : AbstractInterpreter<ColumnPathApproximation
     }
 }
 
-fun Arguments.stringApiColumnResolver(path: ColumnPath, type: ConeKotlinType): SingleColumnApproximation {
+fun KotlinTypeFacade.stringApiColumnResolver(path: ColumnPath, type: ConeKotlinType): SingleColumnApproximation {
     return object : ColumnsResolverAdapter(), SingleColumnApproximation {
         // we want to help users gradually introduce typed information to their dataframe
         // if they refer to a column by String API once, let's apply logic similar to smart cast and
@@ -786,9 +811,14 @@ fun Arguments.stringApiColumnResolver(path: ColumnPath, type: ConeKotlinType): S
             return resolve(context.df.cast<ConeTypesAdapter>().toPluginDataFrameSchema())
                 .map { ColumnWithPath(it.column.asDataColumn(), it.path) }
         }
+
+        override fun toString(): String {
+            return "StringApiReference($path: $type)"
+        }
     }
 }
 
+// col<Int>(0) [named "newName"]
 class ColByIndex : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver by ignore()
     val Arguments.index: Int by arg()
@@ -799,6 +829,7 @@ class ColByIndex : AbstractInterpreter<SingleColumnApproximation>() {
     }
 }
 
+// col(0) [named "newName"]
 class ColByIndexUntyped : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver by ignore()
     val Arguments.index: Int by arg()
@@ -846,6 +877,7 @@ internal class Named1 : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// col<Int>("name")
 internal class ColByString : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver by ignore()
     val Arguments.name: String by arg()
@@ -856,6 +888,7 @@ internal class ColByString : AbstractInterpreter<SingleColumnApproximation>() {
     }
 }
 
+// col("name")
 internal class ColByStringUntyped : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver by ignore()
     val Arguments.name: String by arg()
@@ -865,6 +898,7 @@ internal class ColByStringUntyped : AbstractInterpreter<SingleColumnApproximatio
     }
 }
 
+// "group".col("name")
 internal class StringNestedColUntyped : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver: String by arg()
     val Arguments.name: String by arg()
@@ -874,6 +908,7 @@ internal class StringNestedColUntyped : AbstractInterpreter<SingleColumnApproxim
     }
 }
 
+// "group".col<Int>("name")
 internal class StringNestedCol : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver: String by arg()
     val Arguments.name: String by arg()
@@ -884,6 +919,7 @@ internal class StringNestedCol : AbstractInterpreter<SingleColumnApproximation>(
     }
 }
 
+// pathOf("group").col("name")
 internal class ColumnPathColUntyped : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver: ColumnPathApproximation by arg()
     val Arguments.name: String by arg()
@@ -893,6 +929,7 @@ internal class ColumnPathColUntyped : AbstractInterpreter<SingleColumnApproximat
     }
 }
 
+// pathOf("group").col<Int>("name")
 internal class ColumnPathCol : AbstractInterpreter<SingleColumnApproximation>() {
     val Arguments.receiver: ColumnPathApproximation by arg()
     val Arguments.name: String by arg()
@@ -903,6 +940,7 @@ internal class ColumnPathCol : AbstractInterpreter<SingleColumnApproximation>() 
     }
 }
 
+// "group".select { ... }
 internal class StringSelect : AbstractInterpreter<ColumnsResolver>() {
     val Arguments.receiver: String by arg()
     val Arguments.selector: ColumnsResolver by arg()
@@ -914,6 +952,7 @@ internal class StringSelect : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// pathOf("group").select { ... }
 internal class ColumnPathSelect : AbstractInterpreter<ColumnsResolver>() {
     val Arguments.receiver: ColumnPathApproximation by arg()
     val Arguments.selector: ColumnsResolver by arg()
@@ -925,6 +964,7 @@ internal class ColumnPathSelect : AbstractInterpreter<ColumnsResolver>() {
     }
 }
 
+// pathOf("group")
 internal class PathOf : AbstractInterpreter<ColumnPathApproximation>() {
     val Arguments.receiver by ignore()
     val Arguments.columnNames: List<String> by arg()
@@ -950,4 +990,38 @@ fun Arguments.ColumnPathApproximation(
         columnPath,
         stringApiColumnResolver(columnPath, type)
     )
+}
+
+class MapColumn : AbstractInterpreter<ResolvedDataColumn>() {
+    val Arguments.receiver: ResolvedDataColumn by arg()
+    val Arguments.transform by type()
+
+    override fun Arguments.interpret(): ResolvedDataColumn {
+        return receiver.changeType(transform)
+    }
+}
+
+class MapColumnKType : AbstractInterpreter<ResolvedDataColumn>() {
+    val Arguments.receiver: ResolvedDataColumn by arg()
+    val Arguments.type by ignore()
+    val Arguments.transform by type()
+
+    override fun Arguments.interpret(): ResolvedDataColumn {
+        return receiver.changeType(transform)
+    }
+}
+
+class AnyColCast : AbstractInterpreter<ResolvedDataColumn>() {
+    val Arguments.receiver: ResolvedDataColumn by arg()
+    val Arguments.typeArg0 by type()
+    override fun Arguments.interpret(): ResolvedDataColumn {
+        return receiver.changeType(typeArg0)
+    }
+}
+
+context(_: KotlinTypeFacade)
+fun ResolvedDataColumn.changeType(newType: ColumnType): ResolvedDataColumn {
+    val before = col.column
+    val mapped = col.copy(column = simpleColumnOf(before.name, newType.coneType))
+    return ResolvedDataColumn(mapped)
 }

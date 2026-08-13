@@ -6,47 +6,27 @@
 package org.jetbrains.kotlin.gradle.targets.js
 
 import com.google.gson.GsonBuilder
-import org.gradle.internal.hash.FileHasher
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import java.io.File
 import java.io.StringWriter
-import org.jetbrains.kotlin.gradle.targets.js.internal.appendConfigsFromDir as appendConfigsFromDirInternal
-import org.jetbrains.kotlin.gradle.targets.js.internal.calculateDirHash as calculateDirHashInternal
-import org.jetbrains.kotlin.gradle.targets.js.internal.toHex as toHexInternal
 
-@Deprecated(
-    "Internal KGP utility. Scheduled for removal in Kotlin 2.4.",
-    level = DeprecationLevel.ERROR
-)
-@Suppress("DeprecatedCallableAddReplaceWith")
-fun Appendable.appendConfigsFromDir(confDir: File) {
-    appendConfigsFromDirInternal(confDir)
-}
-
-@Deprecated(
-    "Internal KGP utility. Scheduled for removal in Kotlin 2.4.",
-    level = DeprecationLevel.ERROR
-)
-@Suppress("DeprecatedCallableAddReplaceWith")
-fun ByteArray.toHex(): String =
-    toHexInternal()
-
-@Deprecated(
-    "Internal KGP utility. Scheduled for removal in Kotlin 2.4.",
-    level = DeprecationLevel.ERROR
-)
-@Suppress("DeprecatedCallableAddReplaceWith")
-fun FileHasher.calculateDirHash(
-    dir: File,
-): String? =
-    calculateDirHashInternal(dir)
-
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""js""""))
 const val JS = "js"
+
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""mjs""""))
 const val MJS = "mjs"
+
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""wasm""""))
 const val WASM = "wasm"
+
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""js.map""""))
 const val JS_MAP = "js.map"
+
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""meta.js""""))
 const val META_JS = "meta.js"
+
+@Deprecated("Unused string constant. Scheduled for removal in Kotlin 2.6.", ReplaceWith(""""html""""))
 const val HTML = "html"
 
 internal fun writeWasmUnitTestRunner(workingDir: File, compiledFile: File): File {

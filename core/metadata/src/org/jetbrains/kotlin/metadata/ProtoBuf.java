@@ -8792,9 +8792,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *ClassKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *ClassKind (3 bits)
      *isInner
      *isData
      *isExternal
@@ -8810,9 +8810,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *ClassKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *ClassKind (3 bits)
      *isInner
      *isData
      *isExternal
@@ -9599,9 +9599,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *ClassKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *ClassKind (3 bits)
      *isInner
      *isData
      *isExternal
@@ -9619,9 +9619,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *ClassKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *ClassKind (3 bits)
      *isInner
      *isData
      *isExternal
@@ -11134,9 +11134,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *ClassKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *ClassKind (3 bits)
        *isInner
        *isData
        *isExternal
@@ -11154,9 +11154,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *ClassKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *ClassKind (3 bits)
        *isInner
        *isData
        *isExternal
@@ -11174,9 +11174,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *ClassKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *ClassKind (3 bits)
        *isInner
        *isData
        *isExternal
@@ -11197,9 +11197,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *ClassKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *ClassKind (3 bits)
        *isInner
        *isData
        *isExternal
@@ -14962,9 +14962,10 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      *isSecondary
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
      * </pre>
      */
     boolean hasFlags();
@@ -14973,9 +14974,10 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      *isSecondary
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
      * </pre>
      */
     int getFlags();
@@ -15201,9 +15203,10 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      *isSecondary
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
      * </pre>
      */
     public boolean hasFlags() {
@@ -15214,9 +15217,10 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      *isSecondary
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
      * </pre>
      */
     public int getFlags() {
@@ -15714,9 +15718,10 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        *isSecondary
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
        * </pre>
        */
       public boolean hasFlags() {
@@ -15727,9 +15732,10 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        *isSecondary
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
        * </pre>
        */
       public int getFlags() {
@@ -15740,9 +15746,10 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        *isSecondary
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
        * </pre>
        */
       public Builder setFlags(int value) {
@@ -15756,9 +15763,10 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        *isSecondary
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
        * </pre>
        */
       public Builder clearFlags() {
@@ -16258,9 +16266,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isOperator
      *isInfix
      *isInline
@@ -16269,6 +16277,8 @@ public final class ProtoBuf {
      *isSuspend
      *isExpect
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     boolean hasFlags();
@@ -16277,9 +16287,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isOperator
      *isInfix
      *isInline
@@ -16288,6 +16298,8 @@ public final class ProtoBuf {
      *isSuspend
      *isExpect
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     int getFlags();
@@ -16794,9 +16806,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isOperator
      *isInfix
      *isInline
@@ -16805,6 +16817,8 @@ public final class ProtoBuf {
      *isSuspend
      *isExpect
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     public boolean hasFlags() {
@@ -16815,9 +16829,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isOperator
      *isInfix
      *isInline
@@ -16826,6 +16840,8 @@ public final class ProtoBuf {
      *isSuspend
      *isExpect
      *hasNonStableParameterNames
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     public int getFlags() {
@@ -17985,9 +18001,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isOperator
        *isInfix
        *isInline
@@ -17996,6 +18012,8 @@ public final class ProtoBuf {
        *isSuspend
        *isExpect
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public boolean hasFlags() {
@@ -18006,9 +18024,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isOperator
        *isInfix
        *isInline
@@ -18017,6 +18035,8 @@ public final class ProtoBuf {
        *isSuspend
        *isExpect
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public int getFlags() {
@@ -18027,9 +18047,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isOperator
        *isInfix
        *isInline
@@ -18038,6 +18058,8 @@ public final class ProtoBuf {
        *isSuspend
        *isExpect
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public Builder setFlags(int value) {
@@ -18051,9 +18073,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isOperator
        *isInfix
        *isInline
@@ -18062,6 +18084,8 @@ public final class ProtoBuf {
        *isSuspend
        *isExpect
        *hasNonStableParameterNames
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public Builder clearFlags() {
@@ -19495,9 +19519,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isVar
      *hasGetter
      *hasSetter
@@ -19507,6 +19531,8 @@ public final class ProtoBuf {
      *isExternal
      *isDelegated
      *isExpect
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     boolean hasFlags();
@@ -19515,9 +19541,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isVar
      *hasGetter
      *hasSetter
@@ -19527,6 +19553,8 @@ public final class ProtoBuf {
      *isExternal
      *isDelegated
      *isExpect
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     int getFlags();
@@ -19654,8 +19682,8 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
+     *Visibility (3 bits)
+     *Modality (2 bits)
      *isNotDefault
      *isExternal
      *isInline
@@ -19670,8 +19698,8 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
+     *Visibility (3 bits)
+     *Modality (2 bits)
      *isNotDefault
      *isExternal
      *isInline
@@ -20182,9 +20210,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isVar
      *hasGetter
      *hasSetter
@@ -20194,6 +20222,8 @@ public final class ProtoBuf {
      *isExternal
      *isDelegated
      *isExpect
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     public boolean hasFlags() {
@@ -20204,9 +20234,9 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
-     *MemberKind
+     *Visibility (3 bits)
+     *Modality (2 bits)
+     *MemberKind (2 bits)
      *isVar
      *hasGetter
      *hasSetter
@@ -20216,6 +20246,8 @@ public final class ProtoBuf {
      *isExternal
      *isDelegated
      *isExpect
+     *ReturnValueStatus (2 bits)
+     *isStatic
      * </pre>
      */
     public int getFlags() {
@@ -20462,8 +20494,8 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
+     *Visibility (3 bits)
+     *Modality (2 bits)
      *isNotDefault
      *isExternal
      *isInline
@@ -20480,8 +20512,8 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
-     *Modality
+     *Visibility (3 bits)
+     *Modality (2 bits)
      *isNotDefault
      *isExternal
      *isInline
@@ -21723,9 +21755,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isVar
        *hasGetter
        *hasSetter
@@ -21735,6 +21767,8 @@ public final class ProtoBuf {
        *isExternal
        *isDelegated
        *isExpect
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public boolean hasFlags() {
@@ -21745,9 +21779,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isVar
        *hasGetter
        *hasSetter
@@ -21757,6 +21791,8 @@ public final class ProtoBuf {
        *isExternal
        *isDelegated
        *isExpect
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public int getFlags() {
@@ -21767,9 +21803,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isVar
        *hasGetter
        *hasSetter
@@ -21779,6 +21815,8 @@ public final class ProtoBuf {
        *isExternal
        *isDelegated
        *isExpect
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public Builder setFlags(int value) {
@@ -21792,9 +21830,9 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
-       *MemberKind
+       *Visibility (3 bits)
+       *Modality (2 bits)
+       *MemberKind (2 bits)
        *isVar
        *hasGetter
        *hasSetter
@@ -21804,6 +21842,8 @@ public final class ProtoBuf {
        *isExternal
        *isDelegated
        *isExpect
+       *ReturnValueStatus (2 bits)
+       *isStatic
        * </pre>
        */
       public Builder clearFlags() {
@@ -22568,8 +22608,8 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
+       *Visibility (3 bits)
+       *Modality (2 bits)
        *isNotDefault
        *isExternal
        *isInline
@@ -22586,8 +22626,8 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
+       *Visibility (3 bits)
+       *Modality (2 bits)
        *isNotDefault
        *isExternal
        *isInline
@@ -22604,8 +22644,8 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
+       *Visibility (3 bits)
+       *Modality (2 bits)
        *isNotDefault
        *isExternal
        *isInline
@@ -22625,8 +22665,8 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
-       *Modality
+       *Visibility (3 bits)
+       *Modality (2 bits)
        *isNotDefault
        *isExternal
        *isInline
@@ -25049,7 +25089,7 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      * </pre>
      */
     boolean hasFlags();
@@ -25058,7 +25098,7 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      * </pre>
      */
     int getFlags();
@@ -25370,7 +25410,7 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      * </pre>
      */
     public boolean hasFlags() {
@@ -25381,7 +25421,7 @@ public final class ProtoBuf {
      *
      * <pre>
      *hasAnnotations
-     *Visibility
+     *Visibility (2 bits)
      * </pre>
      */
     public int getFlags() {
@@ -26071,7 +26111,7 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        * </pre>
        */
       public boolean hasFlags() {
@@ -26082,7 +26122,7 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        * </pre>
        */
       public int getFlags() {
@@ -26093,7 +26133,7 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        * </pre>
        */
       public Builder setFlags(int value) {
@@ -26107,7 +26147,7 @@ public final class ProtoBuf {
        *
        * <pre>
        *hasAnnotations
-       *Visibility
+       *Visibility (2 bits)
        * </pre>
        */
       public Builder clearFlags() {
@@ -29044,6 +29084,20 @@ public final class ProtoBuf {
      * <code>repeated .org.jetbrains.kotlin.metadata.Class class = 4;</code>
      */
     int getClass_Count();
+
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> 
+        getFileAnnotationList();
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getFileAnnotation(int index);
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    int getFileAnnotationCount();
   }
   /**
    * Protobuf type {@code org.jetbrains.kotlin.metadata.PackageFragment}
@@ -29148,6 +29202,14 @@ public final class ProtoBuf {
               class__.add(input.readMessage(org.jetbrains.kotlin.metadata.ProtoBuf.Class.PARSER, extensionRegistry));
               break;
             }
+            case 42: {
+              if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+                fileAnnotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>();
+                mutable_bitField0_ |= 0x00000010;
+              }
+              fileAnnotation_.add(input.readMessage(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.PARSER, extensionRegistry));
+              break;
+            }
           }
         }
       } catch (org.jetbrains.kotlin.protobuf.InvalidProtocolBufferException e) {
@@ -29158,6 +29220,9 @@ public final class ProtoBuf {
       } finally {
         if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
           class__ = java.util.Collections.unmodifiableList(class__);
+        }
+        if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+          fileAnnotation_ = java.util.Collections.unmodifiableList(fileAnnotation_);
         }
         try {
           unknownFieldsCodedOutput.flush();
@@ -29265,11 +29330,47 @@ public final class ProtoBuf {
       return class__.get(index);
     }
 
+    public static final int FILE_ANNOTATION_FIELD_NUMBER = 5;
+    private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> fileAnnotation_;
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getFileAnnotationList() {
+      return fileAnnotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    public java.util.List<? extends org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder> 
+        getFileAnnotationOrBuilderList() {
+      return fileAnnotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    public int getFileAnnotationCount() {
+      return fileAnnotation_.size();
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getFileAnnotation(int index) {
+      return fileAnnotation_.get(index);
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder getFileAnnotationOrBuilder(
+        int index) {
+      return fileAnnotation_.get(index);
+    }
+
     private void initFields() {
       strings_ = org.jetbrains.kotlin.metadata.ProtoBuf.StringTable.getDefaultInstance();
       qualifiedNames_ = org.jetbrains.kotlin.metadata.ProtoBuf.QualifiedNameTable.getDefaultInstance();
       package_ = org.jetbrains.kotlin.metadata.ProtoBuf.Package.getDefaultInstance();
       class__ = java.util.Collections.emptyList();
+      fileAnnotation_ = java.util.Collections.emptyList();
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -29291,6 +29392,12 @@ public final class ProtoBuf {
       }
       for (int i = 0; i < getClass_Count(); i++) {
         if (!getClass_(i).isInitialized()) {
+          memoizedIsInitialized = 0;
+          return false;
+        }
+      }
+      for (int i = 0; i < getFileAnnotationCount(); i++) {
+        if (!getFileAnnotation(i).isInitialized()) {
           memoizedIsInitialized = 0;
           return false;
         }
@@ -29321,6 +29428,9 @@ public final class ProtoBuf {
       for (int i = 0; i < class__.size(); i++) {
         output.writeMessage(4, class__.get(i));
       }
+      for (int i = 0; i < fileAnnotation_.size(); i++) {
+        output.writeMessage(5, fileAnnotation_.get(i));
+      }
       extensionWriter.writeUntil(200, output);
       output.writeRawBytes(unknownFields);
     }
@@ -29346,6 +29456,10 @@ public final class ProtoBuf {
       for (int i = 0; i < class__.size(); i++) {
         size += org.jetbrains.kotlin.protobuf.CodedOutputStream
           .computeMessageSize(4, class__.get(i));
+      }
+      for (int i = 0; i < fileAnnotation_.size(); i++) {
+        size += org.jetbrains.kotlin.protobuf.CodedOutputStream
+          .computeMessageSize(5, fileAnnotation_.get(i));
       }
       size += extensionsSerializedSize();
       size += unknownFields.size();
@@ -29454,6 +29568,8 @@ public final class ProtoBuf {
         bitField0_ = (bitField0_ & ~0x00000004);
         class__ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000008);
+        fileAnnotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -29494,6 +29610,11 @@ public final class ProtoBuf {
           bitField0_ = (bitField0_ & ~0x00000008);
         }
         result.class__ = class__;
+        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+          fileAnnotation_ = java.util.Collections.unmodifiableList(fileAnnotation_);
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.fileAnnotation_ = fileAnnotation_;
         result.bitField0_ = to_bitField0_;
         return result;
       }
@@ -29519,6 +29640,16 @@ public final class ProtoBuf {
           }
           
         }
+        if (!other.fileAnnotation_.isEmpty()) {
+          if (fileAnnotation_.isEmpty()) {
+            fileAnnotation_ = other.fileAnnotation_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureFileAnnotationIsMutable();
+            fileAnnotation_.addAll(other.fileAnnotation_);
+          }
+          
+        }
         this.mergeExtensionFields(other);
         setUnknownFields(
             getUnknownFields().concat(other.unknownFields));
@@ -29540,6 +29671,12 @@ public final class ProtoBuf {
         }
         for (int i = 0; i < getClass_Count(); i++) {
           if (!getClass_(i).isInitialized()) {
+            
+            return false;
+          }
+        }
+        for (int i = 0; i < getFileAnnotationCount(); i++) {
+          if (!getFileAnnotation(i).isInitialized()) {
             
             return false;
           }
@@ -29871,6 +30008,131 @@ public final class ProtoBuf {
       public Builder removeClass_(int index) {
         ensureClass_IsMutable();
         class__.remove(index);
+
+        return this;
+      }
+
+      private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> fileAnnotation_ =
+        java.util.Collections.emptyList();
+      private void ensureFileAnnotationIsMutable() {
+        if (!((bitField0_ & 0x00000010) == 0x00000010)) {
+          fileAnnotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>(fileAnnotation_);
+          bitField0_ |= 0x00000010;
+         }
+      }
+
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getFileAnnotationList() {
+        return java.util.Collections.unmodifiableList(fileAnnotation_);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public int getFileAnnotationCount() {
+        return fileAnnotation_.size();
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getFileAnnotation(int index) {
+        return fileAnnotation_.get(index);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder setFileAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.set(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder setFileAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.set(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder addFileAnnotation(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.add(value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder addFileAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.add(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder addFileAnnotation(
+          org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.add(builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder addFileAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.add(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder addAllFileAnnotation(
+          java.lang.Iterable<? extends org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> values) {
+        ensureFileAnnotationIsMutable();
+        org.jetbrains.kotlin.protobuf.AbstractMessageLite.Builder.addAll(
+            values, fileAnnotation_);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder clearFileAnnotation() {
+        fileAnnotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000010);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation file_annotation = 5;</code>
+       */
+      public Builder removeFileAnnotation(int index) {
+        ensureFileAnnotationIsMutable();
+        fileAnnotation_.remove(index);
 
         return this;
       }
@@ -30624,6 +30886,14 @@ public final class ProtoBuf {
        * </pre>
        */
       RETURNS_NOT_NULL(2, 2),
+      /**
+       * <code>RETURNS_RESULT_OF = 3;</code>
+       *
+       * <pre>
+       * ReturnsResultOf(callable: ParameterReference)
+       * </pre>
+       */
+      RETURNS_RESULT_OF(3, 3),
       ;
 
       /**
@@ -30651,6 +30921,14 @@ public final class ProtoBuf {
        * </pre>
        */
       public static final int RETURNS_NOT_NULL_VALUE = 2;
+      /**
+       * <code>RETURNS_RESULT_OF = 3;</code>
+       *
+       * <pre>
+       * ReturnsResultOf(callable: ParameterReference)
+       * </pre>
+       */
+      public static final int RETURNS_RESULT_OF_VALUE = 3;
 
 
       public final int getNumber() { return value; }
@@ -30660,6 +30938,7 @@ public final class ProtoBuf {
           case 0: return RETURNS_CONSTANT;
           case 1: return CALLS;
           case 2: return RETURNS_NOT_NULL;
+          case 3: return RETURNS_RESULT_OF;
           default: return null;
         }
       }

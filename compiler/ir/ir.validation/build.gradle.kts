@@ -16,12 +16,14 @@ dependencies {
     implementation(project(":core:descriptors"))
     implementation(project(":core:util.runtime"))
     implementation(project(":kotlin-util-klib"))
+    implementation(project(":compiler:frontend.common-psi")) // required for error reporting
 
     compileOnly(intellijCore())
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(testFixtures(project(":compiler:tests-common-new")))
+    testImplementation(testFixtures(project(":compiler:ir.tree")))
     testImplementation(project(":compiler:ir.backend.common"))
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -209,6 +209,13 @@ public annotation class ExperimentalJsCollectionsApi
 internal annotation class JsImplicitExport(val couldBeConvertedToExplicitExport: Boolean)
 
 /**
+ * Exclude the annotated interface member with a default implementation from `DefaultImpls` in the generated `.d.ts` file.
+ */
+@Retention(AnnotationRetention.BINARY)
+@Target(PROPERTY, FUNCTION)
+internal annotation class JsDontExportDefaultImplementation
+
+/**
  * Specifies that an additional static method is generated from the annotated companion object member if it's a function.
  * If the member is a property, additional static getter/setter methods are generated.
  */
@@ -219,3 +226,34 @@ internal annotation class JsImplicitExport(val couldBeConvertedToExplicitExport:
 @OptionalExpectation
 @SinceKotlin("2.0")
 public expect annotation class JsStatic()
+
+/**
+ * Marks the experimental JsNoRuntime annotation.
+ *
+ * Note that behavior of these annotations will likely be changed in the future.
+ *
+ * Usages of such annotations will be reported as warnings unless an explicit opt-in with
+ * the [OptIn] annotation, e.g. `@OptIn(ExperimentalJsNoRuntime::class)`,
+ * or with the `-opt-in=kotlin.js.ExperimentalJsNoRuntime` compiler option is given.
+ */
+@RequiresOptIn(level = RequiresOptIn.Level.WARNING)
+@MustBeDocumented
+@Retention(AnnotationRetention.BINARY)
+@SinceKotlin("2.3") // TODO(KT-84002): bump to 2.4 alongside @JsNoRuntime version change
+public annotation class ExperimentalJsNoRuntime
+
+/**
+ * Marks an interface that is not going to be used at runtime on the JS platform.
+ *
+ * Interfaces annotated with `@JsNoRuntime` cannot be used in `is` checks, `as` casts,
+ * or with class references on the JS platform. Such interfaces can be actualized on JS as `external interface`.
+ *
+ * This annotation is available in common code and is JS-specific via [OptionalExpectation].
+ */
+@ExperimentalJsNoRuntime
+@Retention(AnnotationRetention.BINARY)
+@Target(CLASS)
+@MustBeDocumented
+@OptionalExpectation
+@SinceKotlin("2.4")
+public expect annotation class JsNoRuntime()

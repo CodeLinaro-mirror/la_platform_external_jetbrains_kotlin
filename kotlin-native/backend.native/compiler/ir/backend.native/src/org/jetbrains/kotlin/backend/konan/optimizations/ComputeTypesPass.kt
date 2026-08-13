@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.irImplicitCast
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.expressions.IrBlock
 import org.jetbrains.kotlin.ir.expressions.IrBody
@@ -40,6 +41,7 @@ import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.isAny
 import org.jetbrains.kotlin.ir.types.isNothing
+import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.erasedUpperBound
@@ -110,7 +112,6 @@ internal class ComputeTypesPass(val context: Context) : BodyLoweringPass {
     private fun IrTypeOperatorCall.tryShortcutToArgument(): IrType? {
         if (this.operator != IrTypeOperator.IMPLICIT_CAST) return null
         val dstClass = this.typeOperand.erasedUpperBound
-        if (dstClass.isInterface) return null
         if (!this.typeOperand.isNullable() && this.type.isNullable()) return null
         if (this.argument.type.erasedUpperBound.symbol.isSubtypeOfClass(dstClass.symbol))
             return (this.argument as? IrTypeOperatorCall)?.tryShortcutToArgument() ?: this.argument.type
@@ -289,11 +290,12 @@ internal class ComputeTypesPass(val context: Context) : BodyLoweringPass {
 
             override fun visitTry(aTry: IrTry, data: BitSet): BitSet {
                 val prevCatchesVV = catchesVariablesValues
-                catchesVariablesValues = data.copy()
+                val catchesVV = data.copy()
+                catchesVariablesValues = catchesVV
                 val cfmpInfo = ControlFlowMergePointInfo(aTry)
                 val tryVV = aTry.tryResult.accept(this, data)
                 controlFlowMergePoint(cfmpInfo, aTry.tryResult, tryVV)
-                val catchesVV = catchesVariablesValues!!
+                prevCatchesVV?.or(catchesVV)
                 catchesVariablesValues = prevCatchesVV
                 for (aCatch in aTry.catches) {
                     variableWrites[aCatch.catchParameter] = externalWrites
@@ -420,8 +422,37 @@ internal class ComputeTypesPass(val context: Context) : BodyLoweringPass {
 
                 val values = variableWrites[declaration]?.mapEachBit { allVariablesWrites[it].value }
                 val actualType = values?.computeType()
-                if (actualType != null)
-                    declaration.type = actualType
+                if (actualType != null) {
+                    declaration.type = if (declaration.origin == IrDeclarationOrigin.DEFINED && declaration.type.isNullable()) {
+                        // For `DEFINED` variables, if the original type is nullable, preserve this:
+                        actualType.makeNullable()
+                        /*
+                        Not doing this is also correct, but it might make the compiler generate redundant unboxing.
+                        Apart from performance matters, redundant unboxing also breaks the existing (yet questionable)
+                        behavior: KT-84727.
+                        In that issue, since the value is actually `null`, unboxing it caused a segmentation fault.
+
+                        Note: there are more places in this pass that update expression and declaration types.
+                        So, one might want to apply the same approach to all of them. But that turned out to be unnecessary,
+                        since in all other cases the redundant unboxing can be removed by `RedundantCoercionsCleaner`.
+                        Moreover, without `RedundantCoercionsCleaner`, there is unboxing generated for the reproducer
+                        from the issue even without this pass, so we need to rely on it anyway.
+                        In other words, it doesn't make sense to think here about the case when that pass is disabled.
+                        Finally, there are tests that check other similar scenarios for redundant unboxing.
+
+                        Note: this hack is limited to `DEFINED` variable to make it affect the compiler behavior
+                        as little as possible while solving the particular case.
+                        Moreover, applying it to inliner-generated variables would partially undermine the purpose of
+                        this optimization: eliminate redundant (un)boxing and casts caused by aggressive type erasure
+                        done by the inliner.
+                        It is possible to have a more precise distinction between user-defined and compiler-generated
+                        `IrVariable`s (e.g., some user-defined variable-like entities have different `origin`s), but
+                        the whole idea is to keep it as simple and local as possible.
+                        */
+                    } else {
+                        actualType
+                    }
+                }
 
                 return declaration
             }
@@ -439,13 +470,24 @@ internal class ComputeTypesPass(val context: Context) : BodyLoweringPass {
 
             override fun visitTypeOperator(expression: IrTypeOperatorCall): IrExpression {
                 expression.transformChildrenVoid(this)
-                if (expression.operator != IrTypeOperator.IMPLICIT_CAST) return expression
-                val dstClass = expression.typeOperand.erasedUpperBound
-                if (dstClass.isInterface) return expression
-                if (!expression.typeOperand.isNullable() && expression.type.isNullable()) return expression
-                if (expression.argument.type.erasedUpperBound.symbol.isSubtypeOfClass(dstClass.symbol))
-                    return expression.argument
-                return expression
+
+                when (expression.operator) {
+                    IrTypeOperator.IMPLICIT_COERCION_TO_UNIT -> {
+                        return if (expression.argument.type.isUnit())
+                            expression.argument
+                        else expression
+                    }
+
+                    IrTypeOperator.IMPLICIT_CAST -> {
+                        val dstClass = expression.typeOperand.erasedUpperBound
+                        if (!expression.typeOperand.isNullable() && expression.type.isNullable()) return expression
+                        return if (expression.argument.type.erasedUpperBound.symbol.isSubtypeOfClass(dstClass.symbol))
+                            expression.argument
+                        else expression
+                    }
+
+                    else -> return expression
+                }
             }
         })
     }

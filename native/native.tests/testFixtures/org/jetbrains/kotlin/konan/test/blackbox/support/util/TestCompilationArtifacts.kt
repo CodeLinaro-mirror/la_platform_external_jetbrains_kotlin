@@ -15,7 +15,9 @@ private fun invokeKlibTool(
     klibFile: File,
     command: String,
     printSignatures: Boolean,
-    signatureVersion: KotlinIrSignatureVersion?
+    signatureVersion: KotlinIrSignatureVersion?,
+    onlyTopLevelSignatures: Boolean = false,
+    absolutePathPrefixes: List<String> = emptyList(),
 ): String {
     val entryPoint = Class.forName("org.jetbrains.kotlin.cli.klib.Main", true, kotlinNativeClassLoader)
         .declaredMethods
@@ -35,6 +37,14 @@ private fun invokeKlibTool(
         signatureVersion?.let {
             this += "-signature-version"
             this += signatureVersion.number.toString()
+        }
+        if (onlyTopLevelSignatures) {
+            this += "-only-top-level-signatures"
+            this += "true"
+        }
+        absolutePathPrefixes.forEach {
+            this += "-absolute-path-prefix"
+            this += it
         }
     }.toTypedArray()
 
@@ -85,12 +95,15 @@ fun TestCompilationArtifact.KLIB.dumpIr(
 
 fun File.dumpIr(
     kotlinNativeClassLoader: ClassLoader,
+    absolutePathPrefixes: List<String> = emptyList(),
 ): String = invokeKlibTool(
     kotlinNativeClassLoader,
     klibFile = this,
     command = "dump-ir",
     printSignatures = false,
-    signatureVersion = null
+    signatureVersion = null,
+    onlyTopLevelSignatures = false,
+    absolutePathPrefixes,
 )
 
 fun TestCompilationArtifact.KLIB.dumpMetadataSignatures(
@@ -107,10 +120,12 @@ fun TestCompilationArtifact.KLIB.dumpMetadataSignatures(
 fun TestCompilationArtifact.KLIB.dumpIrSignatures(
     kotlinNativeClassLoader: ClassLoader,
     signatureVersion: KotlinIrSignatureVersion,
+    onlyTopLevelSignatures: Boolean,
 ): String = invokeKlibTool(
     kotlinNativeClassLoader,
     klibFile,
     command = "dump-ir-signatures",
     printSignatures = false,
-    signatureVersion
+    signatureVersion,
+    onlyTopLevelSignatures = onlyTopLevelSignatures,
 )

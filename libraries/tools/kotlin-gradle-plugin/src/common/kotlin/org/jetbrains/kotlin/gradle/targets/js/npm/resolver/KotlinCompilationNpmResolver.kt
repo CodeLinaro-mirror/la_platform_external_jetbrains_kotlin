@@ -97,8 +97,6 @@ class KotlinCompilationNpmResolver(
             it.npmResolutionManager.value(npmResolutionManager)
                 .disallowChanges()
 
-            @Suppress("DEPRECATION_ERROR")
-            it.jsIrCompilation.set(true)
             it.npmProjectName.set(npmProject.name)
             it.npmProjectMain.set(npmProject.main)
             it.npmProjectTypes.set(npmProject.typesFileName)
@@ -200,7 +198,7 @@ class KotlinCompilationNpmResolver(
             attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.consumerRuntimeUsage(target))
             attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
             attributes.attribute(publicPackageJsonAttribute, PUBLIC_PACKAGE_JSON_ATTR_VALUE)
-        }
+        }.get()
     }
 
     inner class ConfigurationVisitor {
@@ -305,9 +303,6 @@ class KotlinCompilationNpmResolver(
             val includedBuild = project.gradle.includedBuild(identifier.identityPath.topRealPath().name!!)
             internalCompositeDependencies.add(
                 CompositeDependency(
-                    dependencyName = "", // deprecated, no longer used
-                    dependencyVersion = "",  // deprecated, no longer used
-                    includedBuildDir = includedBuild.projectDir,
                     includedBuild = includedBuild,
                 )
             )

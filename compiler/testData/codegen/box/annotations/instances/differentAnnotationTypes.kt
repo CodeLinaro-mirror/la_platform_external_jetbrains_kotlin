@@ -1,5 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
-
 annotation class A(val i: Int)
 annotation class B(val i: Int)
 

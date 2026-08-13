@@ -14,6 +14,8 @@ sourceSets {
     "test" { projectDefault() }
 }
 
+optInToK1Deprecation()
+
 val embedded by configurations
 embedded.isTransitive = false
 configurations.getByName("compileOnly").extendsFrom(embedded)
@@ -23,6 +25,7 @@ dependencies {
     api(kotlinStdlib())
     embedded(project(":kotlin-metadata"))
     embedded(project(":core:compiler.common"))
+    embedded(project(":core:names"))
     embedded(project(":core:deserialization"))
     embedded(project(":core:deserialization.common"))
     embedded(project(":compiler:serialization"))

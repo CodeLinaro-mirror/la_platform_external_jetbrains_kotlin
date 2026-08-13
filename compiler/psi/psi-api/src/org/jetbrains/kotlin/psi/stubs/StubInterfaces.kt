@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -25,6 +25,17 @@ interface KotlinStubElement<T : KtElement> : StubElement<T> {
      */
     @KtImplementationDetail
     fun copyInto(newParent: StubElement<*>?): KotlinStubElement<T>
+
+    /**
+     * Returns whether two stubs have equivalent types and properties.
+     * Doesn't compare children stubs or any other tree structure details.
+     *
+     * **Note**: This method shouldn't be used outside of compiler internals.
+     * Stubs from different files aren't supposed to be comparable, that's why `equals` / `hashCode` are not implemented,
+     * as they would lead to incorrect behavior.
+     */
+    @KtImplementationDetail
+    fun isEquivalentTo(other: KotlinStubElement<*>): Boolean
 }
 
 @SubclassOptInRequired(KtImplementationDetail::class)
@@ -66,6 +77,14 @@ interface KotlinClassOrObjectStub<T : KtClassOrObject> : KotlinClassifierStub<T>
     val isLocal: Boolean get() = classId == null
     val superNames: List<String>
     val isTopLevel: Boolean
+
+    /**
+     * Raw KDoc text, if available.
+     *
+     * Currently, KDoc is only available for decompiled declaration.
+     * For source ones one can read the KDoc content from the PSI directly.
+     */
+    val kdocText: String?
 }
 
 @SubclassOptInRequired(KtImplementationDetail::class)
@@ -208,6 +227,12 @@ interface KotlinBackingFieldStub : KotlinStubElement<KtBackingField> {
 }
 
 @SubclassOptInRequired(KtImplementationDetail::class)
+interface KotlinDestructuringDeclarationStub : KotlinStubElement<KtDestructuringDeclaration> {
+    val isVar: Boolean
+    val hasInitializer: Boolean
+}
+
+@SubclassOptInRequired(KtImplementationDetail::class)
 interface KotlinPropertyStub : KotlinCallableStubBase<KtProperty> {
     val isVar: Boolean
     val hasDelegate: Boolean
@@ -228,6 +253,14 @@ interface KotlinPropertyStub : KotlinCallableStubBase<KtProperty> {
 interface KotlinCallableStubBase<TDeclaration : KtCallableDeclaration> : KotlinStubWithFqName<TDeclaration> {
     val isTopLevel: Boolean
     val isExtension: Boolean
+
+    /**
+     * Raw KDoc text, if available.
+     *
+     * Currently, KDoc is only available for decompiled declaration.
+     * For source ones one can read the KDoc content from the PSI directly.
+     */
+    val kdocText: String?
 }
 
 @SubclassOptInRequired(KtImplementationDetail::class)
@@ -276,6 +309,14 @@ interface KotlinFunctionTypeStub : KotlinStubElement<KtFunctionType>
 @SubclassOptInRequired(KtImplementationDetail::class)
 interface KotlinScriptStub : KotlinStubWithFqName<KtScript> {
     override val fqName: FqName
+
+    /**
+     * Whether the script is a REPL snippet.
+     *
+     * @see KtScript.isReplSnippet
+     */
+    @KtImplementationDetail
+    val isReplSnippet: Boolean
 }
 
 @SubclassOptInRequired(KtImplementationDetail::class)

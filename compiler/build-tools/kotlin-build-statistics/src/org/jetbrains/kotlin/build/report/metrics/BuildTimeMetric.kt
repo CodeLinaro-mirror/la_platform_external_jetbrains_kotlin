@@ -108,14 +108,6 @@ object NON_INCREMENTAL_COMPILATION_IN_PROCESS :
     private fun readResolve(): Any = NON_INCREMENTAL_COMPILATION_IN_PROCESS
 }
 
-object NON_INCREMENTAL_COMPILATION_OUT_OF_PROCESS : GradleBuildTimeMetric(
-    RUN_COMPILATION,
-    "Non incremental out of process compilation",
-    name = "NON_INCREMENTAL_COMPILATION_OUT_OF_PROCESS"
-) {
-    private fun readResolve(): Any = NON_INCREMENTAL_COMPILATION_OUT_OF_PROCESS
-}
-
 object NON_INCREMENTAL_COMPILATION_DAEMON :
     GradleBuildTimeMetric(RUN_COMPILATION, "Non incremental compilation in daemon", name = "NON_INCREMENTAL_COMPILATION_DAEMON") {
     private fun readResolve(): Any = NON_INCREMENTAL_COMPILATION_DAEMON
@@ -279,6 +271,9 @@ object IR_SERIALIZATION : GradleBuildTimeMetric(COMPILER_PERFORMANCE, "Compiler 
 object KLIB_WRITING : GradleBuildTimeMetric(COMPILER_PERFORMANCE, "Compiler Klib writing", name = "KLIB_WRITING") {
     private fun readResolve(): Any = KLIB_WRITING
 }
+object IR_LINKING : GradleBuildTimeMetric(COMPILER_PERFORMANCE, "Compiler IR linking", name = "IR_LINKING") {
+    private fun readResolve(): Any = IR_LINKING
+}
 object CODE_GENERATION : GradleBuildTimeMetric(COMPILER_PERFORMANCE, "Compiler code generation", name = "CODE_GENERATION") {
     private fun readResolve(): Any = CODE_GENERATION
 }
@@ -405,4 +400,8 @@ object SAVE_CLASSPATH_ENTRY_SNAPSHOT : GradleBuildTimeMetric(
     name = "SAVE_CLASSPATH_ENTRY_SNAPSHOT"
 ) {
     private fun readResolve(): Any = SAVE_CLASSPATH_ENTRY_SNAPSHOT
+}
+
+object GRADLE_CONFIGURATION_TIME: GradleBuildTimeMetric(parent = null, "Gradle configuration time", name = "GRADLE_CONFIGURATION_TIME") {
+    private fun readResolve(): Any = GRADLE_CONFIGURATION_TIME
 }

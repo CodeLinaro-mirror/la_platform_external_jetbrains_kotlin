@@ -13,9 +13,12 @@ import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.function.Executable
 import org.opentest4j.AssertionFailedError
 import org.opentest4j.FileInfo
+import org.opentest4j.MultipleFailuresError
 import java.io.File
 import java.io.IOException
 import java.nio.charset.StandardCharsets
+import kotlin.time.Duration
+import kotlin.time.toJavaDuration
 import org.junit.jupiter.api.Assertions as JUnit5PlatformAssertions
 
 object JUnit5Assertions : AssertionsService() {
@@ -55,7 +58,7 @@ object JUnit5Assertions : AssertionsService() {
     }
 
     override fun assertEqualsToFile(expectedFile: File, actual: String, sanitizer: (String) -> String, message: () -> String) {
-        val (equalsToFile, expected) = doesEqualToFile(
+        val [equalsToFile, expected] = doesEqualToFile(
             expectedFile, actual, sanitizer,
             fileNotFoundMessageTeamCity = { "Expected data file did not exist `$expectedFile`" },
             fileNotFoundMessageLocal = { "Expected data file did not exist. Generating: $expectedFile" },
@@ -94,6 +97,13 @@ object JUnit5Assertions : AssertionsService() {
         JUnit5PlatformAssertions.assertAll(conditions.map { Executable { it() } })
     }
 
+    override fun unfoldException(e: Throwable): List<Throwable> {
+        return when (e) {
+            is MultipleFailuresError if e.failures.isNotEmpty() -> e.failures
+            else -> listOf(e)
+        }
+    }
+
     override fun assertNotNull(value: Any?, message: (() -> String)?) {
         JUnit5PlatformAssertions.assertNotNull(value, message)
     }
@@ -108,6 +118,10 @@ object JUnit5Assertions : AssertionsService() {
 
     override fun assumeFalse(value: Boolean, message: () -> String) {
         Assumptions.assumeFalse(value, message)
+    }
+
+    override fun assertTimeoutPreemptively(timeout: Duration, message: () -> String, action: () -> Unit) {
+        org.junit.jupiter.api.assertTimeoutPreemptively(timeout.toJavaDuration(), message, action)
     }
 
     private object AssertionFailedErrorFirst : Comparator<Throwable> {

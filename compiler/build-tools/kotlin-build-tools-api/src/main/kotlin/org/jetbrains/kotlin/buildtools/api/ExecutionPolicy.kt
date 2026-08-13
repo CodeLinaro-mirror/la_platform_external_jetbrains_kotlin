@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.buildtools.api
 
 import org.jetbrains.kotlin.buildtools.api.internal.BaseOption
-import org.jetbrains.kotlin.buildtools.api.jvm.operations.JvmCompilationOperation
 import java.nio.file.Path
 
 /**
@@ -78,7 +77,10 @@ public sealed interface ExecutionPolicy {
          * @see get
          * @see set
          */
-        public class Option<V> internal constructor(id: String) : BaseOption<V>(id)
+        public class Option<V> internal constructor(
+            id: String,
+            public val availableSinceVersion: KotlinReleaseVersion,
+        ) : BaseOption<V>(id)
 
         /**
          * Get the value for option specified by [key] if it was previously [set] or if it has a default value.
@@ -88,27 +90,18 @@ public sealed interface ExecutionPolicy {
          */
         public operator fun <V> get(key: Option<V>): V
 
-        /**
-         * Set the [value] for option specified by [key], overriding any previous value for that option.
-         */
-        @Deprecated(
-            "WithDaemon will become immutable in an upcoming release. " +
-                    "Use `KotlinToolchains.daemonExecutionPolicyBuilder` to create a mutable builder instead."
-        )
-        public operator fun <V> set(key: Option<V>, value: V)
-
         public companion object {
             /**
              * A list of JVM arguments to pass to the Kotlin daemon.
              */
             @JvmField
-            public val JVM_ARGUMENTS: Option<List<String>?> = Option("JVM_ARGUMENTS")
+            public val JVM_ARGUMENTS: Option<List<String>?> = Option("JVM_ARGUMENTS", KotlinReleaseVersion(2, 3, 0))
 
             /**
              * The time in milliseconds that the daemon process continues to live after all clients have disconnected.
              */
             @JvmField
-            public val SHUTDOWN_DELAY_MILLIS: Option<Long?> = Option("SHUTDOWN_DELAY_MILLIS")
+            public val SHUTDOWN_DELAY_MILLIS: Option<Long?> = Option("SHUTDOWN_DELAY_MILLIS", KotlinReleaseVersion(2, 3, 0))
 
             /**
              * Specify a custom path for daemon runtime files.
@@ -120,7 +113,48 @@ public sealed interface ExecutionPolicy {
              */
             @JvmField
             @DelicateBuildToolsApi
-            public val DAEMON_RUN_DIR_PATH: Option<Path> = Option("DAEMON_RUN_DIR_PATH")
+            public val DAEMON_RUN_DIR_PATH: Option<Path> = Option("DAEMON_RUN_DIR_PATH", KotlinReleaseVersion(2, 3, 20))
+
+            /**
+             * The path to a directory where the daemon logs files should be stored.
+             *
+             * Kotlin daemon logs are usually prefixed with `kotlin-daemon` and have the extension `.log`.
+             *
+             * @since 2.4.0
+             */
+            @JvmField
+            public val LOGS_PATH: Option<Path> = Option("LOGS_PATH", KotlinReleaseVersion(2, 4, 0))
+
+            /**
+             * The limit for the maximum size of log files, expressed in bytes.
+             *
+             * This option can be used to control the storage size allocated for log files.
+             * If the size of the log files exceeds this limit, appropriate actions such as
+             * truncation or log rotation may be applied.
+             *
+             * The value for this option must be a positive [Long] representing the maximum size of a log file.
+             *
+             * If unset (`null`), no size limit is applied. By default, a non-null limit is used.
+             *
+             * @since 2.4.0
+             */
+            @JvmField
+            public val LOGS_FILE_SIZE_LIMIT: Option<Long?> = Option("LOGS_FILE_SIZE_LIMIT", KotlinReleaseVersion(2, 4, 0))
+
+            /**
+             * Specifies the maximum number of log files that can be retained when [[LOGS_FILE_SIZE_LIMIT]] is set.
+             *
+             * This option is primarily used to limit the
+             * number of historical log files maintained on the filesystem to avoid excessive storage consumption.
+             *
+             * The value for this option must be a positive [Int] representing the maximum number of log files.
+             *
+             * If unset (`null`), no size limit is applied. By default, a non-null limit is used.
+             *
+             * @since 2.4.0
+             */
+            @JvmField
+            public val LOGS_FILE_COUNT_LIMIT: Option<Int?> = Option("LOGS_FILE_COUNT_LIMIT", KotlinReleaseVersion(2, 4, 0))
         }
     }
 }

@@ -127,6 +127,16 @@ class WasmIrToText(
                 WasmOp.PSEUDO_COMMENT_GROUP_END -> {
                     newLine()
                 }
+                WasmOp.PSEUDO_ANNOTATION_BRANCH_HINT -> {
+                    val likely = (wasmInstr.firstImmediateOrNull() as WasmImmediate.ConstU8).value != 0u.toUByte()
+                    newLine()
+                    stringBuilder.append("(@metadata.code.branch_hint ${if (likely) "likely" else "unlikely"})")
+                }
+                WasmOp.PSEUDO_ANNOTATION_TRACE_INST -> {
+                    val markId = (wasmInstr.firstImmediateOrNull() as WasmImmediate.ConstI32).value
+                    newLine()
+                    stringBuilder.append("(@metadata.code.trace_inst mark=$markId)")
+                }
                 else -> error("Unknown pseudo op $op")
             }
             return
@@ -165,6 +175,14 @@ class WasmIrToText(
             appendImmediate(it)
         }
         stringBuilder.append(wasmInstr.operator.tailMnemonic)
+    }
+
+    private fun appendContHandle(handle: WasmImmediate.ContHandle) {
+        sameLineList("on") {
+            handle.immediates.forEach {
+                appendImmediate(it)
+            }
+        }
     }
 
     private fun appendImmediate(x: WasmImmediate) {
@@ -206,6 +224,8 @@ class WasmIrToText(
             is WasmImmediate.ConstString -> error("Pseudo immediate")
 
             is WasmImmediate.Catch -> appendCatch(x)
+
+            is WasmImmediate.ContHandle -> appendContHandle(x)
         }
     }
 
@@ -268,8 +288,9 @@ class WasmIrToText(
                 }
             }
             is WasmImmediate.BlockType.Function -> {
-                val parameters = type.type.owner.parameterTypes
-                val results = type.type.owner.resultTypes
+                val funcType = resolver.resolve(type.type) as WasmFunctionType
+                val parameters = funcType.parameterTypes
+                val results = funcType.resultTypes
                 if (parameters.isNotEmpty()) {
                     sameLineList("param") { parameters.forEach { appendType(it) } }
                 }
@@ -287,6 +308,15 @@ class WasmIrToText(
         }
     }
 
+    private fun appendContType(type: WasmContType) {
+        newLineList("type") {
+            appendModuleFieldReference(type)
+            sameLineList("cont") {
+                appendModuleFieldReference(resolver.resolve(type.funType))
+            }
+        }
+    }
+
     private fun appendWasmTypeList(typeList: List<WasmTypeDeclaration>) {
         typeList.forEach { type ->
             when (type) {
@@ -296,6 +326,7 @@ class WasmIrToText(
                     appendArrayTypeDeclaration(type)
                 is WasmFunctionType ->
                     appendFunctionTypeDeclaration(type)
+                is WasmContType -> appendContType(type)
             }
         }
     }
@@ -403,6 +434,10 @@ class WasmIrToText(
     }
 
     private fun appendDefinedFunction(function: WasmFunction.Defined) {
+        function.functionAnnotations.forEach { annotation ->
+            newLine()
+            stringBuilder.append("(@${annotation.sectionName})")
+        }
         newLineList("func") {
             appendModuleFieldReference(function)
             val functionType = resolver.resolve(function.type) as WasmFunctionType
@@ -536,7 +571,11 @@ class WasmIrToText(
             sameLineList("param") {
                 tagType.parameterTypes.forEach { appendType(it) }
             }
-            check(tagType.resultTypes.isEmpty()) { "must be as per spec" }
+            if (tagType.resultTypes.isNotEmpty()) {
+                sameLineList("result") {
+                    tagType.resultTypes.forEach { appendType(it) }
+                }
+            }
         }
     }
 
@@ -636,6 +675,7 @@ class WasmIrToText(
             is WasmGlobal -> "g"
             is WasmTypeDeclaration -> "type"
             is WasmTag -> "tag"
+            is WasmCont -> "cont"
         }
 
         appendElement("\$${sanitizeWatIdentifier(field.name)}___${indexSpaceKind}_$id")

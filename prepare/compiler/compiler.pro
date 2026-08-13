@@ -72,9 +72,6 @@
 -dontwarn org.apache.batik.script.rhino.RhinoInterpreter
 -dontwarn org.apache.batik.script.rhino.RhinoInterpreterFactory
 
-# The appropriate jar is either loaded separately or added explicitly to the classpath then needed
--dontwarn org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar
-
 # Ignore generated Gradle DSL types
 # They will be added separately on generating Gradle DSL for compiler options
 -dontwarn org.jetbrains.kotlin.cli.common.arguments.DefaultValues$*
@@ -201,6 +198,9 @@
 -keep class gnu.trove.TIntIterator { *; }
 -keep class org.iq80.snappy.SlowMemory { *; }
 
+# this class is not used by kotlin-compiler.jar itself, but by swift-export-embeddable, which depends on kotlin-compiler-embeddable
+-keep class com.intellij.util.io.URLUtil { public protected *; }
+
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);
@@ -240,8 +240,6 @@
     ** getBasePath();
 }
 
-# for kotlin-android-extensions in maven
--keep class com.intellij.openapi.module.ModuleServiceManager { public *; }
 
 # for building kotlin-build-common-test
 -keep class org.jetbrains.kotlin.build.SerializationUtilsKt { *; }
@@ -401,6 +399,12 @@
 
 -keep class it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap {
     public java.lang.Object computeIfAbsent(java.lang.Object, it.unimi.dsi.fastutil.objects.Object2ObjectFunction);
+}
+
+# IntArraySet(int) is called from K/N backend (CustomBitSet), which is not part of the ProGuard
+# input, so ProGuard cannot see the call and would otherwise strip this constructor.
+-keep class it.unimi.dsi.fastutil.ints.IntArraySet {
+    public <init>(int);
 }
 
 -dontwarn kotlinx.coroutines.internal.intellij.IntellijCoroutines

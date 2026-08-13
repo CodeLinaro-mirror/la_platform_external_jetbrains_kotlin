@@ -1,5 +1,3 @@
-// IGNORE_BACKEND_K1: ANY
-// ^KT-83269
 // LANGUAGE: +ExplicitBackingFields
 
 

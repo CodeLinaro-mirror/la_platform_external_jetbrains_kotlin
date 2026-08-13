@@ -25,12 +25,12 @@ import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.checkBytecodeContains
 import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.jetbrains.kotlin.gradle.util.testResolveAllConfigurations
+import org.jetbrains.kotlin.testFederation.SmokeTest
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
-import java.io.File
 import java.nio.file.Path
 import java.util.zip.ZipFile
 import kotlin.io.path.*
@@ -41,6 +41,7 @@ import kotlin.test.assertTrue
 
 @DisplayName("Basic Kotlin/JVM plugin tests")
 @JvmGradlePluginTests
+@SmokeTest
 class KotlinGradleIT : KGPBaseTest() {
 
     @DisplayName("Kotlin/Java cross compilation")
@@ -492,7 +493,7 @@ class KotlinGradleIT : KGPBaseTest() {
     }
 
     @DisplayName("KGP dependencies in buildSrc module")
-    @GradleTestVersions
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_3)
     @GradleTest
     fun testKotlinPluginDependenciesInBuildSrc(gradleVersion: GradleVersion) {
         project("kotlinPluginDepsInBuildSrc", gradleVersion) {
@@ -775,7 +776,7 @@ class KotlinGradleIT : KGPBaseTest() {
 
             buildGradle.modify {
                 val reorderedClasspath = run {
-                    val (kotlinCompilerEmbeddable, others) = classpath.partition {
+                    val [kotlinCompilerEmbeddable, others] = classpath.partition {
                         "kotlin-compiler-embeddable" in it ||
                                 // build-common should be loaded prior compiler-embedable, otherwise we could depend on old version of
                                 // serializer classes and fail with NSME
@@ -850,6 +851,7 @@ class KotlinGradleIT : KGPBaseTest() {
 
     @DisplayName("KT-73090: BTA does not break Gradle convention plugins compilation")
     @GradleTest
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_3)
     fun testConventionPlugins(gradleVersion: GradleVersion) {
         project("convention-plugin", gradleVersion, buildOptions = defaultBuildOptions.copy(runViaBuildToolsApi = true)) {
             build("help") {

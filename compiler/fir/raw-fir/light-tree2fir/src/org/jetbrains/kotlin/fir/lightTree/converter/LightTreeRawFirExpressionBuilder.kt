@@ -194,6 +194,7 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
 
+
         val expressionSource = lambdaExpression.toFirSourceElement()
         val target: FirFunctionTarget
         val anonymousFunction = buildAnonymousFunction {
@@ -306,7 +307,7 @@ class LightTreeRawFirExpressionBuilder(
             val node = input.pop()
             when (node?.tokenType) {
                 BINARY_EXPRESSION -> {
-                    val (leftNode, operationReference, rightNode) = extractBinaryExpression(node)
+                    val [leftNode, operationReference, rightNode] = extractBinaryExpression(node)
 
                     if (operationReference.getOperationSymbol(tree) != PLUS) {
                         return null
@@ -369,7 +370,7 @@ class LightTreeRawFirExpressionBuilder(
     }
 
     private fun convertBinaryExpressionFallback(binaryExpression: LighterASTNode): FirStatement {
-        val (leftArgNode, operationReference, rightArgNode) = extractBinaryExpression(binaryExpression)
+        val [leftArgNode, operationReference, rightArgNode] = extractBinaryExpression(binaryExpression)
         val operationReferenceSource = operationReference.toFirSourceElement()
         val operationTokenName = operationReference.asText
         val operationToken = operationReference.getOperationSymbol(tree)
@@ -615,18 +616,33 @@ class LightTreeRawFirExpressionBuilder(
      */
     private fun convertCallableReferenceExpression(callableReferenceExpression: LighterASTNode): FirCallableReferenceAccess {
         var isReceiver = true
-        var hasQuestionMarkAtLHS = false
+        var hasQuestionMarkAtLhs = false
         var firReceiverExpression: FirExpression? = null
         lateinit var namedReference: FirNamedReference
-        callableReferenceExpression.forEachChildren {
-            when (it.tokenType) {
+        var errorArgumentListNode: LighterASTNode? = null
+
+        for (child in callableReferenceExpression.getChildrenAsArray()) {
+            if (child == null) break
+            when (child.tokenType) {
                 COLONCOLON -> isReceiver = false
-                QUEST -> hasQuestionMarkAtLHS = true
-                else -> if (it.isExpression()) {
+                QUEST -> hasQuestionMarkAtLhs = true
+
+                // In invalid code like `::foo(args)`, the argument list is parsed
+                // inside an ERROR_ELEMENT child of the callable reference expression
+                TokenType.ERROR_ELEMENT -> {
+                    for (errorChild in child.getChildrenAsArray()) {
+                        if (errorChild?.tokenType == VALUE_ARGUMENT_LIST) {
+                            errorArgumentListNode = errorChild
+                            break
+                        }
+                    }
+                }
+
+                else -> if (child.isExpression()) {
                     if (isReceiver) {
-                        firReceiverExpression = getAsFirExpression(it, "Incorrect receiver expression")
+                        firReceiverExpression = getAsFirExpression(child, "Incorrect receiver expression")
                     } else {
-                        namedReference = createSimpleNamedReference(it.toFirSourceElement(), it)
+                        namedReference = createSimpleNamedReference(child.toFirSourceElement(), child)
                     }
                 }
             }
@@ -636,7 +652,13 @@ class LightTreeRawFirExpressionBuilder(
             source = callableReferenceExpression.toFirSourceElement()
             calleeReference = namedReference
             explicitReceiver = firReceiverExpression
-            this.hasQuestionMarkAtLHS = hasQuestionMarkAtLHS
+            this.hasQuestionMarkAtLhs = hasQuestionMarkAtLhs
+            errorArgumentListNode?.let {
+                errorArgumentList = buildArgumentList {
+                    source = it.toFirSourceElement()
+                    arguments += convertValueArguments(it)
+                }
+            }
         }
     }
 
@@ -774,7 +796,7 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
 
-        val (calleeReference, receiverForInvoke) = when {
+        (val calleeReference = reference, val receiverForInvoke) = when {
             name != null -> CalleeAndReceiver(
                 buildSimpleNamedReference {
                     this.source = callSuffix.getFirstChildExpressionUnwrapped()?.toFirSourceElement() ?: source
@@ -981,12 +1003,12 @@ class LightTreeRawFirExpressionBuilder(
             when (it.tokenType) {
                 WHEN_CONDITION_EXPRESSION -> conditions += convertWhenConditionExpression(it, subjectVariable)
                 WHEN_CONDITION_IN_RANGE -> {
-                    val (condition, shouldBind) = convertWhenConditionInRange(it, subjectVariable)
+                    (val condition = expression, val shouldBind = shouldBindSubject) = convertWhenConditionInRange(it, subjectVariable)
                     conditions += condition
                     shouldBindSubject = shouldBindSubject || shouldBind
                 }
                 WHEN_CONDITION_IS_PATTERN -> {
-                    val (condition, shouldBind) = convertWhenConditionIsPattern(it, subjectVariable)
+                    (val condition = expression, val shouldBind = shouldBindSubject) = convertWhenConditionIsPattern(it, subjectVariable)
                     conditions += condition
                     shouldBindSubject = shouldBindSubject || shouldBind
                 }
@@ -1410,7 +1432,7 @@ class LightTreeRawFirExpressionBuilder(
             source = tryExpression.toFirSourceElement()
             this.tryBlock = tryBlock
             this.finallyBlock = finallyBlock
-            for ((parameter, block, clauseSource) in catchClauses) {
+            for ([parameter, block, clauseSource] in catchClauses) {
                 if (parameter == null) continue
                 catches += buildCatch {
                     this.parameter = buildProperty {
@@ -1712,7 +1734,8 @@ class LightTreeRawFirExpressionBuilder(
         scriptSource: KtSourceElement,
         fileName: String,
         snippetSetup: FirReplSnippetBuilder.() -> Unit,
-        statementsSetup: MutableList<FirStatement>.() -> Unit,
+        functionBodySetup: FirBlockBuilder.() -> Unit,
+        statementsSetup: MutableList<FirElement>.() -> Unit,
     ): FirReplSnippet {
         shouldNotBeCalled()
     }

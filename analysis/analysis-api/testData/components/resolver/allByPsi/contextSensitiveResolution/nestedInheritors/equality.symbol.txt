@@ -26,16 +26,30 @@ KtSuperTypeList(138,146): 'Settings'
   null
 
 KtSuperTypeEntry(138,146): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtTypeReference(138,146): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtUserType(138,146): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(138,146): 'Settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtObjectDeclaration(151,190): 'data object SpecificSettings : Settings'
   null
@@ -47,16 +61,30 @@ KtSuperTypeList(182,190): 'Settings'
   null
 
 KtSuperTypeEntry(182,190): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtTypeReference(182,190): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtUserType(182,190): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(182,190): 'Settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNamedFunction(194,223): 'fun work(message: String) { }'
   null
@@ -68,13 +96,24 @@ KtParameter(203,218): 'message: String'
   null
 
 KtTypeReference(212,218): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(212,218): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(212,218): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtBlockExpression(220,223): '{ }'
   null
@@ -89,31 +128,61 @@ KtParameter(235,253): 'settings: Settings'
   null
 
 KtTypeReference(245,253): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtUserType(245,253): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(245,253): 'Settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtParameter(255,292): 'basicSettings: Settings.BasicSettings'
   null
 
 KtTypeReference(270,292): 'Settings.BasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings
+    ]
 
 KtUserType(270,292): 'Settings.BasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings
+    ]
 
 KtUserType(270,278): 'Settings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(270,278): 'Settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(279,292): 'BasicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings
+    ]
 
 KtBlockExpression(294,476): '{'
   null
@@ -125,16 +194,34 @@ KtContainerNode(304,329): 'settings == BasicSettings'
   null
 
 KtBinaryExpression(304,329): 'settings == BasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(304,312): 'settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      settings: Settings
+    ]
 
 KtOperationReferenceExpression(313,315): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(316,329): 'BasicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings
+    ]
 
 KtContainerNodeForControlStructureBody(331,344): 'work("Basic")'
   null
@@ -146,7 +233,12 @@ KtCallExpression(331,344): 'work("Basic")'
     ]
 
 KtNameReferenceExpression(331,335): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(335,344): '("Basic")'
   null
@@ -167,16 +259,34 @@ KtContainerNode(354,387): 'basicSettings == SpecificSettings'
   null
 
 KtBinaryExpression(354,387): 'basicSettings == SpecificSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings.equals(<dispatch receiver>: Settings.BasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(354,367): 'basicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      basicSettings: Settings.BasicSettings
+    ]
 
 KtOperationReferenceExpression(368,370): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings.equals(<dispatch receiver>: Settings.BasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(371,387): 'SpecificSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.SpecificSettings
+    ]
 
 KtContainerNodeForControlStructureBody(389,405): 'work("Specific")'
   null
@@ -188,7 +298,12 @@ KtCallExpression(389,405): 'work("Specific")'
     ]
 
 KtNameReferenceExpression(389,393): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(393,405): '("Specific")'
   null
@@ -209,22 +324,45 @@ KtContainerNode(414,456): 'basicSettings == Settings.SpecificSettings'
   null
 
 KtBinaryExpression(414,456): 'basicSettings == Settings.SpecificSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings.equals(<dispatch receiver>: Settings.BasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(414,427): 'basicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      basicSettings: Settings.BasicSettings
+    ]
 
 KtOperationReferenceExpression(428,430): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.BasicSettings.equals(<dispatch receiver>: Settings.BasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtDotQualifiedExpression(431,456): 'Settings.SpecificSettings'
   null
 
 KtNameReferenceExpression(431,439): 'Settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings
+    ]
 
 KtNameReferenceExpression(440,456): 'SpecificSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Settings.SpecificSettings
+    ]
 
 KtContainerNodeForControlStructureBody(458,474): 'work("Specific")'
   null
@@ -236,7 +374,12 @@ KtCallExpression(458,474): 'work("Specific")'
     ]
 
 KtNameReferenceExpression(458,462): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(462,474): '("Specific")'
   null
@@ -275,16 +418,30 @@ KtSuperTypeCallEntry(540,554): 'OpenSettings()'
     ]
 
 KtConstructorCalleeExpression(540,552): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): OpenSettings
+    ]
 
 KtTypeReference(540,552): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtUserType(540,552): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(540,552): 'OpenSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtValueArgumentList(552,554): '()'
   null
@@ -305,16 +462,30 @@ KtSuperTypeCallEntry(594,608): 'OpenSettings()'
     ]
 
 KtConstructorCalleeExpression(594,606): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      <constructor>(): OpenSettings
+    ]
 
 KtTypeReference(594,606): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtUserType(594,606): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(594,606): 'OpenSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtValueArgumentList(606,608): '()'
   null
@@ -329,31 +500,61 @@ KtParameter(626,648): 'settings: OpenSettings'
   null
 
 KtTypeReference(636,648): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtUserType(636,648): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(636,648): 'OpenSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtParameter(650,695): 'basicSettings: OpenSettings.OpenBasicSettings'
   null
 
 KtTypeReference(665,695): 'OpenSettings.OpenBasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings
+    ]
 
 KtUserType(665,695): 'OpenSettings.OpenBasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings
+    ]
 
 KtUserType(665,677): 'OpenSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(665,677): 'OpenSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(678,695): 'OpenBasicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings
+    ]
 
 KtBlockExpression(697,895): '{'
   null
@@ -365,16 +566,34 @@ KtContainerNode(707,736): 'settings == OpenBasicSettings'
   null
 
 KtBinaryExpression(707,736): 'settings == OpenBasicSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(707,715): 'settings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      settings: OpenSettings
+    ]
 
 KtOperationReferenceExpression(716,718): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Any.equals(<dispatch receiver>: kotlin.Any, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(719,736): 'OpenBasicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: Used
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings
+    ]
 
 KtContainerNodeForControlStructureBody(738,751): 'work("Basic")'
   null
@@ -386,7 +605,12 @@ KtCallExpression(738,751): 'work("Basic")'
     ]
 
 KtNameReferenceExpression(738,742): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(742,751): '("Basic")'
   null
@@ -407,16 +631,33 @@ KtContainerNode(761,798): 'basicSettings == OpenSpecificSettings'
   null
 
 KtBinaryExpression(761,798): 'basicSettings == OpenSpecificSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings.equals(<dispatch receiver>: OpenSettings.OpenBasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(761,774): 'basicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      basicSettings: OpenSettings.OpenBasicSettings
+    ]
 
 KtOperationReferenceExpression(775,777): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings.equals(<dispatch receiver>: OpenSettings.OpenBasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(778,798): 'OpenSpecificSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionError:
+    candidateSymbols = []
+    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'OpenSpecificSettings'.>
 
 KtContainerNodeForControlStructureBody(800,816): 'work("Specific")'
   null
@@ -428,7 +669,12 @@ KtCallExpression(800,816): 'work("Specific")'
     ]
 
 KtNameReferenceExpression(800,804): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(804,816): '("Specific")'
   null
@@ -449,22 +695,45 @@ KtContainerNode(825,875): 'basicSettings == OpenSettings.OpenSpecificSettings'
   null
 
 KtBinaryExpression(825,875): 'basicSettings == OpenSettings.OpenSpecificSettings'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings.equals(<dispatch receiver>: OpenSettings.OpenBasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(825,838): 'basicSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      basicSettings: OpenSettings.OpenBasicSettings
+    ]
 
 KtOperationReferenceExpression(839,841): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenBasicSettings.equals(<dispatch receiver>: OpenSettings.OpenBasicSettings, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtDotQualifiedExpression(842,875): 'OpenSettings.OpenSpecificSettings'
   null
 
 KtNameReferenceExpression(842,854): 'OpenSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings
+    ]
 
 KtNameReferenceExpression(855,875): 'OpenSpecificSettings'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /OpenSettings.OpenSpecificSettings
+    ]
 
 KtContainerNodeForControlStructureBody(877,893): 'work("Specific")'
   null
@@ -476,7 +745,12 @@ KtCallExpression(877,893): 'work("Specific")'
     ]
 
 KtNameReferenceExpression(877,881): 'work'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /work(message: kotlin.String): kotlin.Unit
+    ]
 
 KtValueArgumentList(881,893): '("Specific")'
   null

@@ -17,24 +17,21 @@ import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.dumpTreesFromLineNumber
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.test.Constructor
-import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.CHECK_BYTECODE_LISTING
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_EXTERNAL_CLASS
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_IR
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.EXTERNAL_FILE
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_IDENTICAL
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.SimpleDirective
-import org.jetbrains.kotlin.test.model.*
+import org.jetbrains.kotlin.test.model.BackendKind
+import org.jetbrains.kotlin.test.model.TestFile
+import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.independentSourceDirectoryPath
+import org.jetbrains.kotlin.test.services.independentSourceDirectoryPathsTransitive
 import org.jetbrains.kotlin.test.services.moduleStructure
-import org.jetbrains.kotlin.test.services.transitiveDependsOnDependencies
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
 import org.jetbrains.kotlin.test.utils.withSuffixAndExtension
@@ -53,21 +50,6 @@ class IrTextDumpHandler(
         const val DUMP_EXTENSION = "ir.txt"
         const val DUMP_EXTENSION2 = "ir2.txt"
 
-        fun computeDumpExtension(
-            testServices: TestServices,
-            defaultExtension: String,
-            ignoreFirIdentical: Boolean = false,
-        ): String {
-            return if (
-                testServices.defaultsProvider.frontendKind == FrontendKinds.ClassicFrontend ||
-                (!ignoreFirIdentical && FIR_IDENTICAL in testServices.moduleStructure.allDirectives)
-            ) {
-                defaultExtension
-            } else {
-                "fir.$defaultExtension"
-            }
-        }
-
         fun List<IrFile>.groupWithTestFiles(testServices: TestServices, ordered: Boolean = false): List<Pair<Pair<TestModule, TestFile>?, IrFile>> {
             return mapNotNull { irFile ->
                 val name = File(irFile.fileEntry.name).name
@@ -77,9 +59,9 @@ class IrTextDumpHandler(
                 }
                 moduleAndFile to irFile
             }.applyIf(ordered) {
-                sortedBy { (moduleAndFile, irFile) ->
+                sortedBy { [moduleAndFile, irFile] ->
                     val pathFromIrFile = irFile.fileEntry.name
-                    val (module, _) = moduleAndFile ?: return@sortedBy pathFromIrFile
+                    val [module, _] = moduleAndFile ?: return@sortedBy pathFromIrFile
                     pathFromIrFile.removePrefix(module.independentSourceDirectoryPath(testServices))
                 }
             }
@@ -106,16 +88,13 @@ class IrTextDumpHandler(
             irFileEntry: IrFileEntry,
             fullPath: String,
         ): String {
-            val (correspondingModule, _) = testFileToIrFile.firstOrNull { it.second.fileEntry == irFileEntry }?.first ?: return fullPath
+            val [correspondingModule, _] = testFileToIrFile.firstOrNull { it.second.fileEntry == irFileEntry }?.first ?: return fullPath
             return fullPath.removePrefix(correspondingModule.independentSourceDirectoryPath(testServices))
         }
     }
 
     override val directiveContainers: List<DirectivesContainer>
-        get() = listOf(CodegenTestDirectives, FirDiagnosticsDirectives)
-
-    override val additionalAfterAnalysisCheckers: List<Constructor<AfterAnalysisChecker>>
-        get() = listOf(::FirIrDumpIdenticalChecker)
+        get() = listOf(CodegenTestDirectives)
 
     private val pathRelativizer = IrFileEntryPathRelativizer(testServices)
 
@@ -131,13 +110,19 @@ class IrTextDumpHandler(
 
         pathRelativizer.addModule(module)
 
+        val ignoreIrExpectFlag = CodegenTestDirectives.IGNORE_IR_EXPECT_FLAG in module.directives
+
         val dumpOptions = DumpIrTreeOptions(
             normalizeNames = true,
             printFacadeClassInFqNames = false,
             declarationFlagsFilter = FlagsFilter { declaration, isReference, flags ->
                 // By coincidence, there is a huge number of cases in IR text test data files
                 // when flags are still rendered for references to fields and classes.
-                flags.takeIf { !isReference || declaration is IrField || declaration is IrClass }.orEmpty()
+                var filteredFlags = flags.takeIf { !isReference || declaration is IrField || declaration is IrClass }.orEmpty()
+                if (ignoreIrExpectFlag && filteredFlags.isNotEmpty()) {
+                    filteredFlags = filteredFlags.filter { it != "expect" }
+                }
+                filteredFlags
             },
             isHiddenDeclaration = { isHiddenDeclaration(it, info.irBuiltIns) },
             stableOrder = true,
@@ -148,7 +133,7 @@ class IrTextDumpHandler(
         )
         val builder = baseDumper.builderForModule(module.name)
 
-        for ((moduleAndFile, irFile) in info.irModuleFragment.files.groupWithTestFiles(testServices, ordered = true)) {
+        for ([moduleAndFile, irFile] in info.irModuleFragment.files.groupWithTestFiles(testServices, ordered = true)) {
             if (moduleAndFile?.second?.directives?.contains(EXTERNAL_FILE) == true) continue
             val actualDump = irFile.dumpTreesFromLineNumber(lineNumber = 0, dumpOptions)
             builder.append(actualDump)
@@ -167,7 +152,7 @@ class IrTextDumpHandler(
                 {
                     val classDump = info.findExternalClass(externalClassId).dump(dumpOptions)
                     val suffix = ".__${externalClassId.replace("/", ".")}"
-                    val expectedFile = baseFile.withSuffixAndExtension(suffix, getDumpExtension(ignoreFirIdentical = true))
+                    val expectedFile = baseFile.withSuffixAndExtension(suffix, getDumpExtension())
                     assertions.assertEqualsToFile(expectedFile, classDump)
                 }
             }
@@ -176,15 +161,6 @@ class IrTextDumpHandler(
 
     private fun IrBackendInput.findExternalClass(externalClassId: String): IrClass {
         val classId = ClassId.fromString(externalClassId)
-
-        if (testServices.defaultsProvider.frontendKind == FrontendKinds.ClassicFrontend &&
-            testServices.defaultsProvider.targetBackend == TargetBackend.JVM_IR
-        ) {
-            // irBuiltIns.symbolFinder sometimes returns unbound symbols in JVM K1 tests.
-            // Use IrPluginContext for this instead, it works okay.
-            return (this as IrBackendInput.JvmIrBackendInput).backendInput.pluginContext?.finderForBuiltins()?.findClass(classId)?.owner
-                ?: assertions.fail { "Can't find a class in external dependencies: $externalClassId" }
-        }
 
         @OptIn(InternalSymbolFinderAPI::class)
         return irBuiltIns.symbolFinder.findClass(classId)?.owner
@@ -196,7 +172,7 @@ class IrTextDumpHandler(
         val defaultExpectedFile = moduleStructure.originalTestDataFiles.first()
             .withExtension(getDumpExtension())
         checkOneExpectedFile(defaultExpectedFile, baseDumper.generateResultingDump())
-        buildersForSeparateFileDumps.entries.forEach { (expectedFile, dump) -> checkOneExpectedFile(expectedFile, dump.toString()) }
+        buildersForSeparateFileDumps.entries.forEach { [expectedFile, dump] -> checkOneExpectedFile(expectedFile, dump.toString()) }
     }
 
     private fun checkOneExpectedFile(expectedFile: File, actualDump: String) {
@@ -207,8 +183,8 @@ class IrTextDumpHandler(
         }
     }
 
-    private fun getDumpExtension(ignoreFirIdentical: Boolean = false): String {
-        return computeDumpExtension(testServices, customExtension ?: (if (byteCodeListingEnabled) DUMP_EXTENSION2 else DUMP_EXTENSION), ignoreFirIdentical || customExtension != null)
+    private fun getDumpExtension(): String {
+        return customExtension ?: (if (byteCodeListingEnabled) DUMP_EXTENSION2 else DUMP_EXTENSION)
     }
 }
 
@@ -217,9 +193,7 @@ private class IrFileEntryPathRelativizer(private val testServices: TestServices)
     private val relativizedPathsCache = mutableMapOf<String, String>()
 
     fun addModule(module: TestModule) {
-        module.transitiveDependsOnDependencies(includeSelf = true).forEach {
-            absolutePathPrefixes += it.independentSourceDirectoryPath(testServices)
-        }
+        absolutePathPrefixes.addAll(module.independentSourceDirectoryPathsTransitive(testServices))
     }
 
     fun getRelativePath(fullPath: String): String = relativizedPathsCache.getOrPut(fullPath) {

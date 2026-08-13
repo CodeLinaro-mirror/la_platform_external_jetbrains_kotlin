@@ -15,13 +15,12 @@ import org.jetbrains.kotlin.backend.jvm.lower.*
 import org.jetbrains.kotlin.config.phaser.AnyNamedPhase
 
 private val jvmModulePhases1 = createModulePhases(
+    ::JvmUpgradeCallableReferences,
     ::ExternalPackageParentPatcherLowering,
     ::FragmentSharedVariablesLowering,
-    ::JvmK1IrValidationBeforeLoweringPhase,
     ::ProcessOptionalAnnotations,
     ::JvmExpectDeclarationRemover,
     ::ConstEvaluationLowering,
-    ::SerializeIrPhase,
     ::FileClassLowering,
     ::JvmStaticInObjectLowering,
     ::RepeatedAnnotationLowering,
@@ -29,7 +28,8 @@ private val jvmModulePhases1 = createModulePhases(
 
 private val jvmFilePhases = createFilePhases(
     ::TypeAliasAnnotationMethodsLowering,
-    ::ProvisionalFunctionExpressionLowering,
+
+    ::PatchLambdaOffsetsLowering,
 
     ::JvmVersionOverloadsLowering,
     ::JvmOverloadsAnnotationLowering,
@@ -43,9 +43,8 @@ private val jvmFilePhases = createFilePhases(
     ::JvmLateinitLowering,
     ::JvmInventNamesForLocalClasses,
 
-    ::JvmInlineCallableReferenceToLambdaPhase,
+    ::PrepareCallableReferencesForInlining,
     ::DirectInvokeLowering,
-    ::JvmUpgradeCallableReferences,
     ::FunctionReferenceLowering,
 
     ::SuspendLambdaLowering,
@@ -67,7 +66,7 @@ private val jvmFilePhases = createFilePhases(
     ::ForLoopsLowering,
     ::CollectionStubMethodLowering,
     ::JvmSingleAbstractMethodLowering,
-    ::JvmMultiFieldValueClassLowering,
+    ::JvmInlineMultiFieldValueClassLowering,
     ::JvmInlineClassLowering,
     ::JvmTailrecLowering,
 

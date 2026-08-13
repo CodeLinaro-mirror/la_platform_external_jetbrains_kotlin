@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,34 +8,28 @@ package org.jetbrains.kotlin.cli.pipeline.web.wasm
 import org.jetbrains.kotlin.backend.wasm.WasmIrModuleConfiguration
 import org.jetbrains.kotlin.backend.wasm.compileWasmIrToBinary
 import org.jetbrains.kotlin.backend.wasm.ic.IrFactoryImplForWasmIC
-import org.jetbrains.kotlin.backend.wasm.ic.WasmModuleArtifact
+import org.jetbrains.kotlin.backend.wasm.linkIr
 import org.jetbrains.kotlin.backend.wasm.linkWasmIr
 import org.jetbrains.kotlin.backend.wasm.writeCompilationResult
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.js.IcCachesArtifacts
-import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.pipeline.web.WasmBackendPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.web.WebBackendPipelinePhase
+import org.jetbrains.kotlin.cli.pipeline.web.WebIrLoadingPipelinePhase
+import org.jetbrains.kotlin.cli.pipeline.web.WebLoadedIrPipelineArtifact
+import org.jetbrains.kotlin.cli.pipeline.web.wasm.WasmCompilationMode.Companion.wasmCompilationMode
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.messageCollector
-import org.jetbrains.kotlin.config.moduleName
 import org.jetbrains.kotlin.config.perfManager
-import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
-import org.jetbrains.kotlin.ir.backend.js.WholeWorldStageController
 import org.jetbrains.kotlin.js.config.outputDir
-import org.jetbrains.kotlin.js.config.outputName
-import org.jetbrains.kotlin.js.config.preserveIcOrder
 import org.jetbrains.kotlin.library.isWasmStdlib
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.PhaseType
 import org.jetbrains.kotlin.util.tryMeasurePhaseTime
-import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
-import org.jetbrains.kotlin.wasm.config.wasmGenerateClosedWorldMultimodule
-import org.jetbrains.kotlin.wasm.config.wasmIncludedModuleOnly
 
-object WasmBackendPipelinePhase : WebBackendPipelinePhase<WasmBackendPipelineArtifact, List<WasmIrModuleConfiguration>>("WasmBackendPipelinePhase") {
-    override val configFiles: EnvironmentConfigFiles
-        get() = EnvironmentConfigFiles.WASM_CONFIG_FILES
+object WasmBackendPipelinePhase : WebBackendPipelinePhase<WasmBackendPipelineArtifact, List<WasmIrModuleConfiguration>>(
+    name = "WasmBackendPipelinePhase",
+) {
+    override val klibLoadingPhase: WebIrLoadingPipelinePhase
+        get() = WasmIrLoadingPipelinePhase
 
     override fun compileIntermediate(
         intermediateResult: List<WasmIrModuleConfiguration>,
@@ -49,6 +43,7 @@ object WasmBackendPipelinePhase : WebBackendPipelinePhase<WasmBackendPipelineArt
                 result = compileResult,
                 dir = outputDir,
                 fileNameBase = result.baseFileName,
+                configuration = configuration,
             )
             compileResult
         }
@@ -58,53 +53,33 @@ object WasmBackendPipelinePhase : WebBackendPipelinePhase<WasmBackendPipelineArt
     override fun compileIncrementally(
         icCaches: IcCachesArtifacts,
         configuration: CompilerConfiguration,
-    ): List<WasmIrModuleConfiguration>? {
-        if (configuration.getBoolean(WasmConfigurationKeys.WASM_INCLUDED_MODULE_ONLY)) {
-            configuration.messageCollector.report(
-                CompilerMessageSeverity.ERROR,
-                "Incremental compilation not supported for single module mode"
-            )
-            return null
+    ): List<WasmIrModuleConfiguration> {
+        val fragmentCompiler = when (configuration.wasmCompilationMode()) {
+            WasmCompilationMode.MULTI_MODULE -> ::compileIncrementallyMultimodule
+            WasmCompilationMode.SINGLE_MODULE -> ::compileIncrementallySingleModule
+            WasmCompilationMode.REGULAR -> ::compileIncrementallyWholeWorld
         }
-
-        val wasmArtifacts = icCaches.artifacts
-            .filterIsInstance<WasmModuleArtifact>()
-            .flatMap { it.fileArtifacts }
-            .mapNotNull { it.loadIrFragments()?.mainFragment }
-            .let { fragments -> if (configuration.preserveIcOrder) fragments.sortedBy { it.fragmentTag } else fragments }
-
-        val configuration = WasmIrModuleConfiguration(
-            wasmCompiledFileFragments = wasmArtifacts,
-            moduleName = configuration.moduleName!!,
-            configuration = configuration,
-            typeScriptFragment = null,
-            baseFileName = configuration.outputName!!,
-            multimoduleOptions = null,
-        )
-        return listOf(configuration)
+        return fragmentCompiler(icCaches.artifacts, configuration)
     }
 
-    override fun compileNonIncrementally(
-        configuration: CompilerConfiguration,
-        module: ModulesStructure,
-        mainCallArguments: List<String>?,
-    ): List<WasmIrModuleConfiguration> {
-        val irFactory = IrFactoryImplForWasmIC(WholeWorldStageController())
-        val compiler = when {
-            configuration.wasmIncludedModuleOnly ->
-                SingleModuleCompiler(configuration, irFactory, isWasmStdlib = module.klibs.included?.isWasmStdlib == true)
-            configuration.wasmGenerateClosedWorldMultimodule ->
+    override fun compileNonIncrementally(loadedIrArtifact: WebLoadedIrPipelineArtifact): List<WasmIrModuleConfiguration> {
+        (val loadedIr = moduleInfo, val module = moduleStructure, val configuration) = loadedIrArtifact
+        val irFactory = loadedIr.bultins.irFactory as IrFactoryImplForWasmIC
+        val compiler = when (configuration.wasmCompilationMode()) {
+            WasmCompilationMode.MULTI_MODULE ->
                 WholeWorldMultiModuleCompiler(configuration, irFactory)
-            else ->
+            WasmCompilationMode.SINGLE_MODULE ->
+                SingleModuleCompiler(configuration, irFactory, isWasmStdlib = module.klibs.included?.isWasmStdlib == true)
+            WasmCompilationMode.REGULAR ->
                 WholeWorldCompiler(configuration, irFactory)
         }
 
-        val loadedIr = configuration.perfManager.tryMeasurePhaseTime(PhaseType.TranslationToIr) {
-            compiler.loadIr(module)
+        val [allModules, context] = configuration.perfManager.tryMeasurePhaseTime(PhaseType.IrLinking) {
+            linkIr(loadedIr, configuration, module.mainModule)
         }
 
         val loweredIr = configuration.perfManager.tryMeasurePhaseTime(PhaseType.IrLowering) {
-            compiler.lowerIr(loadedIr, module.mainModule, exportedDeclarations = setOf(FqName("main")))
+            compiler.lowerIr(loadedIr, allModules, context)
         }
 
         return configuration.perfManager.tryMeasurePhaseTime(PhaseType.Backend) {

@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.backend.common.ir.isJvmBuiltin
 import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
+import org.jetbrains.kotlin.backend.common.serialization.KotlinIrLinker
 import org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen
 import org.jetbrains.kotlin.backend.jvm.codegen.EnumEntriesIntrinsicMappingsCacheImpl
 import org.jetbrains.kotlin.backend.jvm.codegen.JvmIrIntrinsicExtension
@@ -168,9 +169,8 @@ class JvmIrCodegenFactory(
     ): BackendInput {
         val enableIdSignatures =
             configuration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES) ||
-                    configuration[JVMConfigurationKeys.SERIALIZE_IR, JvmSerializeIrMode.NONE] != JvmSerializeIrMode.NONE ||
                     configuration[JVMConfigurationKeys.KLIB_PATHS, emptyList()].isNotEmpty()
-        val (mangler, symbolTable) =
+        val [mangler, symbolTable] =
             if (externalSymbolTable != null) externalMangler!! to externalSymbolTable
             else {
                 val mangler = JvmDescriptorMangler(MainFunctionDetector(bindingContext, languageVersionSettings))
@@ -183,11 +183,10 @@ class JvmIrCodegenFactory(
                 }
                 mangler to symbolTable
             }
-        val messageCollector = configuration.messageCollector
         val psi2ir = Psi2IrTranslator(
             languageVersionSettings,
-            Psi2IrConfiguration(ignoreErrors, partialLinkageEnabled = false, skipBodies),
-            messageCollector::checkNoUnboundSymbols
+            Psi2IrConfiguration(ignoreErrors, skipBodies),
+            configuration::checkNoUnboundSymbols
         )
         val psi2irContext = psi2ir.createGeneratorContext(
             module,
@@ -210,15 +209,19 @@ class JvmIrCodegenFactory(
                 DescriptorByIdSignatureFinderImpl(psi2irContext.moduleDescriptor, mangler),
                 jvmGeneratorExtensions
             )
-        val irLinker = JvmIrLinker(
-            psi2irContext.moduleDescriptor,
-            messageCollector,
-            JvmIrTypeSystemContext(psi2irContext.irBuiltIns),
-            symbolTable,
-            stubGenerator,
-            mangler,
-            enableIdSignatures,
-        )
+
+        val irProvider = if (enableIdSignatures) {
+            JvmIrLinker(
+                psi2irContext.moduleDescriptor,
+                configuration,
+                JvmIrTypeSystemContext(psi2irContext.irBuiltIns),
+                symbolTable,
+                stubGenerator,
+                mangler,
+            )
+        } else {
+            stubGenerator
+        }
 
         SourceDeclarationsPreprocessor(psi2irContext).run(files)
 
@@ -226,13 +229,12 @@ class JvmIrCodegenFactory(
         // instantiated before we resolve unbound symbols and invoke any postprocessing steps.
         val pluginContext = IrPluginContextImpl(
             psi2irContext.moduleDescriptor,
-            psi2irContext.bindingContext,
             psi2irContext.languageVersionSettings,
             symbolTable,
-            psi2irContext.typeTranslator,
             psi2irContext.irBuiltIns,
-            irLinker,
-            messageCollector,
+            irProvider,
+            @OptIn(MessageCollectorAccess::class) // deprecated in IrPluginContext
+            configuration.messageCollector,
             diagnosticReporter
         )
         for (extension in configuration.filteredExtensions) {
@@ -251,12 +253,12 @@ class JvmIrCodegenFactory(
             }
         }
 
-        val dependencies = if (ideCodegenSettings.doNotLoadDependencyModuleHeaders) {
+        val dependencies = if (ideCodegenSettings.doNotLoadDependencyModuleHeaders || irProvider !is KotlinIrLinker) {
             emptyList()
         } else {
             psi2irContext.moduleDescriptor.collectAllDependencyModulesTransitively().map {
                 val kotlinLibrary = (it.getCapability(KlibModuleOrigin.CAPABILITY) as? DeserializedKlibModuleOrigin)?.library
-                irLinker.deserializeIrModuleHeader(it, kotlinLibrary, _moduleName = it.name.asString())
+                irProvider.deserializeIrModuleHeader(it, kotlinLibrary, _moduleName = it.name.asString())
             }
         }
 
@@ -264,7 +266,7 @@ class JvmIrCodegenFactory(
             listOf(stubGenerator)
         } else {
             val stubGeneratorForMissingClasses = DeclarationStubGeneratorForNotFoundClasses(stubGenerator)
-            listOf(irLinker, stubGeneratorForMissingClasses)
+            listOf(irProvider, stubGeneratorForMissingClasses)
         }
 
         if (ideCodegenSettings.shouldReferenceUndiscoveredExpectSymbols) {
@@ -273,8 +275,10 @@ class JvmIrCodegenFactory(
 
         val irModuleFragment = psi2ir.generateModuleFragment(psi2irContext, files, irProviders, evaluatorFragmentInfoForPsi2Ir)
 
-        irLinker.postProcess(inOrAfterLinkageStep = true)
-        irLinker.clear()
+        if (irProvider is KotlinIrLinker) {
+            irProvider.postProcess(psi2irContext.irBuiltIns, inOrAfterLinkageStep = true)
+            irProvider.clear()
+        }
 
         stubGenerator.unboundSymbolGeneration = true
 
@@ -285,7 +289,7 @@ class JvmIrCodegenFactory(
             irModuleFragment.stubOrphanedExpectSymbols(stubGenerator)
         }
 
-        if (!configuration.getBoolean(JVMConfigurationKeys.DO_NOT_CLEAR_BINDING_CONTEXT)) {
+        if (!configuration.getBoolean(JVMConfigurationKeys.DO_NOT_CLEAR_BINDING_CONTEXT) && files.none { it.isScript() }) {
             if (bindingContext !is CleanableBindingContext) {
                 error("BindingContext should be cleanable in JVM IR to avoid leaking memory: $bindingContext")
             }
@@ -331,18 +335,12 @@ class JvmIrCodegenFactory(
     }
 
     fun invokeLowerings(state: GenerationState, input: BackendInput): CodegenInput {
-        val (irModuleFragment, irBuiltIns, symbolTable, irProviders, extensions, backendExtension, irPluginContext) =
-            input
-        val irSerializer = if (
-            state.configuration.get(JVMConfigurationKeys.SERIALIZE_IR, JvmSerializeIrMode.NONE) != JvmSerializeIrMode.NONE
-        )
-            JvmIrSerializerImpl(state.configuration)
-        else null
+        (val irModuleFragment, val irBuiltIns, val symbolTable, val irProviders, val extensions, val backendExtension, val irPluginContext = pluginContext) = input
 
         val evaluatorData = ideCodegenSettings.evaluatorData ?: computePsiBasedEvaluatorData(irModuleFragment)
         val context = JvmBackendContext(
             state, irBuiltIns, symbolTable, extensions,
-            backendExtension, irSerializer, JvmIrDeserializerImpl(), irProviders, irPluginContext, evaluatorData
+            backendExtension, irPluginContext, evaluatorData
         )
         val generationExtensions = state.configuration.filteredExtensions
             .mapNotNull { it.getPlatformIntrinsicExtension(context) as? JvmIrIntrinsicExtension }
@@ -473,7 +471,7 @@ class JvmIrCodegenFactory(
         val serializer = context.backendExtension.createBuiltinsSerializer()
         val serializedPackages = serializer.serialize(allBuiltins.map { it.metadata as MetadataSource.File })
         require(serializedPackages.map { it.first }.toSet() == BUILT_INS_PACKAGE_FQ_NAMES) { "Unexpected set of builtin packages" }
-        for ((packageName, serialized) in serializedPackages) {
+        for ([packageName, serialized] in serializedPackages) {
             context.state.factory.addSerializedBuiltinsPackageMetadata(
                 BuiltInSerializerProtocol.getBuiltInsFilePath(packageName),
                 serialized
@@ -515,7 +513,7 @@ class JvmIrCodegenFactory(
             builder.addOptionalAnnotationClass(serializer.serializeOptionalAnnotationClass(metadata, stringTable))
         }
 
-        val (stringTableProto, qualifiedNameTableProto) = stringTable.buildProto()
+        val [stringTableProto, qualifiedNameTableProto] = stringTable.buildProto()
         builder.setStringTable(stringTableProto)
         builder.setQualifiedNameTable(qualifiedNameTableProto)
 

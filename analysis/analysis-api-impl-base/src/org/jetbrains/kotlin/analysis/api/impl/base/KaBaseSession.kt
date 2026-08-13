@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.analysis.api.impl.base
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.components.*
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseAnalysisScopeProviderEx
+import org.jetbrains.kotlin.analysis.api.internals.KaInternals
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolProvider
 
@@ -33,10 +33,9 @@ abstract class KaBaseSession(
     referenceShortener: KaReferenceShortener,
     renderer: KaRenderer,
     visibilityChecker: KaVisibilityChecker,
-    originalPsiProvider: KaOriginalPsiProvider,
     typeCreator: KaTypeCreator,
     typeCreatorProvider: KaTypeCreatorProvider,
-    analysisScopeProvider: KaBaseAnalysisScopeProviderEx,
+    analysisScopeProvider: KaAnalysisScopeProvider,
     signatureSubstitutor: KaSignatureSubstitutor,
     resolveExtensionInfoProvider: KaResolveExtensionInfoProvider,
     compilerPluginGeneratedDeclarationsProvider: KaCompilerPluginGeneratedDeclarationsProvider,
@@ -46,6 +45,7 @@ abstract class KaBaseSession(
     sourceProvider: KaSourceProvider,
     kDocProvider: KaKDocProvider,
 ) : KaSession,
+    KaInternals,
     KaResolver by resolver,
     KaSymbolRelationProvider by symbolRelationProvider,
     KaDiagnosticProvider by diagnosticProvider,
@@ -63,10 +63,9 @@ abstract class KaBaseSession(
     KaReferenceShortener by referenceShortener,
     KaRenderer by renderer,
     KaVisibilityChecker by visibilityChecker,
-    KaOriginalPsiProvider by originalPsiProvider,
     KaTypeCreator by typeCreator,
     KaTypeCreatorProvider by typeCreatorProvider,
-    KaBaseAnalysisScopeProviderEx by analysisScopeProvider,
+    KaAnalysisScopeProvider by analysisScopeProvider,
     KaSignatureSubstitutor by signatureSubstitutor,
     KaResolveExtensionInfoProvider by resolveExtensionInfoProvider,
     KaCompilerPluginGeneratedDeclarationsProvider by compilerPluginGeneratedDeclarationsProvider,

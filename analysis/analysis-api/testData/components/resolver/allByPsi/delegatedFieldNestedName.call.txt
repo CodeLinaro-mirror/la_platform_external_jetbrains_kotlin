@@ -50,7 +50,7 @@ KtAnnotationEntry(31,61): '@Target(AnnotationTarget.TYPE)'
       }
 
 KtConstructorCalleeExpression(32,38): 'Target'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -89,7 +89,37 @@ KtUserType(32,38): 'Target'
   null
 
 KtNameReferenceExpression(32,38): 'Target'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.annotation.Target
+        symbol = <constructor>(vararg allowedTargets: kotlin.annotation.AnnotationTarget): kotlin.annotation.Target
+        valueParameters = [
+          KaVariableSignature:
+            name = allowedTargets
+            receiverType = null
+            returnType = kotlin.annotation.AnnotationTarget
+            symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        AnnotationTarget.TYPE -> (KaVariableSignature:
+          name = allowedTargets
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationTarget
+          symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(38,61): '(AnnotationTarget.TYPE)'
   null
@@ -98,7 +128,7 @@ KtValueArgument(39,60): 'AnnotationTarget.TYPE'
   null
 
 KtDotQualifiedExpression(39,60): 'AnnotationTarget.TYPE'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -121,7 +151,7 @@ KtNameReferenceExpression(39,55): 'AnnotationTarget'
   null
 
 KtNameReferenceExpression(56,60): 'TYPE'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -258,7 +288,7 @@ KtAnnotationEntry(225,241): '@Anno(0 + outer)'
       }
 
 KtConstructorCalleeExpression(226,230): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -297,7 +327,37 @@ KtUserType(226,230): 'Anno'
   null
 
 KtNameReferenceExpression(226,230): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        0 + outer -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(230,241): '(0 + outer)'
   null
@@ -306,7 +366,7 @@ KtValueArgument(231,240): '0 + outer'
   null
 
 KtBinaryExpression(231,240): '0 + outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -345,7 +405,7 @@ KtConstantExpression(231,232): '0'
   null
 
 KtOperationReferenceExpression(233,234): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -381,7 +441,7 @@ KtOperationReferenceExpression(233,234): '+'
       }
 
 KtNameReferenceExpression(235,240): 'outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -449,7 +509,7 @@ KtAnnotationEntry(247,263): '@Anno(1 + outer)'
       }
 
 KtConstructorCalleeExpression(248,252): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -488,7 +548,37 @@ KtUserType(248,252): 'Anno'
   null
 
 KtNameReferenceExpression(248,252): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        1 + outer -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(252,263): '(1 + outer)'
   null
@@ -497,7 +587,7 @@ KtValueArgument(253,262): '1 + outer'
   null
 
 KtBinaryExpression(253,262): '1 + outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -536,7 +626,7 @@ KtConstantExpression(253,254): '1'
   null
 
 KtOperationReferenceExpression(255,256): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -572,7 +662,7 @@ KtOperationReferenceExpression(255,256): '+'
       }
 
 KtNameReferenceExpression(257,262): 'outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -640,7 +730,7 @@ KtAnnotationEntry(269,285): '@Anno(2 + outer)'
       }
 
 KtConstructorCalleeExpression(270,274): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -679,7 +769,37 @@ KtUserType(270,274): 'Anno'
   null
 
 KtNameReferenceExpression(270,274): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        2 + outer -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(274,285): '(2 + outer)'
   null
@@ -688,7 +808,7 @@ KtValueArgument(275,284): '2 + outer'
   null
 
 KtBinaryExpression(275,284): '2 + outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -727,7 +847,7 @@ KtConstantExpression(275,276): '2'
   null
 
 KtOperationReferenceExpression(277,278): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -763,7 +883,7 @@ KtOperationReferenceExpression(277,278): '+'
       }
 
 KtNameReferenceExpression(279,284): 'outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -831,7 +951,7 @@ KtAnnotationEntry(310,326): '@Anno(4 + outer)'
       }
 
 KtConstructorCalleeExpression(311,315): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -870,7 +990,37 @@ KtUserType(311,315): 'Anno'
   null
 
 KtNameReferenceExpression(311,315): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        4 + outer -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(315,326): '(4 + outer)'
   null
@@ -879,7 +1029,7 @@ KtValueArgument(316,325): '4 + outer'
   null
 
 KtBinaryExpression(316,325): '4 + outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -918,7 +1068,7 @@ KtConstantExpression(316,317): '4'
   null
 
 KtOperationReferenceExpression(318,319): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -954,7 +1104,7 @@ KtOperationReferenceExpression(318,319): '+'
       }
 
 KtNameReferenceExpression(320,325): 'outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1022,7 +1172,7 @@ KtAnnotationEntry(334,350): '@Anno(5 + outer)'
       }
 
 KtConstructorCalleeExpression(335,339): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1061,7 +1211,37 @@ KtUserType(335,339): 'Anno'
   null
 
 KtNameReferenceExpression(335,339): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        5 + outer -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(339,350): '(5 + outer)'
   null
@@ -1070,7 +1250,7 @@ KtValueArgument(340,349): '5 + outer'
   null
 
 KtBinaryExpression(340,349): '5 + outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1109,7 +1289,7 @@ KtConstantExpression(340,341): '5'
   null
 
 KtOperationReferenceExpression(342,343): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1145,7 +1325,7 @@ KtOperationReferenceExpression(342,343): '+'
       }
 
 KtNameReferenceExpression(344,349): 'outer'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1225,7 +1405,7 @@ KtAnnotationEntry(400,416): '@Anno(6 + inner)'
       }
 
 KtConstructorCalleeExpression(401,405): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1264,7 +1444,37 @@ KtUserType(401,405): 'Anno'
   null
 
 KtNameReferenceExpression(401,405): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        6 + inner -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(405,416): '(6 + inner)'
   null
@@ -1273,7 +1483,7 @@ KtValueArgument(406,415): '6 + inner'
   null
 
 KtBinaryExpression(406,415): '6 + inner'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -1475,22 +1685,22 @@ KtBinaryExpression(406,415): '6 + inner'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
@@ -1498,7 +1708,7 @@ KtConstantExpression(406,407): '6'
   null
 
 KtOperationReferenceExpression(408,409): '+'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -1700,27 +1910,27 @@ KtOperationReferenceExpression(408,409): '+'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
 KtNameReferenceExpression(410,415): 'inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1788,7 +1998,7 @@ KtAnnotationEntry(422,438): '@Anno(7 + inner)'
       }
 
 KtConstructorCalleeExpression(423,427): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1827,7 +2037,37 @@ KtUserType(423,427): 'Anno'
   null
 
 KtNameReferenceExpression(423,427): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        7 + inner -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(427,438): '(7 + inner)'
   null
@@ -1836,7 +2076,7 @@ KtValueArgument(428,437): '7 + inner'
   null
 
 KtBinaryExpression(428,437): '7 + inner'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -2038,22 +2278,22 @@ KtBinaryExpression(428,437): '7 + inner'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
@@ -2061,7 +2301,7 @@ KtConstantExpression(428,429): '7'
   null
 
 KtOperationReferenceExpression(430,431): '+'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -2263,27 +2503,27 @@ KtOperationReferenceExpression(430,431): '+'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
 KtNameReferenceExpression(432,437): 'inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -2351,7 +2591,7 @@ KtAnnotationEntry(444,460): '@Anno(8 + inner)'
       }
 
 KtConstructorCalleeExpression(445,449): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2390,7 +2630,37 @@ KtUserType(445,449): 'Anno'
   null
 
 KtNameReferenceExpression(445,449): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        8 + inner -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(449,460): '(8 + inner)'
   null
@@ -2399,7 +2669,7 @@ KtValueArgument(450,459): '8 + inner'
   null
 
 KtBinaryExpression(450,459): '8 + inner'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -2601,22 +2871,22 @@ KtBinaryExpression(450,459): '8 + inner'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
@@ -2624,7 +2894,7 @@ KtConstantExpression(450,451): '8'
   null
 
 KtOperationReferenceExpression(452,453): '+'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -2826,27 +3096,27 @@ KtOperationReferenceExpression(452,453): '+'
         }
     ]
     diagnostic = ERROR<NONE_APPLICABLE: None of the following candidates is applicable:
-    
+
     fun plus(other: Int): Int:
       Argument type mismatch: actual type is 'String', but 'Int' was expected.
-    
+
     fun plus(other: Byte): Int:
       Argument type mismatch: actual type is 'String', but 'Byte' was expected.
-    
+
     fun plus(other: Short): Int:
       Argument type mismatch: actual type is 'String', but 'Short' was expected.
-    
+
     fun plus(other: Long): Long:
       Argument type mismatch: actual type is 'String', but 'Long' was expected.
-    
+
     fun plus(other: Float): Float:
       Argument type mismatch: actual type is 'String', but 'Float' was expected.
-    
+
     fun plus(other: Double): Double:
       Argument type mismatch: actual type is 'String', but 'Double' was expected.>
 
 KtNameReferenceExpression(454,459): 'inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -2938,7 +3208,7 @@ KtAnnotationEntry(559,575): '@Anno(9 + inner)'
       }
 
 KtConstructorCalleeExpression(560,564): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2977,7 +3247,37 @@ KtUserType(560,564): 'Anno'
   null
 
 KtNameReferenceExpression(560,564): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        9 + inner -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(564,575): '(9 + inner)'
   null
@@ -2986,7 +3286,7 @@ KtValueArgument(565,574): '9 + inner'
   null
 
 KtBinaryExpression(565,574): '9 + inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3025,7 +3325,7 @@ KtConstantExpression(565,566): '9'
   null
 
 KtOperationReferenceExpression(567,568): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3061,7 +3361,7 @@ KtOperationReferenceExpression(567,568): '+'
       }
 
 KtNameReferenceExpression(569,574): 'inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:
@@ -3131,7 +3431,7 @@ KtAnnotationEntry(583,600): '@Anno(10 + inner)'
       }
 
 KtConstructorCalleeExpression(584,588): 'Anno'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3170,7 +3470,37 @@ KtUserType(584,588): 'Anno'
   null
 
 KtNameReferenceExpression(584,588): 'Anno'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = second.Anno
+        symbol = <constructor>(i: kotlin.Int): second.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = i
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = i: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        10 + inner -> (KaVariableSignature:
+          name = i
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = i: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(588,600): '(10 + inner)'
   null
@@ -3179,7 +3509,7 @@ KtValueArgument(589,599): '10 + inner'
   null
 
 KtBinaryExpression(589,599): '10 + inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3218,7 +3548,7 @@ KtConstantExpression(589,591): '10'
   null
 
 KtOperationReferenceExpression(592,593): '+'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -3254,7 +3584,7 @@ KtOperationReferenceExpression(592,593): '+'
       }
 
 KtNameReferenceExpression(594,599): 'inner'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaImplicitReceiverValue:

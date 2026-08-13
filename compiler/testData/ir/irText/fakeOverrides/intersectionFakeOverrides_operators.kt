@@ -1,7 +1,11 @@
+// IGNORE_BACKEND: JKLIB
 // TARGET_BACKEND: JVM
 
 // The test primarily tests reflect dumps (k1 vs new reflect), we don't need kt dumps
 // SKIP_KT_DUMP
+
+// KT-85729 Reflection: lost "infix" modifier for methods in Java subclasses of Kotlin classes in new implementation
+// KOTLIN_REFLECT_DUMP_MISMATCH
 
 // FILE: main.kt
 public open class B {

@@ -175,7 +175,7 @@ internal expect inline fun <K, V> buildMapInternal(builderAction: MutableMap<K, 
  *
  * @throws IllegalArgumentException if the given [capacity] is negative.
  *
- * @sample samples.collections.Builders.Maps.buildMapSample
+ * @sample samples.collections.Builders.Maps.buildMapSampleWithCapacity
  */
 @SinceKotlin("1.6")
 @kotlin.internal.InlineOnly
@@ -384,7 +384,7 @@ public inline fun <K, V> Map<K, V>.getOrElse(key: K, defaultValue: () -> V): V {
  *
  * @sample samples.collections.Maps.Usage.getOrElseIfNull
  */
-@SinceKotlin("2.3")
+@SinceKotlin("2.4")
 @kotlin.internal.InlineOnly
 @ExperimentalStdlibApi
 public inline fun <K, V> Map<K, V>.getOrElseIfNull(key: K, defaultValue: () -> V): V {
@@ -405,7 +405,7 @@ public inline fun <K, V> Map<K, V>.getOrElseIfNull(key: K, defaultValue: () -> V
  *
  * @sample samples.collections.Maps.Usage.getOrElseIfMissing
  */
-@SinceKotlin("2.3")
+@SinceKotlin("2.4")
 @kotlin.internal.InlineOnly
 @ExperimentalStdlibApi
 public inline fun <K, V> Map<K, V>.getOrElseIfMissing(key: K, defaultValue: () -> V): V {
@@ -486,10 +486,10 @@ public inline fun <K, V> MutableMap<K, V>.getOrPut(key: K, defaultValue: () -> V
  *
  * @sample samples.collections.Maps.Usage.getOrPutIfNull
  */
-@SinceKotlin("2.3")
+@SinceKotlin("2.4")
 @kotlin.internal.InlineOnly
 @ExperimentalStdlibApi
-@Suppress("LEAKED_IN_PLACE_LAMBDA")
+@Suppress("LEAKED_IN_PLACE_LAMBDA", "WRONG_INVOCATION_KIND")
 public inline fun <K, V> MutableMap<K, V>.getOrPutIfNull(key: K, crossinline defaultValue: () -> V): V {
     contract {
         callsInPlace(defaultValue, InvocationKind.AT_MOST_ONCE)
@@ -516,7 +516,7 @@ public inline fun <K, V> MutableMap<K, V>.getOrPutIfNull(key: K, crossinline def
  *
  * @sample samples.collections.Maps.Usage.getOrPutIfMissing
  */
-@SinceKotlin("2.3")
+@SinceKotlin("2.4")
 @kotlin.internal.InlineOnly
 @ExperimentalStdlibApi
 public inline fun <K, V> MutableMap<K, V>.getOrPutIfMissing(key: K, crossinline defaultValue: () -> V): V {
@@ -575,7 +575,7 @@ public inline fun <K, V, R, M : MutableMap<in R, in V>> Map<out K, V>.mapKeysTo(
  * Puts all the given [pairs] into this [MutableMap] with the first component in the pair being the key and the second the value.
  */
 public fun <K, V> MutableMap<in K, in V>.putAll(pairs: Array<out Pair<K, V>>): Unit {
-    for ((key, value) in pairs) {
+    for ([key, value] in pairs) {
         put(key, value)
     }
 }
@@ -584,7 +584,7 @@ public fun <K, V> MutableMap<in K, in V>.putAll(pairs: Array<out Pair<K, V>>): U
  * Puts all the elements of the given collection into this [MutableMap] with the first component in the pair being the key and the second the value.
  */
 public fun <K, V> MutableMap<in K, in V>.putAll(pairs: Iterable<Pair<K, V>>): Unit {
-    for ((key, value) in pairs) {
+    for ([key, value] in pairs) {
         put(key, value)
     }
 }
@@ -593,7 +593,7 @@ public fun <K, V> MutableMap<in K, in V>.putAll(pairs: Iterable<Pair<K, V>>): Un
  * Puts all the elements of the given sequence into this [MutableMap] with the first component in the pair being the key and the second the value.
  */
 public fun <K, V> MutableMap<in K, in V>.putAll(pairs: Sequence<Pair<K, V>>): Unit {
-    for ((key, value) in pairs) {
+    for ([key, value] in pairs) {
         put(key, value)
     }
 }

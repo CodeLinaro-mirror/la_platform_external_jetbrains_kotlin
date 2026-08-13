@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.js.test.utils
 import com.intellij.openapi.util.text.StringUtil
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.TranslationMode
-import org.jetbrains.kotlin.js.JavaScript
 import org.jetbrains.kotlin.js.backend.ast.ESM_EXTENSION
 import org.jetbrains.kotlin.js.backend.ast.REGULAR_EXTENSION
 import org.jetbrains.kotlin.js.common.safeModuleName
@@ -17,7 +16,6 @@ import org.jetbrains.kotlin.js.config.JsGenerationGranularity
 import org.jetbrains.kotlin.js.config.ModuleKind
 import org.jetbrains.kotlin.js.test.JsAdditionalSourceProvider
 import org.jetbrains.kotlin.js.test.converters.augmentWithModuleName
-import org.jetbrains.kotlin.js.test.converters.finalizePath
 import org.jetbrains.kotlin.js.test.handlers.JsBoxRunner.Companion.TEST_FUNCTION
 import org.jetbrains.kotlin.js.test.handlers.JsTypeScriptCompilationHandler
 import org.jetbrains.kotlin.psi.KtNamedFunction
@@ -25,13 +23,11 @@ import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives.NO_JS_MODULE_SYSTEM
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives.RUN_PLAIN_BOX_FUNCTION
 import org.jetbrains.kotlin.test.directives.model.StringDirective
-import org.jetbrains.kotlin.test.model.BinaryArtifacts
-import org.jetbrains.kotlin.test.model.DependencyDescription
-import org.jetbrains.kotlin.test.model.TestFile
-import org.jetbrains.kotlin.test.model.TestModule
+import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator.Companion.getMainModule
+import org.jetbrains.kotlin.test.services.configuration.finalizePath
 import org.jetbrains.kotlin.test.services.configuration.klibEnvironmentConfigurator
 import org.jetbrains.kotlin.utils.DFS.topologicalOrder
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
@@ -66,19 +62,19 @@ private fun extractJsFiles(
         .filter { it.second.isJsFile || it.second.isMjsFile }
 
     val after = inputJsFiles
-        .filter { (module, inputJsFile) ->
+        .filter { [module, inputJsFile] ->
             inputJsFile.name.endsWith(
                 "__after${JsEnvironmentConfigurator.getModuleKind(testServices, module).jsExtension}"
             )
         }
-        .map { (module, inputJsFile) -> copyInputJsFile(module, inputJsFile) }
+        .map { [module, inputJsFile] -> copyInputJsFile(module, inputJsFile) }
     val before = inputJsFiles
-        .filterNot { (module, inputJsFile) ->
+        .filterNot { [module, inputJsFile] ->
             inputJsFile.name.endsWith(
                 "__after${JsEnvironmentConfigurator.getModuleKind(testServices, module).jsExtension}"
             )
         }
-        .map { (module, inputJsFile) -> copyInputJsFile(module, inputJsFile) }
+        .map { [module, inputJsFile] -> copyInputJsFile(module, inputJsFile) }
 
     return before to after
 }
@@ -99,11 +95,11 @@ fun getAdditionalFiles(
     val additionalFiles = mutableListOf<File>()
     if (withModuleSystem) additionalFiles += ForTestCompileRuntime.transformTestDataPath(MODULE_EMULATION_FILE)
 
-    originalFile.parentFile.resolve(originalFile.nameWithoutExtension + JavaScript.DOT_EXTENSION)
+    originalFile.parentFile.resolve(originalFile.nameWithoutExtension + ".js")
         .takeIf { it.exists() }
         ?.let { additionalFiles += it }
 
-    originalFile.parentFile.resolve(originalFile.nameWithoutExtension + JavaScript.DOT_MODULE_EXTENSION)
+    originalFile.parentFile.resolve(originalFile.nameWithoutExtension + ".mjs")
         .takeIf { it.exists() }
         ?.let {
             File(JsEnvironmentConfigurator.getJsArtifactsOutputDir(testServices, mode), it.name).apply {
@@ -168,13 +164,13 @@ fun getAllFilesForRunner(
 
     val commonFiles = JsAdditionalSourceProvider.getAdditionalJsFiles(originalFile.parent).map { it.absolutePath }
 
-    val (module, compilerResult) = modulesToArtifact.entries.mapNotNull { (m, c) -> (c as? BinaryArtifacts.Js.JsIrArtifact)?.let { m to c.compilerResult } }
+    val [module, compilerResult] = modulesToArtifact.entries.mapNotNull { [m, c] -> (c as? JsIrArtifact)?.let { m to c.compilerResult } }
         .single()
     val result = mutableMapOf<TranslationMode, List<String>>()
 
-    compilerResult.outputs.entries.forEach { (mode, outputs) ->
+    compilerResult.entries.forEach { [mode, outputs] ->
         val outputFile = getModeOutputFilePath(testServices, module, mode)
-        val (inputJsFilesBefore, inputJsFilesAfter) = extractJsFiles(testServices, testServices.moduleStructure.modules, mode)
+        val [inputJsFilesBefore, inputJsFilesAfter] = extractJsFiles(testServices, testServices.moduleStructure.modules, mode)
         val additionalFiles = getAdditionalFilePaths(testServices, mode)
         val additionalMainFiles = getAdditionalMainFilePaths(testServices, mode)
 
@@ -184,8 +180,8 @@ fun getAllFilesForRunner(
             // Need to sort modules in the reverse topological order to avoid problems in V8 with loading JS files
             // before loading their dependency JS files.
             val dependenciesMap: MutableMap</* module ID */ String, /* JS file path */ String> =
-                outputs.dependencies.associateTo(LinkedHashMap()) { (moduleId, _) ->
-                    moduleId to outputFile.augmentWithModuleName(moduleId)
+                outputs.dependencies.associateTo(LinkedHashMap()) {
+                    it.artifactConfiguration.moduleName to outputFile.augmentWithModuleName(it.artifactConfiguration.moduleName)
                 }
 
             // These are only paths represented by the existing `TestModule`s.
@@ -201,7 +197,7 @@ fun getAllFilesForRunner(
 
             paths += pathsOfAuxiliaryLibraries + pathsOfTestModules
         } else {
-            paths += outputs.dependencies.map { (moduleId, _) -> outputFile.augmentWithModuleName(moduleId) }
+            paths += outputs.dependencies.map { outputFile.augmentWithModuleName(it.artifactConfiguration.moduleName) }
         }
 
         paths += outputFile
@@ -239,27 +235,6 @@ fun getBoxFunction(testServices: TestServices): KtNamedFunction? {
     return ktFiles.mapNotNull { ktFile ->
         ktFile.declarations.filterIsInstanceAnd<KtNamedFunction> { it.name == TEST_FUNCTION }.firstOrNull()
     }.singleOrNull()
-}
-
-fun extractTestPackage(testServices: TestServices, ignoreEsModules: Boolean = true): String? {
-    val runPlainBoxFunction = RUN_PLAIN_BOX_FUNCTION in testServices.moduleStructure.allDirectives
-    if (runPlainBoxFunction) return null
-
-    val ktFiles = testServices.moduleStructure.modules.flatMap { module ->
-        module.files
-            .filter { it.isKtFile }
-            .map {
-                val project = testServices.compilerConfigurationProvider.getProject(module)
-                module to testServices.sourceFileProvider.getKtFileForSourceFile(it, project)
-            }
-    }
-
-    val fileWithBoxFunction = ktFiles.find { (module, ktFile) ->
-        (!ignoreEsModules || JsEnvironmentConfigurator.getModuleKind(testServices, module) != ModuleKind.ES) &&
-                ktFile.declarations.find { it is KtNamedFunction && it.name == TEST_FUNCTION } != null
-    } ?: return null
-
-    return fileWithBoxFunction.second.packageFqName.asString().takeIf { it.isNotEmpty() }
 }
 
 fun extractEntryModulePath(

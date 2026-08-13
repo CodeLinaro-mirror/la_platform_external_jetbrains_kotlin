@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.publishing.MultiplatformPublishing
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.RegisterMultiplatformResourcesPublicationExtensionAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformAndroidAssetsAndResourcesPublicationAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformJvmResourcesPublicationAction
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftimport.SwiftImportSetupAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.consumption.UklibConsumptionSetupAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.UklibPublicationSetupAction
 import org.jetbrains.kotlin.gradle.plugin.sources.KotlinMultiplatformSourceSetSetupAction
@@ -40,17 +41,19 @@ import org.jetbrains.kotlin.gradle.plugin.statistics.ConfigurationTimeFusMetrics
 import org.jetbrains.kotlin.gradle.plugin.statistics.MultiplatformBuildStatsReportSetupAction
 import org.jetbrains.kotlin.gradle.scripting.internal.ScriptingGradleSubpluginSetupAction
 import org.jetbrains.kotlin.gradle.targets.*
+import org.jetbrains.kotlin.gradle.targets.js.ir.ConfigureKotlinPlaywrightTestRunner
 import org.jetbrains.kotlin.gradle.targets.js.npm.AddNpmDependencyExtensionProjectSetupAction
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmCompilationWireJavaSourcesSideEffect
 import org.jetbrains.kotlin.gradle.targets.jvm.ConfigureJavaTestFixturesSideEffect
 import org.jetbrains.kotlin.gradle.targets.metadata.KotlinMetadataTargetSetupAction
 import org.jetbrains.kotlin.gradle.targets.native.ConfigureFrameworkExportSideEffect
-import org.jetbrains.kotlin.gradle.targets.native.CreateFatFrameworksSetupAction
 import org.jetbrains.kotlin.gradle.targets.native.KotlinNativeConfigureBinariesSideEffect
 import org.jetbrains.kotlin.gradle.targets.native.SetupEmbedAndSignAppleFrameworkTaskSideEffect
 import org.jetbrains.kotlin.gradle.targets.native.internal.*
-import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionSetupAction
+
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.NativeToolchainProjectSetupAction
+import org.jetbrains.kotlin.gradle.targets.wasm.WasmBinaryPreparationSetupAction
+import org.jetbrains.kotlin.gradle.targets.wasm.WasmBinaryTransformRegisteringSetupAction
 import org.jetbrains.kotlin.gradle.tooling.RegisterBuildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.utils.RegisterIsAllGradleProjectsEvaluatedListener
 
@@ -84,7 +87,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, KotlinMultiplatformSourceSetSetupAction)
             register(project, MultiplatformBuildStatsReportSetupAction)
             register(project, KotlinMetadataTargetSetupAction)
-            register(project, KotlinArtifactsExtensionSetupAction)
+
             register(project, MultiplatformPublishingSetupAction)
             register(project, LanguageSettingsSetupAction)
             register(project, IdeMultiplatformImportSetupAction)
@@ -93,7 +96,6 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, XcodeVersionSetupAction)
             register(project, CheckXcodeTargetsConfigurationSetupAction)
             register(project, AddBuildListenerForXcodeSetupAction)
-            register(project, CreateFatFrameworksSetupAction)
             register(project, KotlinRegisterCompilationArchiveTasksExtension)
             register(project, IdeMultiplatformImportActionSetupAction)
             register(project, KotlinLLDBScriptSetupAction)
@@ -104,16 +106,13 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, SetUpMultiplatformAndroidAssetsAndResourcesPublicationAction)
             register(project, SetUpSwiftExportAction)
             register(project, ConfigureKotlinTopLevelDependenciesDSL)
+            register(project, SwiftImportSetupAction)
 
-            if (isKmpProjectIsolationEnabled) {
-                register(project, ProjectStructureMetadataForKMPSetupAction)
-                register(project, ExportCommonSourceSetsMetadataLocations)
-                register(project, ExportCrossCompilationMetadata)
-                register(project, ExportRootModuleCoordinates)
-                register(project, ExportTargetPublicationCoordinates)
-            } else {
-                register(project, GlobalProjectStructureMetadataStorageSetupAction)
-            }
+            register(project, ProjectStructureMetadataForKMPSetupAction)
+            register(project, ExportCommonSourceSetsMetadataLocations)
+            register(project, ExportCrossCompilationMetadata)
+            register(project, ExportRootModuleCoordinates)
+            register(project, ExportTargetPublicationCoordinates)
 
             register(project, NativeToolchainProjectSetupAction)
             register(project, UklibPublicationSetupAction)
@@ -140,6 +139,8 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, CreateNonPackedKlibVariantsSideEffect)
             register(project, ConfigureNonPackedKlibConsumingSideEffect)
         }
+        register(project, WasmBinaryPreparationSetupAction)
+        register(project, ConfigureKotlinPlaywrightTestRunner)
     }
 
     KotlinCompilationSideEffect.extensionPoint.apply {
@@ -151,6 +152,7 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, KotlinCreateNativeCInteropTasksSideEffect)
         register(project, KotlinCreateCompilationArchivesTask)
         register(project, KotlinJvmCompilationWireJavaSourcesSideEffect)
+        register(project, WasmBinaryTransformRegisteringSetupAction)
     }
 
     KotlinTargetArtifact.extensionPoint.apply {
@@ -166,7 +168,6 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, DeprecatedKotlinNativeTargetsChecker)
         register(project, MissingNativeStdlibChecker)
         register(project, UnusedSourceSetsChecker)
-        register(project, AndroidSourceSetLayoutV1SourceSetsNotFoundChecker)
         register(project, AndroidPluginWithoutAndroidTargetChecker)
         register(project, NoKotlinTargetsDeclaredChecker)
         register(project, DisabledCinteropCommonizationInHmppProjectChecker)
@@ -194,11 +195,10 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, KmpPartiallyResolvedDependenciesChecker)
         register(project, TestApiDependenciesChecker)
         register(project, ConfigurationOnDemandSupportChecker)
-        register(project, KotlinCompilerExecutionStrategyOutOfProcessValueChecker)
-
         if (isMultiplatform) {
             register(project, NativeVersionChecker)
             register(project, SupportedNativeHostChecker)
+            register(project, DeprecatedNativeHostChecker)
             register(project, MultipleSourceSetRootsInCompilationChecker)
             register(project, SwiftExportModuleNameChecker)
             register(project, CinteropCrossCompilationChecker)
@@ -207,15 +207,12 @@ internal fun Project.registerKotlinPluginExtensions() {
     }
 }
 
-private val Project.isKmpProjectIsolationEnabled get() = PropertiesProvider(project).kotlinKmpProjectIsolationEnabled
 
 /* Helper functions to make configuration code above easier to read */
 
 private val Project.isMultiplatform get() = multiplatformExtensionOrNull != null
 
 private val Project.isJvm get() = kotlinJvmExtensionOrNull != null
-
-private val Project.isJs get() = kotlinExtensionOrNull is KotlinJsProjectExtension
 
 private val Project.isAndroid get() = kotlinExtension is KotlinAndroidProjectExtension
 

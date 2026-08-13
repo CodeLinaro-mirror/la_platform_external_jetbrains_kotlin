@@ -5,6 +5,7 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.testbase.BuildOptions.JsOptions
 import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.Disabled
@@ -324,10 +325,6 @@ abstract class IncrementalCompilationJvmMultiProjectIT : BaseIncrementalCompilat
     }
 }
 
-class IncrementalCompilationK1JvmMultiProjectIT : IncrementalCompilationJvmMultiProjectIT() {
-    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copyEnsuringK1()
-}
-
 open class IncrementalCompilationK2JvmMultiProjectIT : IncrementalCompilationJvmMultiProjectIT() {
     override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copyEnsuringK2()
 
@@ -617,29 +614,6 @@ abstract class BaseIncrementalCompilationMultiProjectIT : IncrementalCompilation
         }
     }
 
-    @DisplayName("Lib with ABI snapshot: add new ABI method")
-    @GradleTest
-    fun testAbiChangeInLib_addNewMethod_withAbiSnapshot(gradleVersion: GradleVersion) {
-        defaultProject(
-            gradleVersion,
-        ) {
-            build("assemble")
-
-            subProject("lib").kotlinSourcesDir().resolve("bar/A.kt").modify {
-                it.replace("fun a() {}", "fun a() {}\nfun newA() {}")
-            }
-
-            build("assemble") {
-                val expectedSources = getExpectedKotlinSourcesForDefaultProject(
-                    libSources = listOf("bar/A.kt", "bar/B.kt"),
-                    appSources = listOf("foo/AA.kt", "foo/AAA.kt", "foo/BB.kt")
-                )
-
-                assertCompiledKotlinSources(expectedSources, output)
-            }
-        }
-    }
-
     @DisplayName("Lib: after cleaning lib project")
     @GradleTest
     open fun testAbiChangeInLib_afterLibClean_withAbiSnapshot(gradleVersion: GradleVersion) {
@@ -742,7 +716,8 @@ abstract class BaseIncrementalCompilationMultiProjectIT : IncrementalCompilation
                 ":lib:$compileKotlinTaskName",
                 buildOptions = defaultBuildOptions.copy(
                     compilerExecutionStrategy = KotlinCompilerExecutionStrategy.IN_PROCESS,
-                    incremental = false
+                    incremental = false,
+                    jsOptions = JsOptions(incrementalJs = false, incrementalJsKlib = false),
                 ),
             ) {
                 projectPath.resolve("lib/build/kotlin/${compileKotlinTaskName}/classpath-snapshot").let {
@@ -757,6 +732,7 @@ abstract class BaseIncrementalCompilationMultiProjectIT : IncrementalCompilation
                 ":lib:$compileKotlinTaskName",
                 buildOptions = defaultBuildOptions.copy(
                     incremental = false,
+                    jsOptions = JsOptions(incrementalJs = false, incrementalJsKlib = false),
                 )
             ) {
                 assertTasksUpToDate(":lib:$compileKotlinTaskName")

@@ -64,11 +64,8 @@ class CoroutineTransformerMethodVisitor(
     private val containingClassInternalName: String,
     obtainClassBuilderForCoroutineState: () -> ClassBuilder,
     private val isForNamedFunction: Boolean,
-    // Since tail-call optimization of functions with Unit return type relies on ability of call-site to recognize them,
-    // in order to ignore return value and push Unit, when we cannot ensure this ability, for example, when the function overrides function,
-    // returning Any, we need to disable tail-call optimization for these functions.
-    private val disableTailCallOptimizationForFunctionReturningUnit: Boolean,
     private val reportSuspensionPointInsideMonitor: (String) -> Unit,
+    private val onStateMachineGenerated: (MethodKey) -> Unit = {},
     private val lineNumber: Int,
     private val sourceFile: String,
     private val config: JvmBackendConfig,
@@ -122,7 +119,7 @@ class CoroutineTransformerMethodVisitor(
         var actualCoroutineStart = methodNode.instructions.first
 
         if (isForNamedFunction) {
-            if (methodNode.allSuspensionPointsAreTailCalls(suspensionPoints, !disableTailCallOptimizationForFunctionReturningUnit)) {
+            if (methodNode.allSuspensionPointsAreTailCalls(suspensionPoints)) {
                 methodNode.addCoroutineSuspendedChecks(suspensionPoints)
                 methodNode.insertAsyncStackTraceEntriesForTailCallFunction(suspensionPoints)
                 dropSuspensionMarkers(methodNode)
@@ -185,6 +182,7 @@ class CoroutineTransformerMethodVisitor(
         generatedCodeMarkers?.addFakeVariablesToLVTAndInitializeThem(methodNode, isForNamedFunction)
 
         writeDebugMetadata(methodNode, suspensionPointLineNumbers, suspensionPointNextLineNumbers, spilledToVariableMapping)
+        onStateMachineGenerated(MethodKey(methodNode))
     }
 
     // Replace continuation of tail-call functions with wrapped one, when debugger is attached - this way,
@@ -268,7 +266,7 @@ class CoroutineTransformerMethodVisitor(
         // spilled variables
         iconst(visibleLocals.size * 2)
         newarray(AsmTypes.OBJECT_TYPE)
-        for ((index, local) in visibleLocals.withIndex()) {
+        for ([index, local] in visibleLocals.withIndex()) {
             // 2n'th - names
             dup()
             iconst(2 * index)
@@ -546,7 +544,7 @@ class CoroutineTransformerMethodVisitor(
             metadata.visit(COROUTINES_METADATA_NEXT_LINE_NUMBERS_JVM_NAME, nextLines.toIntArray())
         }
 
-        val debugIndexToLabel = spilledToLocalMapping.withIndex().flatMap { (labelIndex, list) ->
+        val debugIndexToLabel = spilledToLocalMapping.withIndex().flatMap { [labelIndex, list] ->
             list.map { labelIndex }
         }
         val variablesMapping = spilledToLocalMapping.flatten()
@@ -790,7 +788,6 @@ class CoroutineTransformerMethodVisitor(
         if (suspensionPoints.isEmpty()) return emptyList()
 
         val frames: Array<out Frame<BasicValue>?> = performSpilledVariableFieldTypesAnalysis(methodNode, containingClassInternalName)
-        val afterResumeFrames = performUninitializedAfterResumeVariablesAnalysis(suspensionPoints, methodNode, containingClassInternalName)
 
         val suspendLambdaParameters =
             if (config.nullOutSpilledCoroutineLocalsUsingStdlibFunction) methodNode.collectSuspendLambdaParameterSlots()
@@ -798,7 +795,7 @@ class CoroutineTransformerMethodVisitor(
 
         val maxVarsCountByType = mutableMapOf<Type, Int>()
         var initialSpilledVariablesCount = 0
-        for ((type, count) in initialVarsCountByType) {
+        for ([type, count] in initialVarsCountByType) {
             if (type == AsmTypes.OBJECT_TYPE) {
                 initialSpilledVariablesCount = count
             }
@@ -830,7 +827,7 @@ class CoroutineTransformerMethodVisitor(
                 methodNode, frames, livenessFrames, suspensionCallBeginIndex, varsCountByType
             )
 
-            val (referencesToSpill, primitivesToSpill) = variablesToSpill.partition { variable ->
+            val [referencesToSpill, primitivesToSpill] = variablesToSpill.partition { variable ->
                 variable.normalizedType == AsmTypes.OBJECT_TYPE
             }
 
@@ -838,7 +835,7 @@ class CoroutineTransformerMethodVisitor(
             primitivesToSpillBySuspensionPointIndex += primitivesToSpill
             variablesToSpillBySuspensionPointIndex += variablesToSpill
 
-            for ((type, index) in varsCountByType) {
+            for ([type, index] in varsCountByType) {
                 maxVarsCountByType[type] = max(maxVarsCountByType[type] ?: 0, index)
             }
         }
@@ -855,8 +852,12 @@ class CoroutineTransformerMethodVisitor(
 
         // for each suspension point, check if there are some dead non-spilled variables that will be spilled on further points
         // but could be unitialized there if resumed on this point
-        val varilablesForReinitializationBySuspensionPointIndex =
-            calculateVariablesToReinitialize(suspensionPoints, afterResumeFrames, methodNode, variablesToSpillBySuspensionPointIndex)
+        val varilablesForReinitializationBySuspensionPointIndex = calculateVariablesToReinitializeBySuspensionPoint(
+            suspensionPoints,
+            methodNode,
+            containingClassInternalName,
+            variablesToSpillBySuspensionPointIndex
+        )
 
         // Mutate method node
         for (suspensionPointIndex in suspensionPoints.indices) {
@@ -869,7 +870,7 @@ class CoroutineTransformerMethodVisitor(
             }
 
             // Then, we cleanup invisible dead variables
-            val (currentSpilledCount, predSpilledCount) = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
+            val [currentSpilledCount, predSpilledCount] = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
             if (predSpilledCount > currentSpilledCount) {
                 for (fieldIndex in currentSpilledCount until predSpilledCount) {
                     cleanUpField(methodNode, suspension, fieldIndex)
@@ -886,7 +887,7 @@ class CoroutineTransformerMethodVisitor(
         }
 
         for (entry in maxVarsCountByType) {
-            val (type, maxIndex) = entry
+            val [type, maxIndex] = entry
             for (index in (initialVarsCountByType[type]?.plus(1) ?: 0)..maxIndex) {
                 classBuilderForCoroutineState.newField(
                     JvmDeclarationOrigin.NO_ORIGIN, AsmUtil.NO_FLAG_PACKAGE_PRIVATE,
@@ -896,37 +897,6 @@ class CoroutineTransformerMethodVisitor(
         }
 
         return spilledToVariableMapping
-    }
-
-    private fun calculateVariablesToReinitialize(
-        suspensionPoints: List<SuspensionPoint>,
-        afterResumeFrames: Array<out Frame<ResumeDependentValue>?>,
-        methodNode: MethodNode,
-        variablesToSpillBySuspensionPointIndex: MutableList<List<SpillableVariable>>,
-    ): Array<MutableList<SpillableVariable>> {
-        val varilablesForReinitializationBySuspensionPointIndex = Array(suspensionPoints.size) { mutableListOf<SpillableVariable>() }
-        for ((spIndex, suspensionPoint) in suspensionPoints.withIndex()) {
-            val resumeDependentFrame = afterResumeFrames[methodNode.instructions.indexOf(suspensionPoint.suspensionCallEnd)]
-                ?: error(
-                    "Missing 'after resume' analysis data for ${suspensionPoint.suspensionCallEnd} " +
-                            "at ${containingClassInternalName}::${methodNode.name}"
-                )
-            for (variable in variablesToSpillBySuspensionPointIndex[spIndex]) {
-                val resumeDependentValue = resumeDependentFrame.getLocal(variable.slot)
-                    ?: error("Missing 'after resume' analysis data for slot ${variable.slot}")
-                resumeDependentValue.states.withIndex().filter { it.value.isUnitialized() }.forEach {
-                    val otherSpIndex = it.index
-                    // it was deduced by analysis that there is a path between suspension points (otherSpIndex -> spIndex) with no
-                    // STOREs to the variable's slot
-                    if (variablesToSpillBySuspensionPointIndex[otherSpIndex].all { it.slot != variable.slot }) {
-                        // .. and the variable is not spilled on preceding (other) SP, so we need to additionally initialize it
-                        // with some value (e.g. default one) on unspill block
-                        varilablesForReinitializationBySuspensionPointIndex[otherSpIndex].add(variable)
-                    }
-                }
-            }
-        }
-        return varilablesForReinitializationBySuspensionPointIndex
     }
 
     private fun generateSpillAndUnspill(
@@ -1544,7 +1514,7 @@ private fun MethodNode.extendSuspendLambdaParameterRanges() {
     }
 }
 
-private class SpillableVariable(
+internal class SpillableVariable(
     val value: BasicValue,
     val type: Type,
     val normalizedType: Type,
@@ -1587,7 +1557,7 @@ private fun InstructionAdapter.generateContinuationConstructorCall(
             methodNode.access,
             needDispatchReceiver, internalNameForDispatchReceiver ?: containingClassInternalName
         )
-    for ((type, index) in parameterTypesAndIndices) {
+    for ([type, index] in parameterTypesAndIndices) {
         load(index, type)
     }
 
@@ -1710,13 +1680,13 @@ fun MethodNode.nodeTextWithVisibleVariables(): String {
         }
         return String(res) + "|"
     }
-    return instructions.withIndex().joinToString("\n") { (i, insn) -> "${visibleVariables(i)}${insn.insnText}" }
+    return instructions.withIndex().joinToString("\n") { [i, insn] -> "${visibleVariables(i)}${insn.insnText}" }
 }
 
 // Handy debugging routine
 @Suppress("unused")
 private fun MethodNode.nodeTextWithLiveness(liveness: List<VariableLivenessFrame>): String =
-    liveness.zip(this.instructions.asSequence().toList()).joinToString("\n") { (a, b) -> "$a|${b.insnText}" }
+    liveness.zip(this.instructions.asSequence().toList()).joinToString("\n") { [a, b] -> "$a|${b.insnText}" }
 
 /*
  * Before ApiVersion 2.2.

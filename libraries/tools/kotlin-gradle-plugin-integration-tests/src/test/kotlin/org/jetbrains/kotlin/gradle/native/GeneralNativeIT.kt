@@ -350,8 +350,8 @@ class GeneralNativeIT : KGPBaseTest() {
                 "bazDebugExecutable" to "my-baz",
             )
             val linkTasks =
-                binaries.map { (name, _) -> "link${name.capitalize()}Host" }
-            val outputFiles = binaries.associate { (name, fileBaseName) ->
+                binaries.map { [name, _] -> "link${name.capitalize()}Host" }
+            val outputFiles = binaries.associate { [name, fileBaseName] ->
                 val outputKind = NativeOutputKind.entries.single { name.endsWith(it.taskNameClassifier, true) }.compilerOutputKind
                 val prefix = outputKind.prefix(HostManager.host)
                 val suffix = outputKind.suffix(HostManager.host)
@@ -368,7 +368,7 @@ class GeneralNativeIT : KGPBaseTest() {
             build("hostMainBinaries") {
                 assertTasksExecuted(linkTasks.map { ":$it" })
                 assertTasksExecuted(":compileKotlinHost")
-                outputFiles.forEach { (_, file) ->
+                outputFiles.forEach { [_, file] ->
                     assertFileInProjectExists(file)
                 }
             }
@@ -715,6 +715,65 @@ class GeneralNativeIT : KGPBaseTest() {
         }
     }
 
+    @DisplayName("Does not leak native stderr output into Gradle log (KT-69896)")
+    @GradleTest
+    @TestMetadata("native-tests")
+    @OsCondition(
+        supportedOn = [OS.LINUX, OS.MAC, OS.WINDOWS],
+        enabledOnCI = [OS.LINUX, OS.MAC], // File descriptors not released fast enough before JUnit @TempDir cleanup on Windows
+    )
+    fun testNativeStderrOutputStaysInTestLog(gradleVersion: GradleVersion) {
+        nativeProject("native-tests", gradleVersion) {
+            val marker = "KT_69896_MARKER"
+            projectPath.resolve("src/commonTest/kotlin/test.kt")
+                .appendText(
+                    """
+
+                    @Test
+                    fun stderrOutputShouldStayInTestReport() {
+                        repeat(200) { i ->
+                            IllegalStateException("$marker-${'$'}i").printStackTrace()
+                        }
+                    }
+                    """.trimIndent()
+                )
+
+            build(
+                "hostTest",
+                // Use QUIET log level so that only our test-reporting path can surface the marker.
+                // This ensures assertOutputDoesNotContain(marker) tests our TC message handling,
+                // not Gradle's default logging infrastructure.
+                buildOptions = defaultBuildOptions.copy(
+                    logLevel = LogLevel.QUIET,
+                    // The native-tests project has iOS targets that emit DisabledNativeTargetTaskWarning
+                    // on Linux. With warningMode=Fail (CI default), these diagnostics abort the build
+                    // before tests run. Keep warningMode=Fail but prevent severity escalation.
+                    ignoreWarningModeSeverityOverride = true,
+                ),
+            ) {
+                assertTasksExecuted(":hostTest")
+                assertOutputDoesNotContain(marker)
+            }
+
+            val hostTestReports = projectPath.resolve("build/test-results/hostTest")
+                .listDirectoryEntries("*.xml")
+            assertTrue(hostTestReports.isNotEmpty(), "No hostTest XML reports found")
+
+            val targetCaseName = "stderrOutputShouldStayInTestReport"
+            val markerInReport = hostTestReports.any { report ->
+                val reportElement = JDOMUtil.load(report)
+                val targetCase = reportElement.getChildren("testcase")
+                    .firstOrNull { it.getAttributeValue("name")?.startsWith(targetCaseName) == true }
+                    ?: return@any false
+
+                val testCaseSystemOut = targetCase.getChild("system-out")?.text.orEmpty()
+                val suiteSystemOut = reportElement.getChild("system-out")?.text.orEmpty()
+                testCaseSystemOut.contains(marker) || suiteSystemOut.contains(marker)
+            }
+            assertTrue(markerInReport, "Expected marker '$marker' in hostTest system-out output")
+        }
+    }
+
     @DisplayName("Checks that build fails if a test executable crashes")
     @GradleTest
     @TestMetadata("native-tests")
@@ -813,6 +872,23 @@ class GeneralNativeIT : KGPBaseTest() {
             }
             build("-P$KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS_PROPERTY=true") {
                 assertNoDiagnostic(KotlinToolingDiagnostics.DisabledKotlinNativeTargets)
+            }
+        }
+    }
+
+    @DisplayName("Assert that disabled native task warnings are shown and can be suppressed")
+    @GradleTest
+    @OsCondition(supportedOn = [OS.LINUX, OS.WINDOWS])
+    @TestMetadata("new-mpp-lib-and-app/sample-lib")
+    fun testDisabledNativeTaskWarnings(gradleVersion: GradleVersion) {
+        nativeProject("new-mpp-lib-and-app/sample-lib", gradleVersion, buildOptions = defaultBuildOptions.disableKlibsCrossCompilation()) {
+            // First build should show the disabled task warning
+            build {
+                assertHasDiagnostic(KotlinToolingDiagnostics.DisabledNativeTargetTaskWarning)
+            }
+            // With the ignore property set, the warning should be suppressed
+            build("-P$KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS_PROPERTY=true") {
+                assertNoDiagnostic(KotlinToolingDiagnostics.DisabledNativeTargetTaskWarning)
             }
         }
     }
@@ -952,6 +1028,12 @@ class GeneralNativeIT : KGPBaseTest() {
     fun shouldAllowToOverrideDownloadUrl(gradleVersion: GradleVersion, @TempDir customKonanDir: Path) {
         nativeProject(
             "native-parallel", gradleVersion,
+            buildOptions = defaultBuildOptions.copy(
+                nativeOptions = defaultBuildOptions.nativeOptions.copy(
+                    distributionDownloadFromMaven = false // please remove this test, when this flag is removed
+                ),
+                konanDataDir = customKonanDir.toAbsolutePath()
+            ),
             dependencyManagement = DependencyManagement.DisabledDependencyManagement
         ) {
             gradleProperties.appendText(
@@ -962,16 +1044,14 @@ class GeneralNativeIT : KGPBaseTest() {
             )
 
             gradleProperties.replaceText("cacheRedirectorEnabled=true", "cacheRedirectorEnabled=false")
+            // Force loading build dependencies through cache redirector to avoid Maven central throttling/429 error
+            settingsGradleKts.readText()
+                .replace("mavenCentral()", "maven(url = \"https://cache-redirector.jetbrains.com/repo.maven.apache.org/maven2\")")
+                .replace("google()", "maven(url = \"https://cache-redirector.jetbrains.com/maven.google.com\")")
+                .replace("gradlePluginPortal()", "maven(url = \"https://cache-redirector.jetbrains.com/plugins.gradle.org/m2\")")
+                .let { settingsGradleKts.writeText(it) }
 
-            buildAndFail(
-                "build",
-                buildOptions = defaultBuildOptions.copy(
-                    nativeOptions = defaultBuildOptions.nativeOptions.copy(
-                        distributionDownloadFromMaven = false // please remove this test, when this flag is removed
-                    ),
-                    konanDataDir = customKonanDir.toAbsolutePath()
-                )
-            ) {
+            buildAndFail("build") {
                 assertOutputContains("Could not HEAD 'https://non-existent.net")
             }
         }

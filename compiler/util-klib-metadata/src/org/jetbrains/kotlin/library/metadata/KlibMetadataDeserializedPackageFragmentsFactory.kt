@@ -1,15 +1,16 @@
 package org.jetbrains.kotlin.library.metadata
 
+import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.serialization.deserialization.DeserializationConfiguration
 import org.jetbrains.kotlin.storage.StorageManager
 
+@K1Deprecation
 interface KlibMetadataDeserializedPackageFragmentsFactory {
     fun createDeserializedPackageFragments(
         library: KotlinLibrary,
         moduleDescriptor: ModuleDescriptor,
-        packageAccessedHandler: PackageAccessHandler?,
         customMetadataProtoLoader: CustomMetadataProtoLoader?,
         storageManager: StorageManager,
         configuration: DeserializationConfiguration

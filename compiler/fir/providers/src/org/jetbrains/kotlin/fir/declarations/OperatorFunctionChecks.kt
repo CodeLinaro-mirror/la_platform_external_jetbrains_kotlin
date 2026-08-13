@@ -7,8 +7,10 @@ package org.jetbrains.kotlin.fir.declarations
 
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.containingClassForStaticMemberAttr
 import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
+import org.jetbrains.kotlin.fir.declarations.utils.isCompanionBlockMember
 import org.jetbrains.kotlin.fir.declarations.utils.isExtension
 import org.jetbrains.kotlin.fir.declarations.utils.isInlineOrValue
 import org.jetbrains.kotlin.fir.declarations.utils.isSuspend
@@ -17,6 +19,7 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
+import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.scopes.overriddenFunctions
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -28,8 +31,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 sealed class OperatorDiagnostic {
-    class IllegalOperatorDiagnostic(val message: String) : OperatorDiagnostic()
-    class DeprecatedOperatorDiagnostic(val message: String, val feature: LanguageFeature) : OperatorDiagnostic()
+    class IllegalOperatorDiagnostic(val message: String, val deprecatingFeature: LanguageFeature? = null) : OperatorDiagnostic()
     class Unsupported(val feature: LanguageFeature) : OperatorDiagnostic()
     class ReturnTypeMismatchWithOuterClass(
         val outer: FirRegularClassSymbol,
@@ -104,7 +106,7 @@ object OperatorFunctionChecks {
             Checks.isKProperty,
             Checks.nonSuspend,
         )
-        checkFor(OperatorNameConventions.INVOKE, Checks.memberOrExtension)
+        checkFor(OperatorNameConventions.INVOKE, Checks.memberOrExtensionOrCompanionBlockMember)
         checkFor(
             OperatorNameConventions.CONTAINS,
             Checks.memberOrExtension, Checks.ValueParametersCount.single,
@@ -202,6 +204,11 @@ private object Checks {
         function.dispatchReceiverType != null || function.receiverParameter != null
     }
 
+    val memberOrExtensionOrCompanionBlockMember =
+        simple("must be a member, an extension function or companion block member") { function, _ ->
+            function.dispatchReceiverType != null || function.receiverParameter != null || function.isCompanionBlockMember
+        }
+
     val member = simple("must be a member function") { function, _ ->
         function.dispatchReceiverType != null
     }
@@ -233,8 +240,7 @@ private object Checks {
 
                 val message = "must have at most $n value parameter" + (if (n > 1) "s" else "")
 
-                if (feature != null) OperatorDiagnostic.DeprecatedOperatorDiagnostic(message, feature)
-                else OperatorDiagnostic.IllegalOperatorDiagnostic(message)
+                OperatorDiagnostic.IllegalOperatorDiagnostic(message, feature)
             }
 
         val single = simple("must have a single value parameter") { function, _ ->
@@ -283,11 +289,15 @@ private object Checks {
                     }
                 }
             ) { function, session ->
-                val dispatch = function.dispatchReceiverType?.toRegularClassSymbol(session)
-                if (dispatch?.isCompanion != true)
+                val outerClass = if (function.isCompanionBlockMember && !function.isJavaOrEnhancement) {
+                    function.containingClassForStaticMemberAttr?.toRegularClassSymbol(session)
+                } else {
+                    val dispatch = function.dispatchReceiverType?.toRegularClassSymbol(session)
+                    dispatch?.takeIf { it.isCompanion }?.getContainingClassSymbol() as? FirRegularClassSymbol
+                }
+                if (outerClass == null) {
                     return@full OperatorDiagnostic.IllegalOperatorDiagnostic("must be a member of companion")
-
-                val outerClass = dispatch.getContainingClassSymbol() as? FirRegularClassSymbol ?: return@full null
+                }
                 val returnType = function.returnTypeRef.coneType.fullyExpandedType(session)
                 val lowerBound = returnType.lowerBoundIfFlexible()
 
@@ -345,8 +355,11 @@ private object Checks {
     object EqualsOverridesEqualsOfAny : Check() {
         override fun check(function: FirNamedFunction, session: FirSession, scopeSession: ScopeSession?): OperatorDiagnostic? {
             if (scopeSession == null) return null
-            val containingClassSymbol = function.containingClassLookupTag()?.toRegularClassSymbol(session) ?: return null
+            val containingClassSymbol = function.containingClassLookupTag()?.toClassSymbol(session) ?: return null
             val customEqualsSupported = session.languageVersionSettings.supportsFeature(LanguageFeature.CustomEqualsInValueClasses)
+            val deprecatingFeature = LanguageFeature.ForbidOperatorEqualsInEnumEntriesAndAnonymousObjects.takeIf {
+                containingClassSymbol !is FirRegularClassSymbol
+            }
 
             if (function.symbol.overriddenFunctions(containingClassSymbol, session, scopeSession)
                     .any { it.containingClassLookupTag()?.classId == StandardClassIds.Any }
@@ -363,7 +376,7 @@ private object Checks {
                     append(" or define 'equals(other: ${expectedParameterTypeRendered}): Boolean'")
                 }
             }
-            return OperatorDiagnostic.IllegalOperatorDiagnostic(message)
+            return OperatorDiagnostic.IllegalOperatorDiagnostic(message, deprecatingFeature)
         }
     }
 

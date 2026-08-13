@@ -29,6 +29,8 @@ import org.jetbrains.kotlin.name.JvmStandardClassIds
 import org.jetbrains.kotlin.name.Name
 
 object FirJvmExposeBoxedChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
+    override val platformSpecificCheckerEnabledInMetadataCompilation: Boolean
+        get() = true
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(declaration: FirDeclaration) {
@@ -55,6 +57,10 @@ object FirJvmExposeBoxedChecker : FirBasicDeclarationChecker(MppCheckerKind.Comm
             val value = (name as? FirLiteralExpression)?.value as? String
             if (value != null && !Name.isValidIdentifier(value)) {
                 reporter.reportOn(name.source, FirJvmErrors.ILLEGAL_JVM_NAME)
+            }
+
+            if (declaration is FirFunction && declaration.nameOrSpecialName.asString() == value) {
+                reporter.reportOn(name.source, FirJvmErrors.JVM_EXPOSE_BOXED_CANNOT_BE_THE_SAME)
             }
         }
 
@@ -111,10 +117,6 @@ object FirJvmExposeBoxedChecker : FirBasicDeclarationChecker(MppCheckerKind.Comm
                 FirJvmErrors.JVM_EXPOSE_BOXED_CANNOT_BE_THE_SAME_AS_JVM_NAME
             )
         }
-
-        if (declaration is FirFunction && declaration.nameOrSpecialName.asString() == value) {
-            reporter.reportOn(name.source, FirJvmErrors.JVM_EXPOSE_BOXED_CANNOT_BE_THE_SAME)
-        }
     }
 
     private fun FirDeclaration.cannotRename(): Boolean = this is FirClass || this is FirConstructor
@@ -141,11 +143,13 @@ object FirJvmExposeBoxedChecker : FirBasicDeclarationChecker(MppCheckerKind.Comm
         // Check dispatch receiver as well - we use `-impl` suffix for them
         if (this !is FirConstructor) {
             val containingClass = containingClassLookupTag()?.toRegularClassSymbol(session)
-            return containingClass?.isInlineOrValue == true
+            return containingClass?.isBasicValueClass == true
         }
         return false
     }
 
-    private fun FirTypeRef.isInline(session: FirSession): Boolean =
-        toRegularClassSymbol(session)?.isInlineOrValue ?: false
+    private fun FirTypeRef.isInline(session: FirSession): Boolean {
+        val classSymbol = toRegularClassSymbol(session) ?: return false
+        return classSymbol.isBasicValueClass
+    }
 }

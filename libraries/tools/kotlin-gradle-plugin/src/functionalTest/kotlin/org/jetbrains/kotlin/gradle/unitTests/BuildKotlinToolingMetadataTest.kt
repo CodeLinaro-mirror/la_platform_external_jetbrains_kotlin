@@ -11,10 +11,8 @@ package org.jetbrains.kotlin.gradle.unitTests
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.testfixtures.ProjectBuilder
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
@@ -28,7 +26,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
-import org.jetbrains.kotlin.gradle.tooling.BuildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.tooling.buildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.util.configureDefaults
 import org.jetbrains.kotlin.konan.target.KonanTarget
@@ -44,11 +41,6 @@ class BuildKotlinToolingMetadataTest {
 
     private val project = ProjectBuilder.builder().build() as ProjectInternal
     private val multiplatformExtension get() = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
-    private val jsExtension get() = project.extensions.getByType(KotlinJsProjectExtension::class.java)
-
-    init {
-        project.extensions.getByType(ExtraPropertiesExtension::class.java).set("kotlin.mpp.enableKotlinToolingMetadataArtifact", "true")
-    }
 
     @Test
     fun `multiplatform empty setup`() {
@@ -167,20 +159,6 @@ class BuildKotlinToolingMetadataTest {
     }
 
     @Test
-    fun js() {
-        project.plugins.apply("org.jetbrains.kotlin.js")
-        val kotlin = jsExtension
-        kotlin.js { nodejs() }
-
-        val metadata = getKotlinToolingMetadata()
-        assertEquals(org.jetbrains.kotlin.gradle.plugin.KotlinJsPluginWrapper::class.java.canonicalName, metadata.buildPlugin)
-
-        val jsTarget = metadata.projectTargets.single { it.platformType == js.name }
-        assertEquals(true, jsTarget.extras.js?.isNodejsConfigured)
-        assertEquals(false, jsTarget.extras.js?.isBrowserConfigured)
-    }
-
-    @Test
     fun jvm() {
         project.plugins.apply("org.jetbrains.kotlin.jvm")
         val metadata = getKotlinToolingMetadata()
@@ -213,7 +191,6 @@ class BuildKotlinToolingMetadataTest {
     }
 
     private fun getKotlinToolingMetadata(): KotlinToolingMetadata {
-        val task = project.buildKotlinToolingMetadataTask?.get() ?: error("No ${BuildKotlinToolingMetadataTask.defaultTaskName} task")
-        return task.kotlinToolingMetadata
+        return project.buildKotlinToolingMetadataTask.get().kotlinToolingMetadata
     }
 }

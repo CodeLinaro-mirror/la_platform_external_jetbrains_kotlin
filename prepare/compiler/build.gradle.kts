@@ -99,7 +99,8 @@ val distLibraryProjects = listOfNotNull(
     ":kotlin-scripting-compiler-impl",
     ":kotlin-scripting-jvm",
     ":libraries:tools:mutability-annotations-compat",
-    ":plugins:jvm-abi-gen"
+    ":plugins:jvm-abi-gen",
+    ":kotlin-jklib-compiler"
 )
 
 val distCompilerPluginProjects = listOf(
@@ -136,6 +137,7 @@ dependencies {
     api(project(":kotlin-script-runtime"))
     api(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     api(libs.kotlinx.coroutines.core)
+    api(project(":compiler:build-tools:kotlin-build-tools-api"))
 
     proguardLibraries(project(":kotlin-annotations-jvm"))
 
@@ -151,6 +153,8 @@ dependencies {
     librariesKotlinTest(kotlinTest("junit"))
     libraries(kotlinStdlib(classifier = "distJsJar"))
     libraries(kotlinStdlib(classifier = "distJsKlib"))
+    libraries(kotlinStdlib(classifier = "distWasmJsKlib"))
+    libraries(kotlinStdlib(classifier = "distWasmWasiKlib"))
 
     librariesStripVersion(libs.kotlinx.coroutines.core) { isTransitive = false }
 
@@ -447,7 +451,7 @@ val distMaven = distTask<Sync>("distMaven") {
     from(distMavenContents)
 }
 
-distTask<Copy>("dist") {
+val dist = distTask<Copy>("dist") {
     destinationDir = File(distDir)
 
     dependsOn(distKotlinc)
@@ -470,4 +474,9 @@ inline fun <reified T : AbstractCopyTask> Project.distTask(
     rename(quote("-$version"), "")
     rename(quote("-$bootstrapKotlinVersion"), "")
     block()
+}
+
+artifacts {
+    val distElements = configurations.create("distElements")
+    add(distElements.name, dist)
 }

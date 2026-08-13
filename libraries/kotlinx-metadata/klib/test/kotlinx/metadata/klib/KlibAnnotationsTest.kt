@@ -12,7 +12,6 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
-@OptIn(ExperimentalAnnotationsInMetadata::class)
 class KlibAnnotationsTest {
     @Test
     fun testKlibAnnotations() = testKlibAnnotationsWithMetadataVersion(KlibMetadataVersion.LATEST_STABLE_SUPPORTED)
@@ -75,6 +74,8 @@ class KlibAnnotationsTest {
         }).fragments.single()
 
     private fun assertAnnotationsEqual(module1: KmModuleFragment, module2: KmModuleFragment) {
+        assertEquals(module1.fileAnnotations, module2.fileAnnotations)
+
         val pkg1 = module1.pkg!!
         val pkg2 = module2.pkg!!
         assertEquals(pkg1.typeAliases.single().annotations, pkg2.typeAliases.single().annotations)
@@ -113,6 +114,7 @@ class KlibAnnotationsTest {
         fqName = "klib"
         pkg = generatePackage()
         classes.addAll(listOf(generateKlass(), generateEnumKlass()))
+        fileAnnotations.add(KmAnnotation("FileAnnotation", emptyMap()))
     }
 
 

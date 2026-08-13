@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.platform.isCommon
 import org.jetbrains.kotlin.platform.isJs
 import org.jetbrains.kotlin.platform.jvm.isJvm
@@ -42,7 +41,8 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
     protected abstract fun libraryOutputPath(inputPath: Path, libraryName: String): Path
 
     override fun compile(
-        tmpDir: Path,
+        sourcesTempDirectory: Path,
+        commonSourcesTempDirectory: Path?,
         module: TestModule,
         libraryName: String,
         dependencyBinaryRoots: Collection<Path>,
@@ -53,10 +53,10 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
                 || (allowedLibraryPlatforms.isNotEmpty() && module.targetPlatform(testServices) !in allowedLibraryPlatforms)
 
         val library = try {
-            val outputPath = libraryOutputPath(tmpDir, libraryName)
+            val outputPath = libraryOutputPath(sourcesTempDirectory, libraryName)
             doCompile(
-                tmpDir,
-                buildCompilerOptions(module, testServices),
+                sourcesTempDirectory,
+                buildCompilerOptions(module, testServices, commonSourcesTempDirectory),
                 outputPath,
                 buildExtraClasspath(module, dependencyBinaryRoots, testServices)
             )
@@ -101,9 +101,14 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
 
     protected open fun buildPlatformExtraClasspath(module: TestModule, testServices: TestServices): List<String> = emptyList()
 
-    private fun buildCompilerOptions(module: TestModule, testServices: TestServices): List<String> = buildList {
+    private fun buildCompilerOptions(
+        module: TestModule,
+        testServices: TestServices,
+        commonSourcesTempDirectory: Path?,
+    ): List<String> = buildList {
         addAll(buildCommonCompilerOptions(module))
         addAll(buildPlatformCompilerOptions(module, testServices))
+        addAll(buildCommonSourcesCompilerOptions(commonSourcesTempDirectory))
     }
 
     private fun buildCommonCompilerOptions(module: TestModule): List<String> = buildList {
@@ -124,6 +129,19 @@ abstract class CliTestModuleCompiler : TestModuleCompiler() {
         }
 
         addAll(module.directives[Directives.COMPILER_ARGUMENTS])
+    }
+
+    private fun buildCommonSourcesCompilerOptions(commonSourcesTempDirectory: Path?): List<String> {
+        if (commonSourcesTempDirectory == null) {
+            return emptyList()
+        }
+
+        val commonSourcesPathString = commonSourcesTempDirectory.absolutePathString()
+
+        return listOf(
+            "-Xcommon-sources=$commonSourcesPathString",
+            commonSourcesPathString // Also add common sources directly, as a free parameter
+        )
     }
 
     private fun addFileToJar(path: String, text: String, jarOutputStream: JarOutputStream) {
@@ -150,6 +168,10 @@ object JvmJarTestModuleCompiler : CliTestModuleCompiler() {
             }
 
             addAll(listOf(K2JVMCompilerArguments::jdkHome.cliArgument, jdkHome.toString()))
+        }
+
+        if (LanguageSettingsDirectives.JVM_EXPOSE_BOXED in module.directives) {
+            add(K2JVMCompilerArguments::jvmExposeBoxed.cliArgument)
         }
     }
 
@@ -197,7 +219,6 @@ object JsKlibTestModuleCompiler : CliTestModuleCompiler() {
         val commands = buildList {
             add(K2JSCompilerArguments::moduleName.cliArgument); add(libraryOutputPath.nameWithoutExtension)
             add(K2JSCompilerArguments::outputDir.cliArgument); add(libraryOutputPath.parent.absolutePathString())
-            add(K2JSCompilerArguments::irProduceKlibFile.cliArgument)
             sourceFiles.mapTo(this) { it.absolutePath }
             addAll(options)
         }
@@ -210,6 +231,18 @@ object JsKlibTestModuleCompiler : CliTestModuleCompiler() {
 }
 
 object MetadataKlibDirTestModuleCompiler : CliTestModuleCompiler() {
+    override fun compile(
+        sourcesTempDirectory: Path,
+        commonSourcesTempDirectory: Path?,
+        module: TestModule,
+        libraryName: String,
+        dependencyBinaryRoots: Collection<Path>,
+        testServices: TestServices
+    ): Path {
+        check(commonSourcesTempDirectory == null) { "Dependent common sources aren't empty for a common module" }
+        return super.compile(sourcesTempDirectory, null, module, libraryName, dependencyBinaryRoots, testServices)
+    }
+
     override fun buildPlatformCompilerOptions(
         module: TestModule,
         testServices: TestServices,
@@ -250,13 +283,21 @@ object MetadataKlibDirTestModuleCompiler : CliTestModuleCompiler() {
  */
 object DispatchingTestModuleCompiler : TestModuleCompiler() {
     override fun compile(
-        tmpDir: Path,
+        sourcesTempDirectory: Path,
+        commonSourcesTempDirectory: Path?,
         module: TestModule,
         libraryName: String,
         dependencyBinaryRoots: Collection<Path>,
         testServices: TestServices
     ): Path {
-        return getCompiler(module, testServices).compile(tmpDir, module, libraryName, dependencyBinaryRoots, testServices)
+        return getCompiler(module, testServices).compile(
+            sourcesTempDirectory,
+            commonSourcesTempDirectory,
+            module,
+            libraryName,
+            dependencyBinaryRoots,
+            testServices
+        )
     }
 
     override fun compileSources(files: List<TestFile>, module: TestModule, testServices: TestServices): Path {

@@ -26,6 +26,8 @@ import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.PrepareSuspendFunctio
 import org.jetbrains.kotlin.ir.backend.js.utils.JsAnnotations
 import org.jetbrains.kotlin.ir.backend.js.utils.getJsName
 import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
+import org.jetbrains.kotlin.ir.backend.js.utils.isJsExportIgnore
+import org.jetbrains.kotlin.ir.backend.js.utils.isJsStaticDeclaration
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
@@ -46,6 +48,7 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.compactIfPossible
 import org.jetbrains.kotlin.utils.memoryOptimizedPlus
+import kotlin.getValue
 
 /**
  * The lowering generates a few functions from the original exported suspend functions
@@ -195,11 +198,22 @@ internal class PrepareSuspendFunctionsForExportLowering(private val context: JsI
             }
         }
 
-    override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? =
-        when {
+    override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
+        val isExportedJsStaticWithIgnoredCompanion by lazy(LazyThreadSafetyMode.NONE) {
+            declaration.isJsStaticDeclaration() &&
+                    declaration.parentClassOrNull?.let { it.isCompanion && it.isJsExportIgnore() } == true &&
+                    declaration.parentAsClass.parentClassOrNull?.isExported(context) == true
+        }
+
+        return when {
             declaration !is IrSimpleFunction || !declaration.isSuspend -> null
-            declaration.isTopLevel || declaration.isStatic -> runIf(declaration.isExported(context)) {
-                listOf(generatePromisifiedWrapper(declaration), declaration)
+            declaration.isTopLevel || declaration.isStatic || isExportedJsStaticWithIgnoredCompanion -> runIf(
+                isExportedJsStaticWithIgnoredCompanion || declaration.isExported(context)
+            ) {
+                val promisifiedWrapperFunction = generatePromisifiedWrapper(declaration)
+                    .also { declaration.promisifiedWrapperFunction = it }
+
+                listOf(promisifiedWrapperFunction, declaration)
             }
             else -> {
                 val originallyExportedSuspendMemberFunction = declaration.originallyExportedMember ?: return null
@@ -272,6 +286,7 @@ internal class PrepareSuspendFunctionsForExportLowering(private val context: JsI
                 }
             }
         }
+    }
 
     private val IrOverridableDeclaration<IrSimpleFunctionSymbol>.isMemberOfFirstClassOverridingTheOriginalDeclaration: Boolean
         get() = overriddenSymbols.all { it.owner.isInterfaceMethod }
@@ -397,7 +412,9 @@ internal class PrepareSuspendFunctionsForExportLowering(private val context: JsI
 
             bridgeFunc.annotations = buildList {
                 add(JsIrBuilder.buildAnnotation(jsExportIgnoreAnnotation.symbol))
-                originalFunc.annotations.filterTo(this) { !it.isAnnotation(JsAnnotations.jsNameFqn) }
+                originalFunc.annotations.filterTo(this) {
+                    !it.isAnnotation(JsAnnotations.jsNameFqn) && !it.isAnnotation(JsAnnotations.jsStatic)
+                }
             }.compactIfPossible()
 
             bridgeFunc.parameters.forEach {
@@ -437,8 +454,10 @@ internal class PrepareSuspendFunctionsForExportLowering(private val context: JsI
 
             this.overriddenSymbols = overriddenSymbols
 
-            val (exportAnnotations, irrelevantAnnotations) = originalFunc.annotations.partition {
-                it.isAnnotation(JsAnnotations.jsExportFqn) || it.isAnnotation(JsAnnotations.jsExportDefaultFqn)
+            val [exportAnnotations, irrelevantAnnotations] = originalFunc.annotations.partition {
+                it.isAnnotation(JsAnnotations.jsExportFqn) ||
+                        it.isAnnotation(JsAnnotations.jsExportDefaultFqn) ||
+                        it.isAnnotation(JsAnnotations.jsStatic)
             }
 
             annotations = exportAnnotations.compactIfPossible()

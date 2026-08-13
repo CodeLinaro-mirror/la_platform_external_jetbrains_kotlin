@@ -1,5 +1,4 @@
 // ISSUE: KT-80243
-// IGNORE_BACKEND_K1: ANY
 // LANGUAGE: +NameBasedDestructuring, +EnableNameBasedDestructuringShortForm
 // WITH_STDLIB
 

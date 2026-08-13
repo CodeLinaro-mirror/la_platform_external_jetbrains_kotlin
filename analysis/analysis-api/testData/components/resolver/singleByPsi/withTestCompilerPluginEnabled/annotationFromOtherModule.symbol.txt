@@ -1,2 +1,7 @@
 KtNameReferenceExpression(140,151): 'materialize'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/MyClass.materialize(<dispatch receiver>: test.MyClass): test.MyClass
+    ]

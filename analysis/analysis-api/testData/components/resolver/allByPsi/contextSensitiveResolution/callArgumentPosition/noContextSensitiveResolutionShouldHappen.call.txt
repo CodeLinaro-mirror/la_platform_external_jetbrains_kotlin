@@ -101,7 +101,7 @@ KtCallExpression(184,190): 'foo(X)'
       }
 
 KtNameReferenceExpression(184,187): 'foo'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -140,7 +140,7 @@ KtValueArgument(188,189): 'X'
   null
 
 KtNameReferenceExpression(188,189): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -193,7 +193,7 @@ KtCallExpression(195,211): 'foo(WrongEnum.X)'
       }
 
 KtNameReferenceExpression(195,198): 'foo'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -232,7 +232,7 @@ KtValueArgument(199,210): 'WrongEnum.X'
   null
 
 KtDotQualifiedExpression(199,210): 'WrongEnum.X'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = []
     diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'X'.>
 
@@ -240,7 +240,7 @@ KtNameReferenceExpression(199,208): 'WrongEnum'
   null
 
 KtNameReferenceExpression(209,210): 'X'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = []
     diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference 'X'.>
 
@@ -268,7 +268,7 @@ KtAnnotationEntry(215,225): '@DslMarker'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(216,225): 'DslMarker'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -291,7 +291,21 @@ KtUserType(216,225): 'DslMarker'
   null
 
 KtNameReferenceExpression(216,225): 'DslMarker'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.DslMarker
+        symbol = <constructor>(): kotlin.DslMarker
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtClass(250,264): '@MyDsl'
   null
@@ -317,7 +331,7 @@ KtAnnotationEntry(250,256): '@MyDsl'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(251,256): 'MyDsl'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -340,7 +354,21 @@ KtUserType(251,256): 'MyDsl'
   null
 
 KtNameReferenceExpression(251,256): 'MyDsl'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyDsl
+        symbol = <constructor>(): MyDsl
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtClass(266,280): '@MyDsl'
   null
@@ -366,7 +394,7 @@ KtAnnotationEntry(266,272): '@MyDsl'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(267,272): 'MyDsl'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -389,7 +417,21 @@ KtUserType(267,272): 'MyDsl'
   null
 
 KtNameReferenceExpression(267,272): 'MyDsl'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyDsl
+        symbol = <constructor>(): MyDsl
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtProperty(282,308): 'val A.X: String get() = ""'
   null
@@ -494,7 +536,7 @@ KtCallExpression(350,356): 'foo(X)'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'String', but 'MyEnum' was expected.>
 
 KtNameReferenceExpression(350,353): 'foo'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleFunctionCall:
         contextArgumentMapping = {}
@@ -536,7 +578,7 @@ KtValueArgument(354,355): 'X'
   null
 
 KtNameReferenceExpression(354,355): 'X'
-  KaErrorCallInfo:
+  KaCallResolutionError:
     candidateCalls = [
       KaSimpleVariableAccessCall:
         contextArguments = []
@@ -545,9 +587,10 @@ KtNameReferenceExpression(354,355): 'X'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false

@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.decompiler.stub
 
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.stubs.StubElement
 import com.intellij.util.io.StringRef
@@ -14,6 +15,7 @@ import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.isNumberedFunctionClassFqName
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
@@ -38,6 +40,8 @@ fun createClassStub(
     source: SourceElement?,
     context: ClsStubBuilderContext,
 ) {
+    ProgressManager.checkCanceled()
+
     ClassClsStubBuilder(parent, classProto, nameResolver, classId, source, context).build()
 }
 
@@ -132,6 +136,8 @@ private class ClassClsStubBuilder(
             isNumberedFunctionClassFqName(it.asSingleFqName().toUnsafe())
         }.map { it.shortClassName.ref() }.ifNotEmpty { toTypedArray() } ?: StringRef.EMPTY_ARRAY
 
+        val kdoc = classProto.getExtensionOrNull(KlibMetadataProtoBuf.classKdoc)
+
         @OptIn(ClassIdBasedLocality::class)
         val classId = classId.takeUnless { it.isLocal }
         val isTopLevel = classId?.isNestedClass == false
@@ -144,6 +150,7 @@ private class ClassClsStubBuilder(
                     isTopLevel = isTopLevel,
                     isLocal = false,
                     isObjectLiteral = false,
+                    kdocText = kdoc,
                 )
             }
 
@@ -160,6 +167,7 @@ private class ClassClsStubBuilder(
                     isClsStubCompiledToJvmDefaultImplementation = JvmProtoBufUtil.isNewPlaceForBodyGeneration(classProto),
                     isLocal = false,
                     isTopLevel = isTopLevel,
+                    kdocText = kdoc,
                     valueClassRepresentation = valueClassRepresentation(),
                 )
             }
@@ -215,6 +223,8 @@ private class ClassClsStubBuilder(
         if (classKind != ProtoBuf.Class.Kind.ENUM_CLASS) return
 
         classProto.enumEntryList.forEach { entry ->
+            ProgressManager.checkCanceled()
+
             val name = c.nameResolver.getName(entry.name)
             val annotations = c.components.annotationLoader.loadEnumEntryAnnotations(thisAsProtoContainer, entry)
             val enumEntryStub = KotlinEnumEntryStubImpl(
@@ -232,6 +242,8 @@ private class ClassClsStubBuilder(
 
     private fun createCallableMemberStubs(classBody: KotlinPlaceHolderStubImpl<KtClassBody>) {
         for (secondaryConstructorProto in classProto.constructorList) {
+            ProgressManager.checkCanceled()
+
             if (Flags.IS_SECONDARY.get(secondaryConstructorProto.flags)) {
                 createConstructorStub(classBody, secondaryConstructorProto, c, thisAsProtoContainer)
             }
@@ -254,6 +266,8 @@ private class ClassClsStubBuilder(
 
     private fun createInnerAndNestedClasses(classBody: KotlinPlaceHolderStubImpl<KtClassBody>) {
         classProto.nestedClassNameList.forEach { id ->
+            ProgressManager.checkCanceled()
+
             val nestedClassName = c.nameResolver.getName(id)
             if (nestedClassName != companionObjectName) {
                 val nestedClassId = classId.createNestedClassId(nestedClassName)
@@ -267,7 +281,11 @@ private class ClassClsStubBuilder(
     }
 
     private fun createNestedClassStub(classBody: StubElement<out PsiElement>, nestedClassId: ClassId) {
-        val (nameResolver, classProto, _, sourceElement) =
+        ProgressManager.checkCanceled()
+
+        (
+            val nameResolver, val classProto, val _ = metadataVersion, val sourceElement
+        ) =
             c.components.classDataFinder.findClassData(nestedClassId)
                 ?: c.components.virtualFileForDebug.let { rootFile ->
                     if (LOG.isDebugEnabled) {

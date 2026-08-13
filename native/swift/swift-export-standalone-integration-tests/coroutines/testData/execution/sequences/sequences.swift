@@ -1,17 +1,94 @@
 import Main
 import KotlinRuntime
+import KotlinRuntimeSupport
 import Testing
 import Foundation
 
 @Test
 @MainActor
 func testRegular() async {
-    let expected: [KotlinBase] = [Element1.shared, Element2.shared, Element3.shared]
+    let expected: [Elem] = [Element1.shared, Element2.shared, Element3.shared]
 
-    let task = Task<[KotlinBase], any Error>.detached {
-        var actual: [KotlinBase] = []
-        for try await element in testRegular() {
-            actual.append(element as! KotlinBase)
+    let task = Task<[Elem], any Error>.detached {
+        var actual: [Elem] = []
+        for try await element in testRegular().asAsyncSequence() {
+            actual.append(element)
+        }
+        return actual
+    }
+
+    let actual = await task.result
+
+    #expect(!task.isCancelled)
+    #expect(actual == .success(expected))
+}
+
+@Test
+@MainActor
+func testNullable() async {
+    let expected: [Elem?] = [Element1.shared, nil, Element2.shared, nil, Element3.shared]
+
+    let task = Task<[Elem?], any Error>.detached {
+        var actual: [Elem?] = []
+        for try await element in testNullable().asAsyncSequence() {
+            actual.append(element)
+        }
+        return actual
+    }
+
+    let actual = await task.result
+
+    #expect(!task.isCancelled)
+    #expect(actual == .success(expected))
+}
+
+@Test
+@MainActor
+func testString() async {
+    let expected: [String] = ["hello", "any", "world"]
+
+    let task = Task<[String], any Error>.detached {
+        var actual: [String] = []
+        for try await element in testString().asAsyncSequence() {
+            actual.append(element)
+        }
+        return actual
+    }
+
+    let actual = await task.result
+
+    #expect(!task.isCancelled)
+    #expect(actual == .success(expected))
+}
+
+@Test
+@MainActor
+func testList() async {
+    let expected: [[Int32]] = [[1], [2], [3]]
+
+    let task = Task<[[Int32]], any Error>.detached {
+        var actual: [[Int32]] = []
+        for try await element in testList().asAsyncSequence() {
+            actual.append(element)
+        }
+        return actual
+    }
+
+    let actual = await task.result
+
+    #expect(!task.isCancelled)
+    #expect(actual == .success(expected))
+}
+
+@Test
+@MainActor
+func testPrimitive() async {
+    let expected: [UInt32] = [1, 2, 3]
+
+    let task = Task<[UInt32], any Error>.detached {
+        var actual: [UInt32] = []
+        for try await element in testPrimitive().asAsyncSequence() {
+            actual.append(element)
         }
         return actual
     }
@@ -26,7 +103,7 @@ func testRegular() async {
 @MainActor
 func testEmpty() async {
     let task = Task<Void, any Error>.detached {
-        for try await _ in testEmpty() {
+        for try await _ in testEmpty().asAsyncSequence() {
             throw CancellationError()
         }
     }
@@ -39,12 +116,32 @@ func testEmpty() async {
 
 @Test
 @MainActor
+func testUnit() async {
+    let task = Task<[(any _KotlinBridgeable)?], any Error>.detached {
+        var actual: [(any _KotlinBridgeable)?] = []
+        for try await element in testUnit().asAsyncSequence() {
+            actual.append(element)
+        }
+        return actual
+    }
+
+    let actual = try! await task.result.get()
+
+    #expect(!task.isCancelled)
+    #expect(actual.count == 3)
+    #expect(actual[0] != nil)
+    #expect(actual[1] == nil)
+    #expect(actual[2] != nil)
+}
+
+@Test
+@MainActor
 func testFailing() async {
     let task = Task<Void, any Error>.detached {
-        var iterator = testFailing().makeAsyncIterator()
-        let first = try await iterator.next() as! KotlinBase
+        var iterator = testFailing().asAsyncSequence().makeAsyncIterator()
+        let first = try await iterator.next()
         #expect(first == Element1.shared)
-        let second = try await iterator.next() as! KotlinBase
+        let second = try await iterator.next()
         #expect(second == Element2.shared)
         _ = try await iterator.next()
     }
@@ -61,19 +158,19 @@ func testFailing() async {
 @MainActor
 func testDiscarding() async {
     let discardingImmediately = Task<Void, any Error>.detached {
-        var _ = testDiscarding().makeAsyncIterator()
+        var _ = testDiscarding().asAsyncSequence().makeAsyncIterator()
     }
     let discardingImmediatelyResult = await discardingImmediately.result
     #expect(!discardingImmediately.isCancelled)
     #expect(discardingImmediatelyResult == .success(()))
 
     let discardingAtEnd = Task<Void, any Error>.detached {
-        var iterator = testDiscarding().makeAsyncIterator()
-        let first = try await iterator.next() as! KotlinBase
+        var iterator = testDiscarding().asAsyncSequence().makeAsyncIterator()
+        let first = try await iterator.next()
         #expect(first == Element1.shared)
-        let second = try await iterator.next() as! KotlinBase
+        let second = try await iterator.next()
         #expect(second == Element2.shared)
-        let third = try await iterator.next() as! KotlinBase
+        let third = try await iterator.next()
         #expect(third == Element3.shared)
     }
     let discardingAtEndResult = await discardingAtEnd.result
@@ -81,8 +178,8 @@ func testDiscarding() async {
     #expect(discardingAtEndResult == .success(()))
 
     let discardingMidway = Task<Void, any Error>.detached {
-        var iterator = testDiscarding().makeAsyncIterator()
-        let first = try await iterator.next() as! KotlinBase
+        var iterator = testDiscarding().asAsyncSequence().makeAsyncIterator()
+        let first = try await iterator.next()
         #expect(first == Element1.shared)
     }
     let discardingMidwayResult = await discardingMidway.result
@@ -93,15 +190,16 @@ func testDiscarding() async {
 @Test
 @MainActor
 func testStateFlow() async {
-    let expected: [KotlinBase] = [Element1.shared, Element2.shared, Element3.shared]
+    let expected: [Elem] = [Element1.shared, Element2.shared, Element3.shared]
 
-    let subject = CurrentSubject.shared
+    let subject = CurrentSubject()
+    #expect(subject.stateFlow.value == expected.first)
 
-    let collectTask = Task<[KotlinBase], any Error>.detached {
-        var actual: [KotlinBase] = []
+    let collectTask = Task<[Elem], any Error>.detached {
+        var actual: [Elem] = []
         var i = 0;
-        for try await element in subject.value {
-            actual.append(element as! KotlinBase)
+        for try await element in subject.stateFlow.asAsyncSequence() {
+            actual.append(element)
             i += 1
             guard i < 3 else { break }
         }
@@ -109,11 +207,11 @@ func testStateFlow() async {
     }
 
     let emitTask = Task<(), any Error>.detached {
-        try await subject.update(value: Element1.shared)
+        subject.mutableStateFlow.value = Element1.shared
         try await Task.sleep(nanoseconds: 300_000_000)
-        try await subject.update(value: Element2.shared)
+        subject.mutableStateFlow.value = Element2.shared
         try await Task.sleep(nanoseconds: 300_000_000)
-        try await subject.update(value: Element3.shared)
+        subject.mutableStateFlow.value = Element3.shared
     }
 
     let (emitResult, collectResult) = try await (emitTask.result, collectTask.result)
@@ -122,6 +220,120 @@ func testStateFlow() async {
     #expect(!collectTask.isCancelled)
     #expect(emitResult == .success(()))
     #expect(collectResult == .success(expected))
+    #expect(subject.stateFlow.value == expected.last)
+}
+
+@Test
+@MainActor
+func testCollectMutableStateFlowInKotlin() async {
+    let expected: [Elem] = [Element1.shared, Element2.shared, Element3.shared]
+
+    let mutableStateFlow = CurrentSubject().mutableStateFlow
+
+    let collectTask = Task<[Elem], any Error>.detached {
+        try await testCollect(flow: mutableStateFlow, count: 3)
+    }
+
+    let emitTask = Task<(), any Error>.detached {
+        testUpdateValue(flow: mutableStateFlow, value: Element1.shared)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        testUpdateValue(flow: mutableStateFlow, value: Element2.shared)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        testUpdateValue(flow: mutableStateFlow, value: Element3.shared)
+    }
+
+    let (emitResult, collectResult) = try await (emitTask.result, collectTask.result)
+
+    #expect(!emitTask.isCancelled)
+    #expect(!collectTask.isCancelled)
+    #expect(emitResult == .success(()))
+    #expect(collectResult == .success(expected))
+}
+
+@Test
+@MainActor
+func testSharedFlow() async {
+    let expected: [Elem] = [Element1.shared, Element2.shared, Element3.shared]
+
+    let subject = CurrentSubject()
+
+    let collectTask = Task<[Elem], any Error>.detached {
+        var actual: [Elem] = []
+        var i = 0;
+        for try await element in subject.sharedFlow.asAsyncSequence() {
+            actual.append(element)
+            i += 1
+            guard i < 3 else { break }
+        }
+        return actual
+    }
+
+    let emitTask = Task<(), any Error>.detached {
+        try await subject.mutableSharedFlow.emit(value: Element1.shared)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        try await subject.mutableSharedFlow.emit(value: Element2.shared)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        try await subject.mutableSharedFlow.emit(value: Element3.shared)
+    }
+
+    let (emitResult, collectResult) = try await (emitTask.result, collectTask.result)
+
+    #expect(!emitTask.isCancelled)
+    #expect(!collectTask.isCancelled)
+    #expect(emitResult == .success(()))
+    #expect(collectResult == .success(expected))
+}
+
+@Test
+@MainActor
+func testImplicitCancellation() async {
+    let trackedFlow = TrackedFlow()
+    #expect(trackedFlow.count == 0)
+
+    let collectTask = Task<Void, any Error>.detached {
+        let iterator = trackedFlow.flow.asAsyncSequence().makeAsyncIterator()
+        let element = try await iterator.next()
+        #expect(element == Element1.shared)
+        #expect(trackedFlow.count == 1)
+    }
+
+    try await collectTask.result
+    #expect(!collectTask.isCancelled)
+    try! await Task.sleep(nanoseconds: 300_000_000)
+    #expect(trackedFlow.count == 0)
+}
+
+@Test
+@MainActor
+func testExplicitCancellation() async {
+    let trackedFlow = TrackedFlow()
+    #expect(trackedFlow.count == 0)
+
+    let collectTask = Task<Elem?, any Error>.detached {
+        let iterator = trackedFlow.flow.asAsyncSequence().makeAsyncIterator()
+        let element = try await iterator.next()
+        #expect(trackedFlow.count == 1)
+        do {
+            let _ = try await iterator.next()
+        } catch is CancellationError {
+            return element
+        }
+        #expect(Bool(false)) // call to next should be cancelled
+        return nil
+    }
+
+    let cancelTask = Task<Void, any Error>.detached {
+        try! await Task.sleep(nanoseconds: 300_000_000)
+        collectTask.cancel()
+    }
+
+    let (collectResult, cancelResult) = try await (collectTask.result, cancelTask.result)
+
+    #expect(collectTask.isCancelled)
+    #expect(!cancelTask.isCancelled)
+    #expect(collectResult == .success(Element1.shared))
+    try! await Task.sleep(nanoseconds: 300_000_000)
+    #expect(trackedFlow.count == 0)
 }
 
 func ==<T>(_ lhs: Result<T, any Error>, _ rhs: Result<T, any Error>) -> Bool where T: Equatable {

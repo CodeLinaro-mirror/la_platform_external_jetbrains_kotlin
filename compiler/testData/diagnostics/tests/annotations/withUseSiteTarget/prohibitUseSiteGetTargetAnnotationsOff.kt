@@ -1,10 +1,9 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// FIR_IDENTICAL
 // LANGUAGE: -ProhibitUseSiteGetTargetAnnotations
 annotation class Ann
 
 <!REPEATED_ANNOTATION!>@get:Ann<!>
-<!REPEATED_ANNOTATION!>@set:Ann<!>
+@set:Ann
 @Ann
 var mutableProperty: Int = 42
     <!INAPPLICABLE_TARGET_ON_PROPERTY_WARNING!>@get:Ann<!> get

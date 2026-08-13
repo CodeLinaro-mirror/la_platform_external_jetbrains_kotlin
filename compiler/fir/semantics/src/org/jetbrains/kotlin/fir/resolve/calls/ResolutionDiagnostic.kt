@@ -91,6 +91,13 @@ class WrongNumberOfTypeArguments(
 
 object UnsuccessfulCallableReferenceArgument : ResolutionDiagnostic(INAPPLICABLE)
 
+/**
+ * Wrapper for [ResolutionDiagnostic]s coming from expansions of nested collection literals.
+ *
+ * They are skipped during reporting since they are reported for CL candidate itself already.
+ */
+class UnsuccessfulCollectionLiteralArgument(applicability: CandidateApplicability) : ResolutionDiagnostic(applicability)
+
 object ErrorTypeInArguments : ResolutionDiagnostic(INAPPLICABLE)
 
 object HiddenCandidate : ResolutionDiagnostic(HIDDEN)
@@ -116,11 +123,21 @@ class InapplicableWrongReceiver(
     val actualType: ConeKotlinType? = null,
 ) : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
 
+object ReceiverIsNotAClass : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
+
 class DynamicReceiverExpectedButWasNonDynamic(
     val actualType: ConeKotlinType,
 ) : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
 
 object NoCompanionObject : ResolutionDiagnostic(K2_NO_COMPANION_OBJECT)
+
+/**
+ * This is an auxiliary diagnostic that is only stored in common invoke receivers and replaced with [InvokeOnHiddenCompanionObject]
+ * in the `invoke` candidate (if needed).
+ */
+object InvokeReceiverNoCompanionObject : ResolutionDiagnostic(RESOLVED)
+
+object InvokeOnHiddenCompanionObject : ResolutionDiagnostic(HIDDEN)
 
 class InapplicableNullableReceiver(val actualType: ConeKotlinType) : ResolutionDiagnostic(UNSAFE_CALL)
 
@@ -218,3 +235,5 @@ val ResolutionDiagnostic.isSuccess: Boolean get() = applicability.isSuccess
 class InaccessibleOuterClassReceiver(val symbol: FirClassSymbol<*>) : ResolutionDiagnostic(INAPPLICABLE)
 
 object InaccessibleFromClassHeader : ResolutionDiagnostic(INAPPLICABLE)
+
+object UnsupportedCompanionBlockOrExtensionCall : ResolutionDiagnostic(INAPPLICABLE)

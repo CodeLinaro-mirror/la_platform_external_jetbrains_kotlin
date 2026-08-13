@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ScopeWithIr
+import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin.JVM_STATIC_WRAPPER
@@ -22,7 +23,6 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
@@ -288,26 +288,6 @@ private class SyntheticAccessorTransformer(
             }
         }
         return super.visitConstructor(declaration)
-    }
-
-    override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-        val function = expression.symbol.owner
-
-        if (!expression.origin.isLambda && function is IrConstructor) {
-            val generatedAccessor = when {
-                accessorGenerator.isOrShouldBeHiddenSinceHasMangledParams(function) -> accessorGenerator.getSyntheticConstructorWithMangledParams(function)
-                accessorGenerator.isOrShouldBeHiddenAsSealedClassConstructor(function) -> accessorGenerator.getSyntheticConstructorOfSealedClass(function)
-                else -> return super.visitFunctionReference(expression)
-            }
-            expression.transformChildrenVoid()
-            return IrFunctionReferenceImpl(
-                expression.startOffset, expression.endOffset, expression.type,
-                generatedAccessor.symbol, generatedAccessor.typeParameters.size,
-                generatedAccessor.symbol, expression.origin
-            )
-        }
-
-        return super.visitFunctionReference(expression)
     }
 }
 

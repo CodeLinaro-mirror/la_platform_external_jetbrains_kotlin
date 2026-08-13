@@ -14,6 +14,8 @@ import org.jetbrains.kotlin.nativeDistribution.registerNativeBootstrapDistributi
 import org.jetbrains.kotlin.platformLibs.*
 import org.jetbrains.kotlin.platformManager
 import org.jetbrains.kotlin.utils.capitalized
+import org.jetbrains.kotlin.utils.reproducibilityCompilerFlags
+import org.jetbrains.kotlin.utils.reproducibilityRootsMap
 
 plugins {
     id("base")
@@ -96,7 +98,9 @@ enabledTargets(platformManager).forEach { target ->
             }
 
             val nativeDependenciesExtension = project.extensions.getByType<NativeDependenciesExtension>()
-            val nativeDependenciesRoot = nativeDependenciesExtension.nativeDependenciesRoot
+            val reproducibilityCompilerFlags = reproducibilityCompilerFlags(project, nativeDependenciesExtension).flatMap {
+                listOf("-compiler-option", it)
+            }.toTypedArray()
 
             this.extraOpts.addAll(
                     "-Xpurge-user-libs",
@@ -105,7 +109,7 @@ enabledTargets(platformManager).forEach { target ->
                     "-no-default-libs",
                     "-no-endorsed-libs",
                     "-Xccall-mode", "indirect", // Default is `-Xccall-mode both`, but platform libs use `indirect` for now. See KT-82062.
-                    "-compiler-option", "-ffile-prefix-map=$nativeDependenciesRoot=NATIVE_DEPS"
+                    *reproducibilityCompilerFlags,
             )
             if (target.family.isAppleFamily) {
                 // Platform Libraries for Apple targets use modules. Use shared cache for them.
@@ -153,7 +157,8 @@ enabledTargets(platformManager).forEach { target ->
 
                 this.klib.fileProvider(libTask.map { it.outputs.files.singleFile })
                 this.target.set(targetName)
-                this.outputDirectory.set(dist.map { it.cache(name = artifactName, target = targetName) })
+                this.cacheDirectory.set(dist.map { it.cachesRoot(targetName) })
+                this.cacheName.set(artifactName)
 
                 usesService(cachePlatformLibsSemaphore)
             }

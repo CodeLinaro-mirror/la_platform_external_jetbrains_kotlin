@@ -1,6 +1,6 @@
 <caret_1>:
-  KtNameReferenceExpression(268,277): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(265,274): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -20,8 +20,8 @@
         typeArgumentsMapping = {}
 
 <caret_2>:
-  KtNameReferenceExpression(295,304): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(292,301): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -42,8 +42,8 @@
         typeArgumentsMapping = {}
 
 <caret_3>:
-  KtNameReferenceExpression(325,334): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(322,331): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -63,8 +63,8 @@
         typeArgumentsMapping = {}
 
 <caret_4>:
-  KtNameReferenceExpression(356,365): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(353,362): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -84,8 +84,8 @@
         typeArgumentsMapping = {}
 
 <caret_5>:
-  KtNameReferenceExpression(386,395): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(383,392): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -106,17 +106,18 @@
         typeArgumentsMapping = {}
 
 <caret_6>:
-  KtNameReferenceExpression(400,409): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(397,406): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaImplicitReceiverValue:
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -146,8 +147,8 @@
         typeArgumentsMapping = {}
 
 <caret_7>:
-  KtNameReferenceExpression(507,516): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(504,513): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaSmartCastedReceiverValue:
@@ -169,8 +170,8 @@
         typeArgumentsMapping = {}
 
 <caret_8>:
-  KtNameReferenceExpression(536,545): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(533,542): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaSmartCastedReceiverValue:
@@ -193,8 +194,8 @@
         typeArgumentsMapping = {}
 
 <caret_9>:
-  KtNameReferenceExpression(568,577): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(565,574): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -214,8 +215,8 @@
         typeArgumentsMapping = {}
 
 <caret_10>:
-  KtNameReferenceExpression(601,610): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(598,607): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:
@@ -235,8 +236,8 @@
         typeArgumentsMapping = {}
 
 <caret_11>:
-  KtNameReferenceExpression(633,642): 'something'
-    KaSuccessCallInfo:
+  KtNameReferenceExpression(630,639): 'something'
+    KaCallResolutionSuccess:
       call = KaSimpleVariableAccessCall:
         contextArguments = []
         dispatchReceiver = KaExplicitReceiverValue:

@@ -45,6 +45,8 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Under4
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Ungroup0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.With0
 import org.jetbrains.kotlin.fir.declarations.findArgumentByName
+import org.jetbrains.kotlin.fir.declarations.getAnnotationWithResolvedArgumentsByClassId
+import org.jetbrains.kotlin.fir.declarations.getStringArgument
 import org.jetbrains.kotlin.fir.expressions.FirClassReferenceExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
@@ -61,9 +63,11 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlinx.dataframe.plugin.impl.StringApiOverloadInterpreter
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddDslAddGroup
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddDslAddGroupInto
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddDslNamedGroup
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddDslReferencePlus
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddDslStringInvoke
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AddId
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Aggregate
@@ -84,6 +88,7 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AllFrom2
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AllUpTo0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AllUpTo1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AllUpTo2
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AnyColCast
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AsGroupBy
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.AsGroupByDefault
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ByCharDelimiters
@@ -114,10 +119,26 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ColumnPathSelect
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ColumnRange
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ConcatWithKeys
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ConvertAsColumn
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ConvertAsFrame
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ConvertNotNull
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameAddAll
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderFill
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderFillIndexed
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderFillValue
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderInvoke0
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderNulls
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomBoolean
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomDouble
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomDoubleRange
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomFloat
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomInt
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomIntRange
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomLong
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameBuilderRandomLongRange
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameCumSum
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameCumSum0
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameGenerator
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameGetColumns
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameOf0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameOf3
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DataFrameOfPairs
@@ -134,7 +155,10 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DropNa1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.DropNulls1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ExcludeJoin
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ExcludeJoinWith
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ExplodeColumns
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.FillNaNs0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.FillNulls0
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.FilterIsInstance
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.FilterJoin
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.FilterJoinWith
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.First0
@@ -157,6 +181,7 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GatherValuesInto
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GatherWhere
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByAdd
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByCount0
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByCountDistinct0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByCumSum
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByCumSum0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.GroupByInto
@@ -206,6 +231,8 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.InsertAt
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.IntoStringLambda
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.JoinWith
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.LeftJoinWith
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.MapColumn
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.MapColumnKType
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.MapToFrame
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.MatchRegex
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.MatchStringRegex
@@ -248,6 +275,8 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Named1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.NestedSelect
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.PairConstructor
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.PairToConstructor
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Parse
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ParseDefault
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.PathOf
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.PerRowCol
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Percentile0
@@ -297,6 +326,8 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.StringInvokeTyped
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.StringInvokeUntyped
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.StringNestedCol
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.StringNestedColUntyped
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ParseString
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Require0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.StringSelect
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Sum0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Sum1
@@ -307,6 +338,9 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.Take2
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.TakeLast0
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.TakeLast1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.TakeLast2
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToDataFrameDslAdd
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToDataFrameDslIntoPath
+import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToDataFrameDslIntoString
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToSpecificType
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToSpecificTypePattern
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ToSpecificTypeZone
@@ -328,9 +362,17 @@ import org.jetbrains.kotlinx.dataframe.plugin.impl.api.WithoutNulls1
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.WithoutNulls2
 import org.jetbrains.kotlinx.dataframe.plugin.utils.Names
 
+@Suppress("UNCHECKED_CAST")
 internal fun FirFunctionCall.loadInterpreter(session: FirSession, isTest: Boolean): Interpreter<*>? {
     val interpreter = Stdlib.interpreter(this)
     if (interpreter != null) return interpreter
+    val stringApiOverload = stringApiOverload(session)
+    if (stringApiOverload != null) {
+        val adaptee: Interpreter<*> = stringApiOverload.interpreter.load<Interpreter<*>>(isTest)
+            ?: return null // error is already reported if isTest by `load`
+        val stringOverloadInterpreter = StringApiOverloadInterpreter(adaptee, stringApiOverload)
+        return stringOverloadInterpreter
+    }
     return interpreterName(session)?.load<Interpreter<*>>(isTest)
 }
 
@@ -373,6 +415,23 @@ internal fun FirFunctionCall.interpreterName(session: FirSession): String? {
         }
 }
 
+internal fun FirFunctionCall.stringApiOverload(session: FirSession): StringApiOverloadData? {
+    val symbol =
+        (calleeReference as? FirResolvedNamedReference)?.resolvedSymbol as? FirCallableSymbol ?: return null
+    val annotation = symbol
+        .getAnnotationWithResolvedArgumentsByClassId(Names.STRING_API_INTERPRETABLE_ANNOTATION, session)
+        ?: return null
+    val name = annotation.getStringArgument(Name.identifier("interpreter")) ?: return null
+    val stringArgument = annotation.getStringArgument(Name.identifier("stringArgument")) ?: return null
+    val targetArgument = annotation.getStringArgument(Name.identifier("targetArgument"))?.let {
+        // default "" value means that target name is expected to be the same
+        if (it == "") stringArgument else it
+    } ?: return null
+    return StringApiOverloadData(name, stringArgument, targetArgument)
+}
+
+class StringApiOverloadData(val interpreter: String, val stringArgument: String, val targetArgument: String)
+
 context(facade: KotlinTypeFacade)
 fun FirFunctionCall.loadInterpreter(): Interpreter<*>? = this.loadInterpreter(facade.session, facade.isTest)
 
@@ -394,6 +453,7 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "Add" -> Add()
         "From" -> From()
         "Into" -> Into()
+        "AddDslReferencePlus" -> AddDslReferencePlus()
         "AddWithDsl" -> AddWithDsl()
         "And10" -> And10()
         "Convert0" -> Convert0()
@@ -406,12 +466,14 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "With0" -> With0()
         "ConvertAsColumn" -> ConvertAsColumn()
         "ConvertNotNull" -> ConvertNotNull()
+        "ConvertAsFrame" -> ConvertAsFrame()
         "PerRowCol" -> PerRowCol()
         "UpdatePerCol" -> UpdatePerColLambda()
         "UpdatePerColRow" -> UpdatePerColRow()
         "UpdatePerColMap" -> UpdatePerColMap()
         "UpdatePerRowCol" -> UpdatePerRowCol()
         "Explode0" -> Explode0()
+        "ExplodeColumns" -> ExplodeColumns()
         "Implode" -> Implode()
         "ImplodeDefault" -> ImplodeDefault()
         "Insert1" -> Insert1()
@@ -440,6 +502,7 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "RenameMapping" -> RenameMapping()
         "Select0" -> Select0()
         "SelectString" -> SelectString()
+        "DataFrameGetColumns" -> DataFrameGetColumns()
         "Distinct0" -> Select0()
         "NestedSelect" -> NestedSelect()
         "Expr0" -> Expr0()
@@ -559,12 +622,29 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "toDataFrame" -> ToDataFrame()
         "toDataFrameDefault" -> ToDataFrameDefault()
         "ToDataFrameDslStringInvoke" -> ToDataFrameDslStringInvoke()
+        "ToDataFrameDslIntoString" -> ToDataFrameDslIntoString()
+        "ToDataFrameDslIntoPath" -> ToDataFrameDslIntoPath()
+        "ToDataFrameDslAdd" -> ToDataFrameDslAdd()
         "DataFrameOf0" -> DataFrameOf0()
         "DataFrameOfPairs" -> DataFrameOfPairs()
+        "DataFrameGenerator" -> DataFrameGenerator()
         "ColumnOfPairs" -> ColumnOfPairs()
         "DataFrameBuilderInvoke0" -> DataFrameBuilderInvoke0()
+        "DataFrameBuilderRandomInt" -> DataFrameBuilderRandomInt()
+        "DataFrameBuilderRandomIntRange" -> DataFrameBuilderRandomIntRange()
+        "DataFrameBuilderRandomDouble" -> DataFrameBuilderRandomDouble()
+        "DataFrameBuilderRandomDoubleRange" -> DataFrameBuilderRandomDoubleRange()
+        "DataFrameBuilderRandomFloat" -> DataFrameBuilderRandomFloat()
+        "DataFrameBuilderRandomLong" -> DataFrameBuilderRandomLong()
+        "DataFrameBuilderRandomLongRange" -> DataFrameBuilderRandomLongRange()
+        "DataFrameBuilderRandomBoolean" -> DataFrameBuilderRandomBoolean()
+        "DataFrameBuilderNulls" -> DataFrameBuilderNulls()
+        "DataFrameBuilderFillIndexed" -> DataFrameBuilderFillIndexed()
+        "DataFrameBuilderFill" -> DataFrameBuilderFill()
+        "DataFrameBuilderFillValue" -> DataFrameBuilderFillValue()
         "ToDataFrameColumn" -> ToDataFrameColumn()
         "FillNulls0" -> FillNulls0()
+        "FillNaNs0" -> FillNaNs0()
         "UpdateWith0" -> UpdateWith0()
         "UpdateNotNull" -> UpdateNotNullWith()
         "UpdateNotNullDefault" -> UpdateNotNull()
@@ -577,7 +657,13 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "AddDslNamedGroup" -> AddDslNamedGroup()
         "AddDslAddGroup" -> AddDslAddGroup()
         "AddDslAddGroupInto" -> AddDslAddGroupInto()
+        "DataFrameAddAll" -> DataFrameAddAll()
         "MapToFrame" -> MapToFrame()
+        "DataColumnMap" -> MapColumn()
+        "DataColumnMapIndexed" -> MapColumn()
+        "DataColumnMapKType" -> MapColumnKType()
+        "DataColumnMapIndexedKType" -> MapColumnKType()
+        "AnyColCast" -> AnyColCast()
         "Move0" -> Move0()
         "ToTop" -> ToTop()
         "Update0" -> Update0()
@@ -626,6 +712,7 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "DataFrameCumSum" -> DataFrameCumSum()
         "DataFrameCumSum0" -> DataFrameCumSum0()
         "GroupByCount0" -> GroupByCount0()
+        "GroupByCountDistinct0" -> GroupByCountDistinct0()
         "GroupByMean0" -> GroupByMean0()
         "GroupByMean1" -> GroupByMean1()
         "GroupByMean2" -> GroupByMean2()
@@ -688,6 +775,11 @@ private fun String.loadImpl(isTest: Boolean): Interpreter<*>? {
         "StringSelect" -> StringSelect()
         "ColumnPathSelect" -> ColumnPathSelect()
         "PathOf" -> PathOf()
+        "Parse" -> Parse()
+        "ParseString" -> ParseString()
+        "ParseDefault" -> ParseDefault()
+        "Require0" -> Require0()
+        "FilterIsInstance" -> FilterIsInstance()
         else -> if (isTest) error(this) else null
     }
 }

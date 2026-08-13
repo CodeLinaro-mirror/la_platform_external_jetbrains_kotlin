@@ -116,7 +116,7 @@ fun main(args: Array<String>) {
                 model(pattern = "^([^_](.+))\\.kt$")
             }
 
-            testClass<AbstractJsES6TypeScriptWholeFileExportTest> {
+            testClass<AbstractJsES6TypeScriptWholeFileExportTest>(annotations = listOf(*es6())) {
                 model(pattern = "^([^_](.+))\\.kt$")
             }
 
@@ -151,6 +151,10 @@ fun main(args: Array<String>) {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
             }
 
+            testClass<AbstractFirJsLightTreeHeaderModeCodegenTest> {
+                model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
+            }
+
             testClass<AbstractJsCodegenBoxWithInlinedFunInKlibTest> {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
             }
@@ -160,7 +164,7 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractJsES6CodegenBoxTest>(annotations = listOf(*es6())) {
-                model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
+                model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir, smokeTest = true)
             }
 
             testClass<AbstractJsCodegenInlineTest> {

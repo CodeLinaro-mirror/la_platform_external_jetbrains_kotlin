@@ -18,9 +18,8 @@ kotlin {
     jvmToolchain(17)
 }
 
-val buildGradlePluginVersion = extra.get("kotlin.build.gradlePlugin.version")
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:$buildGradlePluginVersion")
+    implementation(kotlinBuildHelpers())
     implementation(libs.develocity.gradlePlugin)
     implementation(libs.gradle.customUserData.gradlePlugin)
 }
@@ -39,3 +38,5 @@ project.configurations.named(org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH
         }
     }
 }
+
+kotlin.compilerOptions.moduleName.value(project.name)

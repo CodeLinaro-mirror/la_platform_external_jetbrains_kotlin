@@ -98,7 +98,7 @@ private class FirExpressionTransformerForAnnotationArguments(
     override fun transformQualifiedAccessExpression(
         qualifiedAccessExpression: FirQualifiedAccessExpression,
         data: ResolutionMode
-    ): FirStatement {
+    ): FirExpression {
         if (qualifiedAccessExpression is FirPropertyAccessExpression) {
             val calleeReference = qualifiedAccessExpression.calleeReference
             if (calleeReference is FirResolvedNamedReference) {
@@ -117,7 +117,7 @@ private class FirExpressionTransformerForAnnotationArguments(
         originalCalleeReference: FirResolvedNamedReference,
         originalResolvedSymbol: FirEnumEntrySymbol,
         data: ResolutionMode,
-    ): FirStatement {
+    ): FirExpression {
         val accessCopyForResolution = buildPropertyAccessExpression {
             source = originalAccess.source
             typeArguments.addAll(originalAccess.typeArguments)
@@ -158,7 +158,7 @@ private class FirExpressionTransformerForAnnotationArguments(
         var result: FirPropertyAccessExpression? = null
 
         val pathSegments = fqName.pathSegments()
-        for ((index, pathSegment) in pathSegments.withIndex()) {
+        for ([index, pathSegment] in pathSegments.withIndex()) {
             result = buildPropertyAccessExpression {
                 calleeReference = buildSimpleNamedReference { name = pathSegment }
                 explicitReceiver = result

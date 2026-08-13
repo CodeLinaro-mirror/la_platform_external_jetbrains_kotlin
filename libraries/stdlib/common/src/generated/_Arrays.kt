@@ -5551,6 +5551,1059 @@ public inline fun CharArray.takeWhile(predicate: (Char) -> Boolean): List<Char> 
 }
 
 /**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparable.compareTo],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * For elements of floating-point types (`Double`, `Float`), `NaN` is considered greater
+ * than any other value (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Double.compareTo] and [Float.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun <T : Comparable<T>> Array<out T>.isSorted(): Boolean {
+    return isSortedWith(naturalOrder())
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedByteArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun ByteArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedShortArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun ShortArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedIntArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun IntArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedLongArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun LongArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Float.compareTo],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * For floating-point arrays, `NaN` is considered greater than any other value
+ * (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Float.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedFloatArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun FloatArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1].compareTo(this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Double.compareTo],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * For floating-point arrays, `NaN` is considered greater than any other value
+ * (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Double.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedDoubleArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun DoubleArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1].compareTo(this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedBooleanArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun BooleanArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedCharArraySamples.isSorted
+ */
+@SinceKotlin("2.4")
+public fun CharArray.isSorted(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] > this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <T, R : Comparable<R>> Array<out T>.isSortedBy(selector: (T) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedByteArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> ByteArray.isSortedBy(selector: (Byte) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedShortArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> ShortArray.isSortedBy(selector: (Short) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedIntArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> IntArray.isSortedBy(selector: (Int) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedLongArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> LongArray.isSortedBy(selector: (Long) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedFloatArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> FloatArray.isSortedBy(selector: (Float) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedDoubleArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> DoubleArray.isSortedBy(selector: (Double) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedBooleanArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> BooleanArray.isSortedBy(selector: (Boolean) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is less than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the [selector] value of the preceding element is not greater than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedCharArraySamples.isSortedBy
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> CharArray.isSortedBy(selector: (Char) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) > 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <T, R : Comparable<R>> Array<out T>.isSortedByDescending(selector: (T) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedByteArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> ByteArray.isSortedByDescending(selector: (Byte) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedShortArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> ShortArray.isSortedByDescending(selector: (Short) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedIntArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> IntArray.isSortedByDescending(selector: (Int) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedLongArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> LongArray.isSortedByDescending(selector: (Long) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedFloatArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> FloatArray.isSortedByDescending(selector: (Float) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedDoubleArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> DoubleArray.isSortedByDescending(selector: (Double) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedBooleanArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> BooleanArray.isSortedByDescending(selector: (Boolean) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array yields a [selector] value
+ * that is greater than or equal to the [selector] value of the following element
+ * according to the natural sort order of the selector values.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The [selector] values of adjacent elements are compared sequentially using [compareValues],
+ * and the array is considered sorted in descending order if for each pair
+ * of adjacent elements the [selector] value of the preceding element is not less
+ * than that of the following one.
+ * 
+ * If the [selector] returns `null` for an element, the `null` value is treated as less than any non-null value.
+ * 
+ * @sample samples.generated.issorted.IsSortedCharArraySamples.isSortedByDescending
+ */
+@SinceKotlin("2.4")
+public inline fun <R : Comparable<R>> CharArray.isSortedByDescending(selector: (Char) -> R?): Boolean {
+    if (size < 2) return true
+    var previousValue = selector(this[0])
+    for (i in 1..lastIndex) {
+        val currentValue = selector(this[i])
+        if (compareValues(previousValue, currentValue) < 0) return false
+        previousValue = currentValue
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparable.compareTo],
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * For elements of floating-point types (`Double`, `Float`), `NaN` is considered greater
+ * than any other value (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Double.compareTo] and [Float.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun <T : Comparable<T>> Array<out T>.isSortedDescending(): Boolean {
+    return isSortedWith(reverseOrder())
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedByteArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun ByteArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedShortArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun ShortArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedIntArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun IntArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedLongArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun LongArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Float.compareTo],
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * For floating-point arrays, `NaN` is considered greater than any other value
+ * (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Float.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedFloatArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun FloatArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1].compareTo(this[i]) < 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Double.compareTo],
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * For floating-point arrays, `NaN` is considered greater than any other value
+ * (including positive infinity), and `-0.0` is considered less than `0.0`,
+ * consistent with [Double.compareTo].
+ * 
+ * @sample samples.generated.issorted.IsSortedDoubleArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun DoubleArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1].compareTo(this[i]) < 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedBooleanArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun BooleanArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is greater than or equal
+ * to the following element according to their natural sort order.
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially,
+ * and the array is considered sorted in descending order if for each
+ * pair of adjacent elements the preceding element is not less than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedCharArraySamples.isSortedDescending
+ */
+@SinceKotlin("2.4")
+public fun CharArray.isSortedDescending(): Boolean {
+    for (i in 1..lastIndex) {
+        if (this[i - 1] < this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun <T> Array<out T>.isSortedWith(comparator: Comparator<in T>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedByteArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun ByteArray.isSortedWith(comparator: Comparator<in Byte>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedShortArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun ShortArray.isSortedWith(comparator: Comparator<in Short>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedIntArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun IntArray.isSortedWith(comparator: Comparator<in Int>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedLongArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun LongArray.isSortedWith(comparator: Comparator<in Long>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedFloatArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun FloatArray.isSortedWith(comparator: Comparator<in Float>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedDoubleArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun DoubleArray.isSortedWith(comparator: Comparator<in Double>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedBooleanArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun BooleanArray.isSortedWith(comparator: Comparator<in Boolean>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if each element in the array is less than or equal
+ * to the following element according to the specified [comparator].
+ * 
+ * Returns `true` if the array has fewer than two elements.
+ * 
+ * The elements are compared sequentially using [Comparator.compare],
+ * and the array is considered sorted if for each pair of adjacent elements
+ * the preceding element is not greater than the following one.
+ * 
+ * @sample samples.generated.issorted.IsSortedCharArraySamples.isSortedWith
+ */
+@SinceKotlin("2.4")
+public fun CharArray.isSortedWith(comparator: Comparator<in Char>): Boolean {
+    for (i in 1..lastIndex) {
+        if (comparator.compare(this[i - 1], this[i]) > 0) return false
+    }
+    return true
+}
+
+/**
  * Reverses elements in the array in-place.
  */
 public fun <T> Array<T>.reverse(): Unit {
@@ -5894,6 +6947,8 @@ public fun CharArray.reverse(fromIndex: Int, toIndex: Int): Unit {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun <T> Array<out T>.reversed(): List<T> {
     if (isEmpty()) return emptyList()
@@ -5904,6 +6959,8 @@ public fun <T> Array<out T>.reversed(): List<T> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun ByteArray.reversed(): List<Byte> {
     if (isEmpty()) return emptyList()
@@ -5914,6 +6971,8 @@ public fun ByteArray.reversed(): List<Byte> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun ShortArray.reversed(): List<Short> {
     if (isEmpty()) return emptyList()
@@ -5924,6 +6983,8 @@ public fun ShortArray.reversed(): List<Short> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun IntArray.reversed(): List<Int> {
     if (isEmpty()) return emptyList()
@@ -5934,6 +6995,8 @@ public fun IntArray.reversed(): List<Int> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun LongArray.reversed(): List<Long> {
     if (isEmpty()) return emptyList()
@@ -5944,6 +7007,8 @@ public fun LongArray.reversed(): List<Long> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun FloatArray.reversed(): List<Float> {
     if (isEmpty()) return emptyList()
@@ -5954,6 +7019,8 @@ public fun FloatArray.reversed(): List<Float> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun DoubleArray.reversed(): List<Double> {
     if (isEmpty()) return emptyList()
@@ -5964,6 +7031,8 @@ public fun DoubleArray.reversed(): List<Double> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun BooleanArray.reversed(): List<Boolean> {
     if (isEmpty()) return emptyList()
@@ -5974,6 +7043,8 @@ public fun BooleanArray.reversed(): List<Boolean> {
 
 /**
  * Returns a list with elements in reversed order.
+ * 
+ * Use [reversedArray] if you need to get the result in an array.
  */
 public fun CharArray.reversed(): List<Char> {
     if (isEmpty()) return emptyList()
@@ -5984,6 +7055,8 @@ public fun CharArray.reversed(): List<Char> {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun <T> Array<T>.reversedArray(): Array<T> {
     if (isEmpty()) return this
@@ -5996,6 +7069,8 @@ public fun <T> Array<T>.reversedArray(): Array<T> {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun ByteArray.reversedArray(): ByteArray {
     if (isEmpty()) return this
@@ -6008,6 +7083,8 @@ public fun ByteArray.reversedArray(): ByteArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun ShortArray.reversedArray(): ShortArray {
     if (isEmpty()) return this
@@ -6020,6 +7097,8 @@ public fun ShortArray.reversedArray(): ShortArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun IntArray.reversedArray(): IntArray {
     if (isEmpty()) return this
@@ -6032,6 +7111,8 @@ public fun IntArray.reversedArray(): IntArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun LongArray.reversedArray(): LongArray {
     if (isEmpty()) return this
@@ -6044,6 +7125,8 @@ public fun LongArray.reversedArray(): LongArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun FloatArray.reversedArray(): FloatArray {
     if (isEmpty()) return this
@@ -6056,6 +7139,8 @@ public fun FloatArray.reversedArray(): FloatArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun DoubleArray.reversedArray(): DoubleArray {
     if (isEmpty()) return this
@@ -6068,6 +7153,8 @@ public fun DoubleArray.reversedArray(): DoubleArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun BooleanArray.reversedArray(): BooleanArray {
     if (isEmpty()) return this
@@ -6080,6 +7167,8 @@ public fun BooleanArray.reversedArray(): BooleanArray {
 
 /**
  * Returns an array with elements of this array in reversed order.
+ * 
+ * Use [reversed][kotlin.collections.reversed] if you need to get the result in a list.
  */
 public fun CharArray.reversedArray(): CharArray {
     if (isEmpty()) return this
@@ -6403,6 +7492,8 @@ public fun CharArray.sortDescending(): Unit {
 /**
  * Returns a list of all elements sorted according to their natural sort order.
  * 
+ * Use [sortedArray] if you need to get the result in an array.
+ * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
 public fun <T : Comparable<T>> Array<out T>.sorted(): List<T> {
@@ -6411,6 +7502,8 @@ public fun <T : Comparable<T>> Array<out T>.sorted(): List<T> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun ByteArray.sorted(): List<Byte> {
     return toTypedArray().apply { sort() }.asList()
@@ -6418,6 +7511,8 @@ public fun ByteArray.sorted(): List<Byte> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun ShortArray.sorted(): List<Short> {
     return toTypedArray().apply { sort() }.asList()
@@ -6425,6 +7520,8 @@ public fun ShortArray.sorted(): List<Short> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun IntArray.sorted(): List<Int> {
     return toTypedArray().apply { sort() }.asList()
@@ -6432,6 +7529,8 @@ public fun IntArray.sorted(): List<Int> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun LongArray.sorted(): List<Long> {
     return toTypedArray().apply { sort() }.asList()
@@ -6439,6 +7538,8 @@ public fun LongArray.sorted(): List<Long> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun FloatArray.sorted(): List<Float> {
     return toTypedArray().apply { sort() }.asList()
@@ -6446,6 +7547,8 @@ public fun FloatArray.sorted(): List<Float> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun DoubleArray.sorted(): List<Double> {
     return toTypedArray().apply { sort() }.asList()
@@ -6453,6 +7556,8 @@ public fun DoubleArray.sorted(): List<Double> {
 
 /**
  * Returns a list of all elements sorted according to their natural sort order.
+ * 
+ * Use [sortedArray] if you need to get the result in an array.
  */
 public fun CharArray.sorted(): List<Char> {
     return toTypedArray().apply { sort() }.asList()
@@ -6460,6 +7565,8 @@ public fun CharArray.sorted(): List<Char> {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
@@ -6470,6 +7577,8 @@ public fun <T : Comparable<T>> Array<T>.sortedArray(): Array<T> {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun ByteArray.sortedArray(): ByteArray {
     if (isEmpty()) return this
@@ -6478,6 +7587,8 @@ public fun ByteArray.sortedArray(): ByteArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun ShortArray.sortedArray(): ShortArray {
     if (isEmpty()) return this
@@ -6486,6 +7597,8 @@ public fun ShortArray.sortedArray(): ShortArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun IntArray.sortedArray(): IntArray {
     if (isEmpty()) return this
@@ -6494,6 +7607,8 @@ public fun IntArray.sortedArray(): IntArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun LongArray.sortedArray(): LongArray {
     if (isEmpty()) return this
@@ -6502,6 +7617,8 @@ public fun LongArray.sortedArray(): LongArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun FloatArray.sortedArray(): FloatArray {
     if (isEmpty()) return this
@@ -6510,6 +7627,8 @@ public fun FloatArray.sortedArray(): FloatArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun DoubleArray.sortedArray(): DoubleArray {
     if (isEmpty()) return this
@@ -6518,6 +7637,8 @@ public fun DoubleArray.sortedArray(): DoubleArray {
 
 /**
  * Returns an array with all elements of this array sorted according to their natural sort order.
+ * 
+ * Use [sorted] if you need to get the result in a list.
  */
 public fun CharArray.sortedArray(): CharArray {
     if (isEmpty()) return this
@@ -6526,6 +7647,8 @@ public fun CharArray.sortedArray(): CharArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
@@ -6536,6 +7659,8 @@ public fun <T : Comparable<T>> Array<T>.sortedArrayDescending(): Array<T> {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun ByteArray.sortedArrayDescending(): ByteArray {
     if (isEmpty()) return this
@@ -6544,6 +7669,8 @@ public fun ByteArray.sortedArrayDescending(): ByteArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun ShortArray.sortedArrayDescending(): ShortArray {
     if (isEmpty()) return this
@@ -6552,6 +7679,8 @@ public fun ShortArray.sortedArrayDescending(): ShortArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun IntArray.sortedArrayDescending(): IntArray {
     if (isEmpty()) return this
@@ -6560,6 +7689,8 @@ public fun IntArray.sortedArrayDescending(): IntArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun LongArray.sortedArrayDescending(): LongArray {
     if (isEmpty()) return this
@@ -6568,6 +7699,8 @@ public fun LongArray.sortedArrayDescending(): LongArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun FloatArray.sortedArrayDescending(): FloatArray {
     if (isEmpty()) return this
@@ -6576,6 +7709,8 @@ public fun FloatArray.sortedArrayDescending(): FloatArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun DoubleArray.sortedArrayDescending(): DoubleArray {
     if (isEmpty()) return this
@@ -6584,6 +7719,8 @@ public fun DoubleArray.sortedArrayDescending(): DoubleArray {
 
 /**
  * Returns an array with all elements of this array sorted descending according to their natural sort order.
+ * 
+ * Use [sortedDescending] if you need to get the result in a list.
  */
 public fun CharArray.sortedArrayDescending(): CharArray {
     if (isEmpty()) return this
@@ -6591,7 +7728,9 @@ public fun CharArray.sortedArrayDescending(): CharArray {
 }
 
 /**
- * Returns an array with all elements of this array sorted according the specified [comparator].
+ * Returns an array with all elements of this array sorted according to the specified [comparator].
+ * 
+ * Use [sortedWith] if you need to get the result in a list.
  * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
@@ -6819,6 +7958,8 @@ public inline fun <R : Comparable<R>> CharArray.sortedByDescending(crossinline s
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
  * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
+ * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
 public fun <T : Comparable<T>> Array<out T>.sortedDescending(): List<T> {
@@ -6827,6 +7968,8 @@ public fun <T : Comparable<T>> Array<out T>.sortedDescending(): List<T> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun ByteArray.sortedDescending(): List<Byte> {
     return copyOf().apply { sort() }.reversed()
@@ -6834,6 +7977,8 @@ public fun ByteArray.sortedDescending(): List<Byte> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun ShortArray.sortedDescending(): List<Short> {
     return copyOf().apply { sort() }.reversed()
@@ -6841,6 +7986,8 @@ public fun ShortArray.sortedDescending(): List<Short> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun IntArray.sortedDescending(): List<Int> {
     return copyOf().apply { sort() }.reversed()
@@ -6848,6 +7995,8 @@ public fun IntArray.sortedDescending(): List<Int> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun LongArray.sortedDescending(): List<Long> {
     return copyOf().apply { sort() }.reversed()
@@ -6855,6 +8004,8 @@ public fun LongArray.sortedDescending(): List<Long> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun FloatArray.sortedDescending(): List<Float> {
     return copyOf().apply { sort() }.reversed()
@@ -6862,6 +8013,8 @@ public fun FloatArray.sortedDescending(): List<Float> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun DoubleArray.sortedDescending(): List<Double> {
     return copyOf().apply { sort() }.reversed()
@@ -6869,6 +8022,8 @@ public fun DoubleArray.sortedDescending(): List<Double> {
 
 /**
  * Returns a list of all elements sorted descending according to their natural sort order.
+ * 
+ * Use [sortedArrayDescending] if you need to get the result in an array.
  */
 public fun CharArray.sortedDescending(): List<Char> {
     return copyOf().apply { sort() }.reversed()
@@ -6876,6 +8031,8 @@ public fun CharArray.sortedDescending(): List<Char> {
 
 /**
  * Returns a list of all elements sorted according to the specified [comparator].
+ * 
+ * Use [sortedArrayWith] if you need to get the result in an array.
  * 
  * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
  */
@@ -13120,6 +14277,474 @@ public inline fun BooleanArray.all(predicate: (Boolean) -> Boolean): Boolean {
  */
 public inline fun CharArray.all(predicate: (Char) -> Boolean): Boolean {
     for (element in this) if (!predicate(element)) return false
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * For elements of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun <T> Array<out T>.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualByteArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun ByteArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualShortArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun ShortArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualIntArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun IntArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualLongArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun LongArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using equality semantics consistent with [Float.equals],
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * `NaN` is considered equal to `NaN`, and `-0.0` is considered not equal to `0.0`,
+ * consistent with [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualFloatArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun FloatArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first.compareTo(this[i]) != 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using equality semantics consistent with [Double.equals],
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * `NaN` is considered equal to `NaN`, and `-0.0` is considered not equal to `0.0`,
+ * consistent with [Double.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualDoubleArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun DoubleArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first.compareTo(this[i]) != 0) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualBooleanArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun BooleanArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array are equal to each other.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The elements are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal if the first element equals
+ * every subsequent element.
+ * 
+ * @sample samples.generated.allequal.AllEqualCharArraySamples.allEqual
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public fun CharArray.allEqual(): Boolean {
+    if (size < 2) return true
+    val first = this[0]
+    for (i in 1..lastIndex) {
+        if (first != this[i]) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <T, K> Array<out T>.allEqualBy(selector: (T) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualByteArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> ByteArray.allEqualBy(selector: (Byte) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualShortArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> ShortArray.allEqualBy(selector: (Short) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualIntArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> IntArray.allEqualBy(selector: (Int) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualLongArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> LongArray.allEqualBy(selector: (Long) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualFloatArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> FloatArray.allEqualBy(selector: (Float) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualDoubleArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> DoubleArray.allEqualBy(selector: (Double) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualBooleanArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> BooleanArray.allEqualBy(selector: (Boolean) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
+    return true
+}
+
+/**
+ * Returns `true` if all elements in the array yield the same value
+ * produced by the given [selector] function.
+ * 
+ * Returns `true` for an empty array.
+ * 
+ * The [selector] values are compared sequentially using structural equality (`==`),
+ * and all elements are considered equal by the [selector] value if the [selector]
+ * value of the first element equals the [selector] value of every subsequent element.
+ * 
+ * For selector values of floating-point types (`Double`, `Float`), `NaN` is considered equal to `NaN`,
+ * and `-0.0` is considered not equal to `0.0`, consistent with [Double.equals] and [Float.equals].
+ * 
+ * @sample samples.generated.allequal.AllEqualCharArraySamples.allEqualBy
+ */
+@SinceKotlin("2.4")
+@ExperimentalStdlibApi
+public inline fun <K> CharArray.allEqualBy(selector: (Char) -> K): Boolean {
+    if (size < 2) return true
+    val firstKey = selector(this[0])
+    for (i in 1..lastIndex) {
+        val key = selector(this[i])
+        // Workaround for KT-86678 (revert in KT-86680): `==` on boxed Double/Float is wrong for NaN on Native.
+        val equal = firstKey?.equals(key) ?: (key == null)
+        if (!equal) return false
+    }
     return true
 }
 
@@ -25051,7 +26676,9 @@ public inline fun <V> CharArray.zip(other: CharArray, transform: (a: Char, b: Ch
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25076,7 +26703,9 @@ public fun <T, A : Appendable> Array<out T>.joinTo(buffer: A, separator: CharSeq
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25104,7 +26733,9 @@ public fun <A : Appendable> ByteArray.joinTo(buffer: A, separator: CharSequence 
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25132,7 +26763,9 @@ public fun <A : Appendable> ShortArray.joinTo(buffer: A, separator: CharSequence
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25160,7 +26793,9 @@ public fun <A : Appendable> IntArray.joinTo(buffer: A, separator: CharSequence =
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25188,7 +26823,9 @@ public fun <A : Appendable> LongArray.joinTo(buffer: A, separator: CharSequence 
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25216,7 +26853,9 @@ public fun <A : Appendable> FloatArray.joinTo(buffer: A, separator: CharSequence
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25244,7 +26883,9 @@ public fun <A : Appendable> DoubleArray.joinTo(buffer: A, separator: CharSequenc
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25272,7 +26913,9 @@ public fun <A : Appendable> BooleanArray.joinTo(buffer: A, separator: CharSequen
 /**
  * Appends the string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the function appends only [prefix] followed by [postfix] to [buffer] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @return the [buffer] argument with appended elements.
@@ -25300,7 +26943,9 @@ public fun <A : Appendable> CharArray.joinTo(buffer: A, separator: CharSequence 
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25312,7 +26957,9 @@ public fun <T> Array<out T>.joinToString(separator: CharSequence = ", ", prefix:
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25324,7 +26971,9 @@ public fun ByteArray.joinToString(separator: CharSequence = ", ", prefix: CharSe
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25336,7 +26985,9 @@ public fun ShortArray.joinToString(separator: CharSequence = ", ", prefix: CharS
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25348,7 +26999,9 @@ public fun IntArray.joinToString(separator: CharSequence = ", ", prefix: CharSeq
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25360,7 +27013,9 @@ public fun LongArray.joinToString(separator: CharSequence = ", ", prefix: CharSe
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25372,7 +27027,9 @@ public fun FloatArray.joinToString(separator: CharSequence = ", ", prefix: CharS
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25384,7 +27041,9 @@ public fun DoubleArray.joinToString(separator: CharSequence = ", ", prefix: Char
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString
@@ -25396,7 +27055,9 @@ public fun BooleanArray.joinToString(separator: CharSequence = ", ", prefix: Cha
 /**
  * Creates a string from all the elements separated using [separator] and using the given [prefix] and [postfix] if supplied.
  * 
- * If the collection could be huge, you can specify a non-negative value of [limit], in which case only the first [limit]
+ * If the collection has no elements, the result consists of only [prefix] followed by [postfix] (both are empty by default).
+ * 
+ * If the collection is huge, you can specify a non-negative value of [limit], in which case only the first [limit]
  * elements will be appended, followed by the [truncated] string (which defaults to "...").
  * 
  * @sample samples.collections.Collections.Transformations.joinToString

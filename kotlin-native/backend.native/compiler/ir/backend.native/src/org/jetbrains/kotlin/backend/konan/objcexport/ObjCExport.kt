@@ -5,14 +5,13 @@
 
 package org.jetbrains.kotlin.backend.konan.objcexport
 
-import org.jetbrains.kotlin.backend.common.reportCompilationWarning
 import org.jetbrains.kotlin.backend.konan.*
+import org.jetbrains.kotlin.backend.konan.descriptors.getPackageFragments
 import org.jetbrains.kotlin.backend.konan.descriptors.isInterface
 import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.llvm.CodeGenerator
 import org.jetbrains.kotlin.backend.konan.llvm.objcexport.ObjCExportBlockCodeGenerator
 import org.jetbrains.kotlin.backend.konan.llvm.objcexport.ObjCExportCodeGenerator
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageUtil
 import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
 import org.jetbrains.kotlin.descriptors.*
@@ -50,19 +49,25 @@ internal fun produceObjCExportInterface(
     //   and can't do this per-module, e.g. due to global name conflict resolution.
 
     val unitSuspendFunctionExport = config.unitSuspendFunctionObjCExport
+    val moduleDescriptors = listOf(moduleDescriptor) + moduleDescriptor.getExportedDependencies(config)
     val entryPoints = config.objcEntryPoints
+    val expandEntryPoints = config.configuration.getBoolean(BinaryOptions.objcExportExpandEntryPoints)
+    val effectiveEntryPoints = if (entryPoints != ObjCEntryPoints.ALL && expandEntryPoints) {
+        ObjCEntryPoints.create(computeDownwardClosure(entryPoints, moduleDescriptors))
+    } else {
+        entryPoints
+    }
     val mapper = ObjCExportMapper(
             frontendServices.deprecationResolver,
             unitSuspendFunctionExport = unitSuspendFunctionExport,
-            entryPoints = entryPoints)
-    val moduleDescriptors = listOf(moduleDescriptor) + moduleDescriptor.getExportedDependencies(config)
+            entryPoints = effectiveEntryPoints)
     val objcGenerics = config.configuration.objcGenerics
     val disableSwiftMemberNameMangling = config.configuration.getBoolean(BinaryOptions.objcExportDisableSwiftMemberNameMangling)
     val ignoreInterfaceMethodCollisions = config.configuration.getBoolean(BinaryOptions.objcExportIgnoreInterfaceMethodCollisions)
     val reportNameCollisions = config.configuration.getBoolean(BinaryOptions.objcExportReportNameCollisions)
     val errorOnNameCollisions = config.configuration.getBoolean(BinaryOptions.objcExportErrorOnNameCollisions)
     val explicitMethodFamily = config.configuration.getBoolean(BinaryOptions.objcExportExplicitMethodFamily)
-    val objcExportBlockExplicitParameterNames = config.configuration.get(BinaryOptions.objcExportBlockExplicitParameterNames, true)
+    val objcExportBlockExplicitParameterNames = config.configuration.get(BinaryOptions.objcExportBlockExplicitParameterNames, false)
 
     val problemCollector = ObjCExportCompilerProblemCollector(context)
 
@@ -97,7 +102,7 @@ private class ObjCExportCompilerProblemCollector(val context: NativeBackendPhase
         get() = (this@psiLocation as? DeclarationDescriptorWithSource)?.source?.getPsi()?.let { MessageUtil.psiElementToMessageLocation(it) }
 
     override fun reportWarning(text: String) {
-        context.reportCompilationWarning(text)
+        context.diagnosticReporter.report(NativeBackendDiagnostics.OBJC_EXPORT_WARNING, text)
     }
 
     override fun reportWarning(declaration: DeclarationDescriptor, text: String) {
@@ -105,11 +110,11 @@ private class ObjCExportCompilerProblemCollector(val context: NativeBackendPhase
                 "$text\n    (at ${DescriptorRenderer.COMPACT_WITH_SHORT_TYPES.render(declaration)})"
         )
 
-        context.messageCollector.report(CompilerMessageSeverity.WARNING, text, location)
+        context.diagnosticReporter.report(NativeBackendDiagnostics.OBJC_EXPORT_WARNING, text, location)
     }
 
     override fun reportError(text: String) {
-        context.messageCollector.report(CompilerMessageSeverity.ERROR, text, null)
+        context.diagnosticReporter.report(NativeBackendDiagnostics.NATIVE_BACKEND_ERROR, text, null)
     }
 
     override fun reportError(declaration: DeclarationDescriptor, text: String) {
@@ -117,7 +122,7 @@ private class ObjCExportCompilerProblemCollector(val context: NativeBackendPhase
                 "$text\n    (at ${DescriptorRenderer.COMPACT_WITH_SHORT_TYPES.render(declaration)})"
         )
 
-        context.messageCollector.report(CompilerMessageSeverity.ERROR, text, location)
+        context.diagnosticReporter.report(NativeBackendDiagnostics.NATIVE_BACKEND_ERROR, text, location)
     }
 
     override fun reportException(throwable: Throwable) {
@@ -129,10 +134,10 @@ private class ObjCExportCompilerProblemCollector(val context: NativeBackendPhase
  * Populate framework directory with headers, module and info.plist.
  */
 internal fun createObjCFramework(
-    config: KonanConfig,
-    moduleDescriptor: ModuleDescriptor,
-    exportedInterface: ObjCExportedInterface,
-    frameworkDirectory: File
+        config: NativeSecondStageCompilationConfig,
+        moduleDescriptor: ModuleDescriptor,
+        exportedInterface: ObjCExportedInterface,
+        frameworkDirectory: File
 ) {
     val frameworkName = frameworkDirectory.name.removeSuffix(CompilerOutputKind.FRAMEWORK.suffix())
     val frameworkBuilder = FrameworkBuilder(
@@ -152,7 +157,7 @@ internal fun createObjCFramework(
 }
 
 internal fun createTestBundle(
-        config: KonanConfig,
+        config: NativeSecondStageCompilationConfig,
         moduleDescriptor: ModuleDescriptor,
         bundleDirectory: File
 ) {
@@ -249,3 +254,5 @@ private fun ObjCExportedInterface.generateWorkaroundForSwiftSR10177(generationSt
 
 internal val NativeBackendPhaseContext.objCExportTopLevelNamePrefix: String
     get() = abbreviate(config.fullExportedNamePrefix)
+
+

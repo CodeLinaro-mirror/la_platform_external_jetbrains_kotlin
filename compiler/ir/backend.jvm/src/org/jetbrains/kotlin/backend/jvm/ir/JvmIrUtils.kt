@@ -17,11 +17,11 @@ import org.jetbrains.kotlin.codegen.mangleNameIfNeeded
 import org.jetbrains.kotlin.codegen.state.JvmBackendConfig
 import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.ValueClassBackendAgnosticApi
 import org.jetbrains.kotlin.descriptors.annotations.KotlinRetention
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
@@ -87,7 +87,7 @@ fun IrDeclaration.getJvmNameFromAnnotation(): String? {
     }
 }
 
-private fun IrDeclaration.getJvmNameFromJvmExposeBoxedAnnotation(): String? {
+fun IrDeclaration.getJvmNameFromJvmExposeBoxedAnnotation(): String? {
     val value = getAnnotation(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME)?.arguments[0] as? IrConst ?: return null
     return if (value.value == "") null else value.value as? String
 }
@@ -251,8 +251,8 @@ val IrDeclaration.isStaticMultiFieldValueClassReplacement: Boolean
     get() = origin == JvmLoweredDeclarationOrigin.STATIC_MULTI_FIELD_VALUE_CLASS_REPLACEMENT
             || origin == JvmLoweredDeclarationOrigin.STATIC_MULTI_FIELD_VALUE_CLASS_CONSTRUCTOR
 
-fun IrDeclaration.shouldBeExposedByAnnotationOrFlag(languageVersionSettings: LanguageVersionSettings): Boolean {
-    val isPropagatedOrImplicit = propagatedOrImplicitJvmExposeBoxed(languageVersionSettings)
+fun IrDeclaration.shouldBeExposedByAnnotationOrFlag(context: JvmBackendContext): Boolean {
+    val isPropagatedOrImplicit = propagatedOrImplicitJvmExposeBoxed(context)
     val isExplicit = hasAnnotation(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME)
 
     if (!(isExplicit || isPropagatedOrImplicit)) return false
@@ -262,9 +262,9 @@ fun IrDeclaration.shouldBeExposedByAnnotationOrFlag(languageVersionSettings: Lan
     return true
 }
 
-private fun IrDeclaration.propagatedOrImplicitJvmExposeBoxed(languageVersionSettings: LanguageVersionSettings): Boolean =
+private fun IrDeclaration.propagatedOrImplicitJvmExposeBoxed(context: JvmBackendContext): Boolean =
     parentClassOrNull?.getAnnotation(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME) != null ||
-            languageVersionSettings.supportsFeature(LanguageFeature.ImplicitJvmExposeBoxed)
+            context.config.implicitJvmExposeBoxed
 
 // Do not duplicate function without inline classes in parameters, since it would lead to CONFLICTING_JVM_DECLARATIONS
 private fun IrDeclaration.isFunctionWhichCanBeExposed(isPropagatedOrImplicit: Boolean): Boolean {
@@ -610,3 +610,17 @@ fun IrMutableAnnotationContainer.copyAnnotationsAndAddJavaLangDeprecated(source:
     annotations = filterOutAnnotations(DeprecationResolver.JAVA_DEPRECATED, source.annotations) +
             irBuilder.irAnnotation(irBuilder.irSymbols.javaLangDeprecatedConstructorWithDeprecatedFlag)
 }
+
+fun IrConstructor.isNonExposedConstructorOfOrdinaryClass(): Boolean =
+    parameters.lastOrNull()?.origin == JvmLoweredDeclarationOrigin.NON_EXPOSED_CONSTRUCTOR_SYNTHETIC_PARAMETER
+
+
+@OptIn(ValueClassBackendAgnosticApi::class)
+val IrClass.isSingleFieldValueClass: Boolean get() = isSingleFieldValueClass(treatFullValueClassesWithOneFieldAsBasic = false)
+
+@OptIn(ValueClassBackendAgnosticApi::class)
+val IrClass.inlineClassRepresentation get() = inlineClassRepresentation(treatFullValueClassesWithOneFieldAsBasic = false)
+
+@OptIn(ValueClassBackendAgnosticApi::class)
+fun getInlineClassUnderlyingType(irClass: IrClass): IrSimpleType =
+    getInlineClassUnderlyingType(irClass, treatFullValueClassesWithOneFieldAsBasic = false)

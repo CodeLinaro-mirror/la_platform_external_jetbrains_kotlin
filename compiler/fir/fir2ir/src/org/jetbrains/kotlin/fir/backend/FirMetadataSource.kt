@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.fir.backend
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.localClassJvmType
@@ -15,11 +14,13 @@ import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.ir.declarations.MetadataSource
+import org.jetbrains.kotlin.ir.declarations.DeclarationSymbolOwner
+import org.jetbrains.kotlin.mpp.DeclarationSymbolMarker
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 
-sealed class FirMetadataSource : MetadataSource {
+sealed class FirMetadataSource : MetadataSource, DeclarationSymbolOwner {
     abstract val fir: FirDeclaration
     override val source: KtSourceElement?
         get() = fir.source
@@ -33,17 +34,12 @@ sealed class FirMetadataSource : MetadataSource {
             else -> null
         }
 
-    class File(override val fir: FirFile) : FirMetadataSource(), MetadataSource.File {
-        override var serializedIr: ByteArray? = null
+    override val symbol: DeclarationSymbolMarker
+        get() = fir.symbol
 
-        override fun asEvaluatedConstTrackerKey(): EvaluatedConstTracker.Key? {
-            return fir.symbol
-        }
-    }
+    class File(override val fir: FirFile) : FirMetadataSource(), MetadataSource.File
 
     class Class(override val fir: FirClass) : FirMetadataSource(), MetadataSource.Class {
-        override var serializedIr: ByteArray? = null
-
         override fun recordLocalClassType(type: FqName) {
             require(fir.isLocal) {
                 "Local class type should be recorded only for local classes, but got ${fir.render()}"

@@ -1,13 +1,13 @@
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/fooApi3
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -34,20 +34,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.fooApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalFooApi3
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -74,20 +74,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalFooApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateFooApi3
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -114,20 +114,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateFooApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/barApi3
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -145,9 +145,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -166,7 +167,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(extension.kt)
     getContainingJvmClassName: dependency.api.ExtensionKt
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -179,20 +180,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.barApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalBarApi3
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -210,9 +211,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -231,7 +233,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(extension.kt)
     getContainingJvmClassName: dependency.api.ExtensionKt
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -244,20 +246,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalBarApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateBarApi3
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -275,9 +277,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -296,7 +299,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(extension.kt)
     getContainingJvmClassName: dependency.api.ExtensionKt
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -309,20 +312,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.ExtensionKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateBarApi3
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/fooApi1
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -349,20 +352,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.fooApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalFooApi1
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -389,20 +392,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalFooApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateFooApi1
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -429,20 +432,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateFooApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/barApi1
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -460,9 +463,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -481,7 +485,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(I.kt)
     getContainingJvmClassName: dependency.api.IKt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -494,20 +498,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.barApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalBarApi1
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -525,9 +529,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -546,7 +551,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(I.kt)
     getContainingJvmClassName: dependency.api.IKt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -559,20 +564,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalBarApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateBarApi1
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -590,9 +595,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -611,7 +617,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(I.kt)
     getContainingJvmClassName: dependency.api.IKt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -624,20 +630,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.IKt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateBarApi1
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/fooApi2
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -664,20 +670,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.fooApi2
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalFooApi2
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -704,20 +710,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalFooApi2
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateFooApi2
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -744,20 +750,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateFooApi2
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/barApi2
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -775,9 +781,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -796,7 +803,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(C1.kt)
     getContainingJvmClassName: dependency.api.C1Kt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -809,20 +816,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.barApi2
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/internalBarApi2
-  compilerVisibility: Internal
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -840,9 +847,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -861,7 +869,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(C1.kt)
     getContainingJvmClassName: dependency.api.C1Kt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -874,20 +882,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.internalBarApi2
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: dependency/api/privateBarApi2
-  compilerVisibility: Private
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: true
   isExternal: false
@@ -905,9 +913,10 @@ KaNamedFunctionSymbol:
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -926,7 +935,7 @@ KaNamedFunctionSymbol:
     getContainingFileSymbol: KaFileSymbol(C1.kt)
     getContainingJvmClassName: dependency.api.C1Kt
     getContainingModule: KaSourceModule "Sources of dependency"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   returnType: KaUsualClassType:
     annotations: []
@@ -939,7 +948,7 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: dependency.api.C1Kt
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of dependency"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: dependency.api.privateBarApi2
 
@@ -948,7 +957,6 @@ KaNamedClassSymbol:
   classId: dependency/api/FakeI
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Public
   contextReceivers: []
   isActual: false
   isData: false
@@ -971,8 +979,8 @@ KaNamedClassSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(extension.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.FakeI
 
 KaNamedClassSymbol:
@@ -980,7 +988,6 @@ KaNamedClassSymbol:
   classId: dependency/api/InternalFakeI
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Internal
   contextReceivers: []
   isActual: false
   isData: false
@@ -1003,8 +1010,8 @@ KaNamedClassSymbol:
   visibility: INTERNAL
   getContainingFileSymbol: KaFileSymbol(extension.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.InternalFakeI
 
 KaNamedClassSymbol:
@@ -1012,7 +1019,6 @@ KaNamedClassSymbol:
   classId: dependency/api/PrivateFakeI
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Private
   contextReceivers: []
   isActual: false
   isData: false
@@ -1035,8 +1041,8 @@ KaNamedClassSymbol:
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(extension.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.PrivateFakeI
 
 KaNamedClassSymbol:
@@ -1044,7 +1050,6 @@ KaNamedClassSymbol:
   classId: dependency/api/I
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Public
   contextReceivers: []
   isActual: false
   isData: false
@@ -1067,8 +1072,8 @@ KaNamedClassSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(I.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.I
 
 KaNamedClassSymbol:
@@ -1076,7 +1081,6 @@ KaNamedClassSymbol:
   classId: dependency/api/InternalI
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Internal
   contextReceivers: []
   isActual: false
   isData: false
@@ -1099,8 +1103,8 @@ KaNamedClassSymbol:
   visibility: INTERNAL
   getContainingFileSymbol: KaFileSymbol(I.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.InternalI
 
 KaNamedClassSymbol:
@@ -1108,7 +1112,6 @@ KaNamedClassSymbol:
   classId: dependency/api/PrivateI
   classKind: INTERFACE
   companionObject: null
-  compilerVisibility: Private
   contextReceivers: []
   isActual: false
   isData: false
@@ -1131,8 +1134,8 @@ KaNamedClassSymbol:
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(I.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.PrivateI
 
 KaNamedClassSymbol:
@@ -1140,7 +1143,6 @@ KaNamedClassSymbol:
   classId: dependency/api/C1
   classKind: CLASS
   companionObject: null
-  compilerVisibility: Public
   contextReceivers: []
   isActual: false
   isData: false
@@ -1163,8 +1165,8 @@ KaNamedClassSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(C1.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.C1
 
 KaNamedClassSymbol:
@@ -1172,7 +1174,6 @@ KaNamedClassSymbol:
   classId: dependency/api/InternalC1
   classKind: CLASS
   companionObject: null
-  compilerVisibility: Internal
   contextReceivers: []
   isActual: false
   isData: false
@@ -1195,8 +1196,8 @@ KaNamedClassSymbol:
   visibility: INTERNAL
   getContainingFileSymbol: KaFileSymbol(C1.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.InternalC1
 
 KaNamedClassSymbol:
@@ -1204,7 +1205,6 @@ KaNamedClassSymbol:
   classId: dependency/api/PrivateC1
   classKind: CLASS
   companionObject: null
-  compilerVisibility: Private
   contextReceivers: []
   isActual: false
   isData: false
@@ -1227,6 +1227,6 @@ KaNamedClassSymbol:
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(C1.kt)
   getContainingModule: KaSourceModule "Sources of dependency"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: dependency.api.PrivateC1

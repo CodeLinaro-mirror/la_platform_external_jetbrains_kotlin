@@ -6,9 +6,10 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Private
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -35,19 +36,18 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(annotatedReturnType.kt)
     getContainingJvmClassName: test.MyInterface
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   callableId: test/MyInterface.property
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -74,15 +74,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(annotatedReturnType.kt)
     getContainingJvmClassName: test.MyInterface
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: false
   hasGetter: true
   hasSetter: false
   initializer: null
   isActual: false
+  isCompanion: false
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -113,7 +114,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(annotatedReturnType.kt)
   getContainingJvmClassName: test.MyInterface
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getProperty
   javaSetterName: null
   isInline: false
@@ -125,13 +126,13 @@ KaNamedFunctionSymbol:
       psi: KtAnnotationEntry
   ]
   callableId: test/MyInterface.function
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -162,14 +163,14 @@ KaNamedFunctionSymbol:
           psi: KtAnnotationEntry
       ]
       callableId: null
-      compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
       hasDeclaredDefaultValue: false
       hasDefaultValue: false
-      hasSynthesizedName: false
       isActual: false
+      isCompanion: false
       isCrossinline: false
+      isDelegated: false
       isExpect: false
       isExtension: false
       isExternal: false
@@ -193,7 +194,7 @@ KaNamedFunctionSymbol:
       getContainingFileSymbol: KaFileSymbol(annotatedReturnType.kt)
       getContainingJvmClassName: test.MyInterface
       getContainingModule: KaSourceModule "Sources of main"
-      deprecationStatus: null
+      deprecation: null
       importableFqName: null
   ]
   visibility: PUBLIC
@@ -205,6 +206,6 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: test.MyInterface
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: null

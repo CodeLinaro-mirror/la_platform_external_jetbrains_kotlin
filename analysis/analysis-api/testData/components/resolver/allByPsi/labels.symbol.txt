@@ -17,22 +17,39 @@ KtParameter(8,26): 'action: () -> Unit'
   null
 
 KtTypeReference(16,26): '() -> Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtFunctionType(16,26): '() -> Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Function0
+    ]
 
 KtParameterList(16,18): '()'
   null
 
 KtTypeReference(22,26): 'Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtUserType(22,26): 'Unit'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtNameReferenceExpression(22,26): 'Unit'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Unit
+    ]
 
 KtBlockExpression(28,44): '{'
   null
@@ -44,7 +61,12 @@ KtCallExpression(34,42): 'action()'
     ]
 
 KtNameReferenceExpression(34,40): 'action'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      action: () -> kotlin.Unit
+    ]
 
 KtValueArgumentList(40,42): '()'
   null
@@ -65,7 +87,12 @@ KtCallExpression(64,102): 'foo label@{'
     ]
 
 KtNameReferenceExpression(64,67): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /foo(action: () -> kotlin.Unit): kotlin.Unit
+    ]
 
 KtLambdaArgument(68,102): 'label@{'
   null
@@ -77,6 +104,8 @@ KtContainerNode(68,74): 'label@'
   null
 
 KtLabelReferenceExpression(68,74): 'label@'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtLambdaExpression(74,102): '{'
@@ -98,6 +127,8 @@ KtContainerNode(90,96): '@label'
   null
 
 KtLabelReferenceExpression(90,96): '@label'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   KaSymbolResolutionSuccess:
     symbols = [
       <anonymous function>(): kotlin.Unit
@@ -110,10 +141,17 @@ KtContainerNode(108,114): 'myFor@'
   null
 
 KtLabelReferenceExpression(108,114): 'myFor@'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null
 
 KtForExpression(115,161): 'for (i in 0..1) {'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/ranges/IntProgression.iterator(<dispatch receiver>: kotlin.ranges.IntProgression): kotlin.collections.IntIterator,
+      kotlin/collections/Iterator.hasNext(<dispatch receiver>: kotlin.collections.Iterator<T>): kotlin.Boolean,
+      kotlin/collections/IntIterator.next(<dispatch receiver>: kotlin.collections.IntIterator): kotlin.Int
+    ]
 
 KtParameter(120,121): 'i'
   null
@@ -122,13 +160,21 @@ KtContainerNode(125,129): '0..1'
   null
 
 KtBinaryExpression(125,129): '0..1'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int.rangeTo(<dispatch receiver>: kotlin.Int, other: kotlin.Int): kotlin.ranges.IntRange
+    ]
 
 KtConstantExpression(125,126): '0'
   null
 
 KtOperationReferenceExpression(126,128): '..'
-  null
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int.rangeTo(<dispatch receiver>: kotlin.Int, other: kotlin.Int): kotlin.ranges.IntRange
+    ]
 
 KtConstantExpression(128,129): '1'
   null
@@ -146,4 +192,6 @@ KtContainerNode(149,155): '@myFor'
   null
 
 KtLabelReferenceExpression(149,155): '@myFor'
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   null

@@ -1,5 +1,7 @@
 KtEnumEntrySuperclassReferenceExpression(127,127): ''
+  isImplicitReferenceToCompanion: false
+  contextSensitiveResolutionStatus: NotAvailable
   KaSymbolResolutionSuccess:
     symbols = [
-      <constructor>(i: kotlin.Int): EnumWithConstructor
+      /EnumWithConstructor
     ]

@@ -41,6 +41,9 @@ interface KotlinElementTypeProvider {
     val typeAliasType: KtStubElementType<out KotlinTypeAliasStub, KtTypeAlias>
     val classBodyType: KtStubElementType<out KotlinPlaceHolderStub<KtClassBody>, KtClassBody>
 
+    @KtExperimentalApi
+    val companionBlockType: KtStubElementType<out KotlinPlaceHolderStub<KtCompanionBlock>, KtCompanionBlock>
+
     // Initializers
     val classInitializerType: KtStubElementType<out KotlinPlaceHolderStub<KtClassInitializer>, KtClassInitializer>
     val scriptInitializerType: KtStubElementType<out KotlinPlaceHolderStub<KtScriptInitializer>, KtScriptInitializer>
@@ -54,6 +57,7 @@ interface KotlinElementTypeProvider {
     val constructorCalleeType: KtStubElementType<out KotlinPlaceHolderStub<KtConstructorCalleeExpression>, KtConstructorCalleeExpression>
     val propertyAccessorType: KtStubElementType<out KotlinPropertyAccessorStub, KtPropertyAccessor>
     val backingFieldType: KtStubElementType<out KotlinBackingFieldStub, KtBackingField>
+    val destructuringDeclarationType: KtStubElementType<out KotlinDestructuringDeclarationStub, KtDestructuringDeclaration>
     val initializerListType: KtStubElementType<out KotlinPlaceHolderStub<KtInitializerList>, KtInitializerList>
 
     // Value parameters

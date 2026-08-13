@@ -8,28 +8,15 @@ package org.jetbrains.kotlin.test.services
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.jvm.configureStandardLibs
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_COMMON_STDLIB_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_FULL_STDLIB_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_JS_KOTLIN_TEST_KLIB_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_JS_REDUCED_STDLIB_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_JS_STDLIB_KLIB_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_MINIMAL_STDLIB_PATH
 import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_MOCKJDK_ANNOTATIONS_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_REFLECT_JAR_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_SCRIPTING_PLUGIN_CLASSPATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_SCRIPT_RUNTIME_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_TEST_JAR_PATH
-import org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.KOTLIN_WEB_STDLIB_KLIB_PATH
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.jetbrains.kotlin.utils.PathUtil
+import org.jetbrains.kotlin.load.java.JvmAbi
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import java.io.File
 import java.lang.ref.SoftReference
 import java.net.URL
 import java.net.URLClassLoader
-import kotlin.contracts.ExperimentalContracts
-import kotlin.contracts.InvocationKind
-import kotlin.contracts.contract
+import kotlin.reflect.KMutableProperty0
 
 interface KotlinStandardLibrariesPathProvider : TestService {
     companion object {
@@ -41,6 +28,9 @@ interface KotlinStandardLibrariesPathProvider : TestService {
 
         @Volatile
         private var reflectWithNewFakeOverridesJarClassLoader: SoftReference<ClassLoader?> = SoftReference(null)
+
+        @Volatile
+        private var reflectWithLoadMetadataDirectlyClassLoader: SoftReference<ClassLoader?> = SoftReference(null)
 
         @Volatile
         private var k1ReflectJarClassLoader: SoftReference<ClassLoader?> = SoftReference(null)
@@ -90,7 +80,7 @@ interface KotlinStandardLibrariesPathProvider : TestService {
     fun jvmAnnotationsForTests(): File
 
     /**
-     * compiler/testData/mockJDK/jre/lib/annotations.jar
+     * third-party/mockJDKs/mockJDK/jre/lib/annotations.jar
      */
     fun getAnnotationsJar(): File
 
@@ -109,6 +99,16 @@ interface KotlinStandardLibrariesPathProvider : TestService {
      */
     fun kotlinTestJsKLib(): File
 
+    /**
+     * kotlin-stdlib-<WasmTarget>.klib
+     */
+    fun fullWasmStdlib(target: WasmTarget): File
+
+    /**
+     * kotlin-test-<WasmTarget>.jar
+     */
+    fun kotlinTestWasmKLib(target: WasmTarget): File
+
     fun webStdlibForTests(): File
 
     /**
@@ -121,81 +121,47 @@ interface KotlinStandardLibrariesPathProvider : TestService {
      */
     fun scriptingPluginFilesForTests(): Collection<File>
 
-    fun getRuntimeJarClassLoader(): ClassLoader {
-        runtimeJarClassLoader.get()?.let { return it }
+    fun getRuntimeJarClassLoader(): ClassLoader =
+        getOrCreateClassLoader(::runtimeJarClassLoader, skipReflect = true)
+
+    fun getRuntimeAndReflectJarClassLoader(): ClassLoader =
+        getOrCreateClassLoader(::reflectJarClassLoader).also { loader ->
+            val useK1 = loader.loadClass("kotlin.reflect.jvm.internal.SystemPropertiesKt")
+                .getMethod("getUseK1Implementation")
+                .invoke(null)
+            check(useK1 == false)
+        }
+
+    fun getRuntimeAndK1ReflectJarClassLoader(): ClassLoader =
+        getOrCreateClassLoader(::k1ReflectJarClassLoader, "useK1Implementation")
+
+    fun getRuntimeAndReflectWithNewFakeOverrridesJarClassLoader(): ClassLoader =
+        getOrCreateClassLoader(::reflectWithNewFakeOverridesJarClassLoader, "newFakeOverridesImplementation")
+
+    fun getRuntimeAndReflectWithLoadMetadataDirectlyClassLoader(): ClassLoader =
+        getOrCreateClassLoader(::reflectWithLoadMetadataDirectlyClassLoader, "loadMetadataDirectly")
+
+    private fun getOrCreateClassLoader(
+        property: KMutableProperty0<SoftReference<ClassLoader?>>,
+        reflectSystemPropertyToEnable: String? = null,
+        skipReflect: Boolean = false,
+    ): ClassLoader {
+        property.get().get()?.let { return it }
         synchronized(this) {
-            runtimeJarClassLoader.get()?.let { return it }
+            property.get().get()?.let { return it }
             return createClassLoader(
-                runtimeJarForTests(),
-                scriptRuntimeJarForTests(),
-                kotlinTestJarForTests()
-            ).also { loader ->
-                runtimeJarClassLoader = SoftReference(loader)
-            }
-        }
-    }
-
-    fun getRuntimeAndReflectJarClassLoader(): ClassLoader {
-        reflectJarClassLoader.get()?.let { return it }
-        synchronized(this) {
-            reflectJarClassLoader.get()?.let { return it }
-            return createClassLoader(
-                runtimeJarForTests(),
-                reflectJarForTests(),
-                scriptRuntimeJarForTests(),
-                kotlinTestJarForTests()
-            ).also { loader ->
-                reflectJarClassLoader = SoftReference(loader)
-                val useK1 = loader.loadClass("kotlin.reflect.jvm.internal.SystemPropertiesKt")
-                    .getMethod("getUseK1Implementation")
-                    .invoke(null)
-                check(useK1 == false)
-            }
-        }
-    }
-
-    fun getRuntimeAndK1ReflectJarClassLoader(): ClassLoader {
-        k1ReflectJarClassLoader.get()?.let { return it }
-        synchronized(this) {
-            k1ReflectJarClassLoader.get()?.let { return it }
-            withSystemProperty("kotlin.reflect.jvm.useK1Implementation", "true") {
-                return createClassLoader(
+                *listOfNotNull(
                     runtimeJarForTests(),
-                    reflectJarForTests(),
+                    reflectJarForTests().takeUnless { skipReflect },
                     scriptRuntimeJarForTests(),
-                    kotlinTestJarForTests()
-                ).also { loader ->
-                    k1ReflectJarClassLoader = SoftReference(loader)
-                    // Calling getUseK1Implementation has the intentional side effect of caching
-                    // 'kotlin.reflect.jvm.useK1Implementation' value
-                    val useK1 = loader.loadClass("kotlin.reflect.jvm.internal.SystemPropertiesKt")
-                        .getMethod("getUseK1Implementation")
-                        .invoke(null)
-                    check(useK1 == true)
-                }
-            }
-        }
-    }
-
-    fun getRuntimeAndReflectWithNewFakeOverrridesJarClassLoader(): ClassLoader {
-        reflectWithNewFakeOverridesJarClassLoader.get()?.let { return it }
-        synchronized(this) {
-            reflectWithNewFakeOverridesJarClassLoader.get()?.let { return it }
-            withSystemProperty("kotlin.reflect.jvm.newFakeOverridesImplementation", "true") {
-                return createClassLoader(
-                    runtimeJarForTests(),
-                    reflectJarForTests(),
-                    scriptRuntimeJarForTests(),
-                    kotlinTestJarForTests()
-                ).also { loader ->
-                    reflectWithNewFakeOverridesJarClassLoader = SoftReference(loader)
-                    // Calling getNewFakeOverridesImplementation has the intentional side effect of caching
-                    // 'kotlin.reflect.jvm.newFakeOverridesImplementation' value
-                    val newFakeOverridesImplementation = loader
-                        .loadClass("kotlin.reflect.jvm.internal.SystemPropertiesKt")
-                        .getMethod("getNewFakeOverridesImplementation")
-                        .invoke(null)
-                    check(newFakeOverridesImplementation == true)
+                    kotlinTestJarForTests(),
+                ).toTypedArray(),
+            ).also { loader ->
+                property.set(SoftReference(loader))
+                reflectSystemPropertyToEnable?.let { name ->
+                    val clazz = loader.loadClass("kotlin.reflect.jvm.internal.SystemPropertiesKt")
+                    clazz.getDeclaredField(name).apply { this.isAccessible = true }.set(null, true)
+                    check(clazz.getMethod(JvmAbi.getterName(name)).invoke(null) == true)
                 }
             }
         }
@@ -203,86 +169,39 @@ interface KotlinStandardLibrariesPathProvider : TestService {
 }
 
 object StandardLibrariesPathProviderForKotlinProject : KotlinStandardLibrariesPathProvider {
-    override fun runtimeJarForTests(): File =
-        extractFromPropertyFirstFile(KOTLIN_FULL_STDLIB_PATH) { ForTestCompileRuntime.runtimeJarForTests() }
+    override fun runtimeJarForTests(): File = ForTestCompileRuntime.runtimeJarForTests()
 
     override fun runtimeJarForTestsWithJdk8(): File = ForTestCompileRuntime.runtimeJarForTestsWithJdk8()
-    override fun minimalRuntimeJarForTests(): File =
-        extractFromPropertyFirstFile(KOTLIN_MINIMAL_STDLIB_PATH) { ForTestCompileRuntime.minimalRuntimeJarForTests() }
 
-    override fun reflectJarForTests(): File =
-        extractFromPropertyFirstFile(KOTLIN_REFLECT_JAR_PATH) { ForTestCompileRuntime.reflectJarForTests() }
+    override fun minimalRuntimeJarForTests(): File = ForTestCompileRuntime.minimalRuntimeJarForTests()
 
-    override fun kotlinTestJarForTests(): File =
-        extractFromPropertyFirstFile(KOTLIN_TEST_JAR_PATH) { ForTestCompileRuntime.kotlinTestJarForTests() }
+    override fun reflectJarForTests(): File = ForTestCompileRuntime.reflectJarForTests()
 
-    override fun scriptRuntimeJarForTests(): File =
-        extractFromPropertyFirstFile(KOTLIN_SCRIPT_RUNTIME_PATH) { ForTestCompileRuntime.scriptRuntimeJarForTests() }
+    override fun kotlinTestJarForTests(): File = ForTestCompileRuntime.kotlinTestJarForTests()
+
+    override fun scriptRuntimeJarForTests(): File = ForTestCompileRuntime.scriptRuntimeJarForTests()
 
     override fun jvmAnnotationsForTests(): File = ForTestCompileRuntime.jvmAnnotationsForTests()
-    override fun getAnnotationsJar(): File =
-        extractFromPropertyFirstFile(KOTLIN_MOCKJDK_ANNOTATIONS_PATH) {
-            KtTestUtil.getAnnotationsJar().also {
-                assert(it.exists()) { "AnnotationJar missing: $it does not exist" }
-            }
-        }
 
-    override fun fullJsStdlib(): File = extractFromPropertyFirst(KOTLIN_JS_STDLIB_KLIB_PATH) { "kotlin-stdlib-js.klib".dist() }
-    override fun defaultJsStdlib(): File = extractFromPropertyFirst(KOTLIN_JS_REDUCED_STDLIB_PATH) { "kotlin-stdlib-js.klib".dist() }
-    override fun kotlinTestJsKLib(): File = extractFromPropertyFirst(KOTLIN_JS_KOTLIN_TEST_KLIB_PATH) { "kotlin-test-js.klib".dist() }
-    override fun scriptingPluginFilesForTests(): Collection<File> =
-        extractFromPropertyFirstFiles(KOTLIN_SCRIPTING_PLUGIN_CLASSPATH) {
-            val libPath = PathUtil.kotlinPathsForCompiler.libPath
-            val pluginClasspath = with(PathUtil) {
-                listOf(
-                    KOTLIN_SCRIPTING_COMPILER_PLUGIN_JAR,
-                    KOTLIN_SCRIPTING_COMPILER_IMPL_JAR,
-                    KOTLIN_SCRIPTING_COMMON_JAR,
-                    KOTLIN_SCRIPTING_JVM_JAR
-                ).map {
-                    val file = File(libPath, it)
-                    if (!file.exists()) {
-                        throw Error("Missing ${file.path}")
-                    }
-                    file
-                }
-            }
-            pluginClasspath
-        }
+    override fun getAnnotationsJar(): File = ForTestCompileRuntime.getFileFromProperty(KOTLIN_MOCKJDK_ANNOTATIONS_PATH)
 
-    override fun commonStdlibForTests(): File = extractFromPropertyFirst(KOTLIN_COMMON_STDLIB_PATH) { "kotlin-stdlib-common.klib".distCommon() }
+    override fun fullJsStdlib(): File = ForTestCompileRuntime.stdlibJsForTests()
 
-    override fun webStdlibForTests(): File = extractFromPropertyFirst(KOTLIN_WEB_STDLIB_KLIB_PATH) { "kotlin-stdlib-web.klib".distCommon() }
+    override fun defaultJsStdlib(): File = ForTestCompileRuntime.stdlibJsReducedForTests()
 
-    private inline fun extractFromPropertyFirst(prop: String, onMissingProperty: () -> String): File {
-        val path = System.getProperty(prop, null) ?: onMissingProperty()
-        assert(File(path).exists()) { "$path not found; property: $prop" }
-        return File(path)
-    }
+    override fun kotlinTestJsKLib(): File = ForTestCompileRuntime.kotlinTestJsKLibForTests()
 
-    private inline fun extractFromPropertyFirstFile(prop: String, onMissingProperty: () -> File): File {
-        return System.getProperty(prop, null)?.let {
-            val f = File(it)
-            assert(f.exists()) { "$it not found; property: $prop" }
-            f
-        } ?: onMissingProperty()
-    }
+    override fun fullWasmStdlib(target: WasmTarget): File =
+        ForTestCompileRuntime.fullWasmStdlibForTests(target.alias)
 
-    private inline fun extractFromPropertyFirstFiles(prop: String, onMissingProperty: () -> Collection<File>): Collection<File> {
-        return System.getProperty(prop, null)?.split(",")?.map {
-            val f = File(it)
-            assert(f.exists()) { "$it not found; property: $prop" }
-            f
-        } ?: onMissingProperty()
-    }
+    override fun kotlinTestWasmKLib(target: WasmTarget): File =
+        ForTestCompileRuntime.kotlinTestWasmKLibForTests(target.alias)
 
-    private fun String.dist(): String {
-        return "dist/kotlinc/lib/$this"
-    }
+    override fun scriptingPluginFilesForTests(): Collection<File> = ForTestCompileRuntime.scriptingPluginFilesForTests()
 
-    private fun String.distCommon(): String {
-        return "dist/common/$this"
-    }
+    override fun commonStdlibForTests(): File = ForTestCompileRuntime.stdlibCommonForTests()
+
+    override fun webStdlibForTests(): File = ForTestCompileRuntime.stdlibWebForTests()
 }
 
 object EnvironmentBasedStandardLibrariesPathProvider : KotlinStandardLibrariesPathProvider {
@@ -314,6 +233,8 @@ object EnvironmentBasedStandardLibrariesPathProvider : KotlinStandardLibrariesPa
     override fun fullJsStdlib(): File = getFile(KOTLIN_STDLIB_JS_PROP)
     override fun defaultJsStdlib(): File = getFile(KOTLIN_STDLIB_JS_PROP)
     override fun kotlinTestJsKLib(): File = getFile(KOTLIN_TEST_JS_PROP)
+    override fun fullWasmStdlib(target: WasmTarget): File = getFile("$KOTLIN_STDLIB_PROP-${target.alias}")
+    override fun kotlinTestWasmKLib(target: WasmTarget): File = getFile("$KOTLIN_TEST_PROP-${target.alias}")
     override fun commonStdlibForTests(): File = getFile(KOTLIN_COMMON_STDLIB_PATH)
     override fun webStdlibForTests(): File = TODO("Not implemented")
     override fun scriptingPluginFilesForTests(): Collection<File> {
@@ -334,20 +255,4 @@ fun CompilerConfiguration.configureStandardLibs(
         KotlinStandardLibrariesPathProvider::reflectJarForTests,
         arguments
     )
-}
-
-@OptIn(ExperimentalContracts::class)
-private inline fun <T> withSystemProperty(key: String, value: String, body: () -> T): T {
-    contract { callsInPlace(body, InvocationKind.EXACTLY_ONCE) }
-    val old = System.getProperty(key)
-    System.setProperty(key, value)
-    try {
-        return body()
-    } finally {
-        if (old == null) {
-            System.clearProperty(key)
-        } else {
-            System.setProperty(key, old)
-        }
-    }
 }

@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.incremental.components.ICFileMappingTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesContainer
 import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesProvider
+import org.jetbrains.kotlin.incremental.snapshots.ConfigurationInputsMap
 import org.jetbrains.kotlin.incremental.storage.BasicFileToPathConverter
 import org.jetbrains.kotlin.incremental.storage.FileLocations
 import org.jetbrains.kotlin.incremental.storage.FileToPathConverter
@@ -38,7 +39,7 @@ import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
 import org.jetbrains.kotlin.util.removeSuffixIfPresent
-import org.jetbrains.kotlin.util.toJvmMetadataVersion
+import org.jetbrains.kotlin.util.toMetadataVersion
 import java.io.File
 import java.nio.file.Files
 
@@ -114,22 +115,29 @@ abstract class IncrementalCompilerRunner<
         messageCollector: MessageCollector,
         changedFiles: ChangedFiles,
         fileLocations: FileLocations? = null, // Must be not-null if the build system needs to support build cache relocatability
+        configurationInputs: ConfigurationInputs? = null,
     ): ExitCode = reporter.measure(INCREMENTAL_COMPILATION_DAEMON) {
         reporter.debug {
             "Source changes: $changedFiles"
         }
+        if (configurationInputs != null) {
+            reporter.debug {
+                "Configuration inputs: $configurationInputs"
+            }
+        }
+        val hashedConfigurationInputs = configurationInputs?.computeHashedConfigurationInputs()
         val trackChangedFiles = changedFiles is DeterminableFiles.ToBeComputed
-        val result = when (val result = tryCompileIncrementally(allSourceFiles, changedFiles, args, fileLocations, messageCollector)) {
+        val result = when (val result = tryCompileIncrementally(allSourceFiles, changedFiles, args, fileLocations, messageCollector, hashedConfigurationInputs)) {
             is ICResult.Completed -> {
                 reporter.debug { "Incremental compilation completed" }
                 result.exitCode
             }
             is ICResult.RequiresRebuild -> {
-                reporter.info { "Non-incremental compilation will be performed: ${result.reason}" }
+                reporter.info { "Non-incremental compilation will be performed: ${result.reason.readableString}" }
                 reporter.addAttribute(result.reason)
 
                 compileNonIncrementally(
-                    result.reason, allSourceFiles, args, fileLocations, trackChangedFiles = trackChangedFiles, messageCollector
+                    result.reason, allSourceFiles, args, fileLocations, trackChangedFiles = trackChangedFiles, messageCollector, hashedConfigurationInputs
                 )
             }
             is ICResult.Failed -> {
@@ -141,14 +149,14 @@ abstract class IncrementalCompilerRunner<
                     |    ${result.reason.readableString}: ${result.cause.stackTraceToString().removeSuffixIfPresent("\n")}
                     |    Falling back to non-incremental compilation (reason = ${result.reason})
                     |    To help us fix this issue, please file a bug at https://youtrack.jetbrains.com/issues/KT with the above stack trace.
-                    |    (Be sure to search for the above exception in existing issues first to avoid filing duplicated bugs.)             
+                    |    (Be sure to search for the above exception in existing issues first to avoid filing duplicated bugs.)
                     """.trimMargin()
                 }
                 // TODO: Collect the stack trace too
                 reporter.addAttribute(result.reason)
 
                 compileNonIncrementally(
-                    result.reason, allSourceFiles, args, fileLocations, trackChangedFiles = trackChangedFiles, messageCollector
+                    result.reason, allSourceFiles, args, fileLocations, trackChangedFiles = trackChangedFiles, messageCollector, hashedConfigurationInputs
                 )
             }
         }
@@ -189,6 +197,7 @@ abstract class IncrementalCompilerRunner<
         args: Args,
         fileLocations: FileLocations?,
         messageCollector: MessageCollector,
+        hashedConfigurationInputs: HashedConfigurationInputs?,
     ): ICResult {
         if (changedFiles is ChangedFiles.Unknown) {
             return ICResult.RequiresRebuild(UNKNOWN_CHANGES_IN_GRADLE_INPUTS)
@@ -210,6 +219,16 @@ abstract class IncrementalCompilerRunner<
             val caches = createCacheManager(icContext, args).also {
                 // this way we make the transaction to be responsible for closing the caches manager
                 transaction.cachesManager = it
+            }
+
+            // Detect compiler argument changes — force full rebuild if args changed since last build
+            if (hashedConfigurationInputs != null) {
+                when (val state = caches.inputsCache.configurationInputsMap.checkConfigurationState(hashedConfigurationInputs)) {
+                    is ConfigurationInputsMap.ConfigurationState.RequiresRebuild -> {
+                        return ICResult.RequiresRebuild(state.reason)
+                    }
+                    ConfigurationInputsMap.ConfigurationState.UpToDate -> {}
+                }
             }
 
             fun compile(): ICResult {
@@ -269,6 +288,9 @@ abstract class IncrementalCompilerRunner<
 
             compile().also { icResult ->
                 if (icResult is ICResult.Completed && icResult.exitCode == ExitCode.OK) {
+                    if (hashedConfigurationInputs != null) {
+                        caches.inputsCache.configurationInputsMap.updateHash(hashedConfigurationInputs)
+                    }
                     transaction.markAsSuccessful()
                 }
             }
@@ -282,6 +304,7 @@ abstract class IncrementalCompilerRunner<
         fileLocations: FileLocations?,
         trackChangedFiles: Boolean, // Whether we need to track changes to the source files or the build system already handles it
         messageCollector: MessageCollector,
+        hashedConfigurationInputs: HashedConfigurationInputs?
     ): ExitCode {
         reporter.measure(CLEAR_OUTPUT_ON_REBUILD) {
             val mainOutputDirs = setOf(destinationDir(args), workingDir)
@@ -301,7 +324,13 @@ abstract class IncrementalCompilerRunner<
                 AbiSnapshotData(snapshot = AbiSnapshotImpl(mutableMapOf()), classpathAbiSnapshot = getClasspathAbiSnapshot(args))
             } else null
 
-            compileImpl(icContext, CompilationMode.Rebuild(rebuildReason), allSourceFiles, args, caches, abiSnapshotData, messageCollector)
+            val exitCode = compileImpl(icContext, CompilationMode.Rebuild(rebuildReason), allSourceFiles, args, caches, abiSnapshotData, messageCollector)
+            if (exitCode == ExitCode.OK) {
+                if (hashedConfigurationInputs != null) {
+                    caches.inputsCache.configurationInputsMap.updateHash(hashedConfigurationInputs)
+                }
+            }
+            exitCode
         }
     }
 
@@ -471,7 +500,7 @@ abstract class IncrementalCompilerRunner<
 
         // TODO: ideally we should read arguments not here but at earlier stages
         val metadataVersionFromLanguageVersion =
-            LanguageVersion.fromVersionString(args.languageVersion)?.toJvmMetadataVersion() ?: MetadataVersion.INSTANCE
+            LanguageVersion.fromVersionString(args.languageVersion)?.toMetadataVersion() ?: MetadataVersion.INSTANCE
 
         while (dirtySources.any() || runWithNoDirtyKotlinSources(caches)) {
             val complementaryFiles = caches.platformCache.getComplementaryFilesRecursive(dirtySources)
@@ -488,7 +517,7 @@ abstract class IncrementalCompilerRunner<
             val transactionOutputsRegistrar = TransactionOutputsRegistrar(transaction, outputItemsCollector)
             val fileMappingTracker = ICFileMappingTrackerImpl(transactionOutputsRegistrar)
 
-            val (sourcesToCompile, removedKotlinSources) = dirtySources.partition { it.exists() && allKotlinSources.contains(it) }
+            val [sourcesToCompile, removedKotlinSources] = dirtySources.partition { it.exists() && allKotlinSources.contains(it) }
 
             icContext.fragmentContext?.let {
                 if (it.dirtySetTouchesNonLeafFragments(sourcesToCompile)) {
@@ -511,7 +540,7 @@ abstract class IncrementalCompilerRunner<
                     sourcesToCompile, args, caches, services, bufferingMessageCollector,
                     allKotlinSources, compilationMode is CompilationMode.Incremental
                 )
-            }.let { (ec, compiled) ->
+            }.let { [ec, compiled] ->
                 exitCode = ec
                 compiled
             }
@@ -572,10 +601,13 @@ abstract class IncrementalCompilerRunner<
                 break
             }
 
-            val (dirtyLookupSymbols, dirtyClassFqNames, forceRecompile) = changesCollector.getChangedAndImpactedSymbols(
-                listOf(caches.platformCache),
-                reporter
-            )
+            (
+                val dirtyLookupSymbols, val dirtyClassFqNames = dirtyClassesFqNames, val forceRecompile = dirtyClassesFqNamesForceRecompile
+            ) =
+                changesCollector.getChangedAndImpactedSymbols(
+                    listOf(caches.platformCache),
+                    reporter
+                )
             val compiledInThisIterationSet = sourcesToCompile.toHashSet()
 
             val forceToRecompileFiles = mapClassesFqNamesToFiles(listOf(caches.platformCache), forceRecompile, reporter)
@@ -667,6 +699,7 @@ abstract class IncrementalCompilerRunner<
         const val DIRTY_SOURCES_FILE_NAME = "dirty-sources.txt"
         const val LAST_BUILD_INFO_FILE_NAME = "last-build.bin"
         const val ABI_SNAPSHOT_FILE_NAME = "abi-snapshot.bin"
+        const val BUILD_HISTORY_FILE_NAME = "build-history.bin"
     }
 
     private object EmptyCompilationCanceledStatus : CompilationCanceledStatus {

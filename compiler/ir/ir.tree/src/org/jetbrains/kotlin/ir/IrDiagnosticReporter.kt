@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.ir
 
 import org.jetbrains.kotlin.AbstractKtSourceElement
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.rendering.Renderer
 import org.jetbrains.kotlin.ir.declarations.*
@@ -19,7 +20,7 @@ interface IrDiagnosticReporter {
     fun at(irElement: IrElement, containingIrDeclaration: IrDeclaration): IrDiagnosticContext
     fun at(sourceElement: AbstractKtSourceElement?, irElement: IrElement, containingFile: IrFile): IrDiagnosticContext
 
-    fun report(factory: KtSourcelessDiagnosticFactory, message: String)
+    fun report(factory: KtSourcelessDiagnosticFactory, message: String, location: CompilerMessageSourceLocation? = null)
     val hasErrors: Boolean
 
     interface IrDiagnosticContext : DiagnosticContext {
@@ -32,15 +33,15 @@ interface IrDiagnosticReporter {
         fun <A : Any, B : Any> report(factory: KtDiagnosticFactory2<A, B>, a: A, b: B)
 
         fun <A : Any> report(factory: KtDiagnosticFactoryForDeprecation1<A>, a: A) {
-            report(factory.chooseFactory(this), a)
+            report(factory.chooseFactory(), a)
         }
 
         fun <A : Any, B : Any> report(factory: KtDiagnosticFactoryForDeprecation2<A, B>, a: A, b: B) {
-            report(factory.chooseFactory(this), a, b)
+            report(factory.chooseFactory(), a, b)
         }
 
         fun <A : Any, B : Any, C : Any> report(factory: KtDiagnosticFactoryForDeprecation3<A, B, C>, a: A, b: B, c: C) {
-            report(factory.chooseFactory(this), a, b, c)
+            report(factory.chooseFactory(), a, b, c)
         }
 
         fun <A : Any, B : Any, C : Any> report(factory: KtDiagnosticFactory3<A, B, C>, a: A, b: B, c: C)

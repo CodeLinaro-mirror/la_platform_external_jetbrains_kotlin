@@ -71,7 +71,7 @@ KtBlockExpression(161,253): '{'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(167,185): 'MyAlias.function()'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -92,7 +92,7 @@ KtDotQualifiedExpression(167,185): 'MyAlias.function()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(167,174): 'MyAlias'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -132,7 +132,7 @@ KtCallExpression(175,185): 'function()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(175,183): 'function'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -156,7 +156,7 @@ KtValueArgumentList(183,185): '()'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(190,206): 'MyAlias.property'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -177,7 +177,7 @@ KtDotQualifiedExpression(190,206): 'MyAlias.property'
     isInBestCandidates = true
 
 KtNameReferenceExpression(190,197): 'MyAlias'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -196,7 +196,7 @@ KtNameReferenceExpression(190,197): 'MyAlias'
     isInBestCandidates = false
 
 KtNameReferenceExpression(198,206): 'property'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -218,8 +218,7 @@ KtNameReferenceExpression(198,206): 'property'
 
 KtCallableReferenceExpression(212,229): 'MyAlias::function'
   KaApplicableCallCandidate:
-    candidate = KaSimpleFunctionCall:
-      contextArgumentMapping = {}
+    candidate = KaCallableReferenceCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
         expression = MyAlias
@@ -234,11 +233,10 @@ KtCallableReferenceExpression(212,229): 'MyAlias::function'
         contextParameters = []
         callableId = test/MyClass.Companion.function
       typeArgumentsMapping = {}
-      valueArgumentMapping = {}
     isInBestCandidates = true
 
 KtNameReferenceExpression(212,219): 'MyAlias'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -257,19 +255,33 @@ KtNameReferenceExpression(212,219): 'MyAlias'
     isInBestCandidates = false
 
 KtNameReferenceExpression(221,229): 'function'
-  NO_CANDIDATES
-
-KtCallableReferenceExpression(234,251): 'MyAlias::property'
   KaApplicableCallCandidate:
-    candidate = KaSimpleVariableAccessCall:
+    candidate = KaCallableReferenceCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
         expression = MyAlias
         isSafeNavigation = false
         type = test.MyClass.Companion
       extensionReceiver = null
-      isContextSensitive = false
-      kind = Read
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.Unit
+        symbol = test/MyClass.Companion.function(<dispatch receiver>: test.MyClass.Companion): kotlin.Unit
+        valueParameters = []
+        contextParameters = []
+        callableId = test/MyClass.Companion.function
+      typeArgumentsMapping = {}
+    isInBestCandidates = true
+
+KtCallableReferenceExpression(234,251): 'MyAlias::property'
+  KaApplicableCallCandidate:
+    candidate = KaCallableReferenceCall:
+      contextArguments = []
+      dispatchReceiver = KaExplicitReceiverValue:
+        expression = MyAlias
+        isSafeNavigation = false
+        type = test.MyClass.Companion
+      extensionReceiver = null
       signature = KaVariableSignature:
         name = property
         receiverType = null
@@ -281,7 +293,7 @@ KtCallableReferenceExpression(234,251): 'MyAlias::property'
     isInBestCandidates = true
 
 KtNameReferenceExpression(234,241): 'MyAlias'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -300,4 +312,20 @@ KtNameReferenceExpression(234,241): 'MyAlias'
     isInBestCandidates = false
 
 KtNameReferenceExpression(243,251): 'property'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaCallableReferenceCall:
+      contextArguments = []
+      dispatchReceiver = KaExplicitReceiverValue:
+        expression = MyAlias
+        isSafeNavigation = false
+        type = test.MyClass.Companion
+      extensionReceiver = null
+      signature = KaVariableSignature:
+        name = property
+        receiverType = null
+        returnType = kotlin.Int
+        symbol = val property: kotlin.Int
+        contextParameters = []
+        callableId = test/MyClass.Companion.property
+      typeArgumentsMapping = {}
+    isInBestCandidates = true

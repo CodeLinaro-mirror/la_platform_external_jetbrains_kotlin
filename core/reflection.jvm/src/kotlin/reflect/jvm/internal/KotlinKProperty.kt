@@ -5,11 +5,8 @@
 
 package kotlin.reflect.jvm.internal
 
-import java.lang.reflect.Field
-import java.lang.reflect.Member
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
-import java.lang.reflect.Type
+import org.jetbrains.kotlin.descriptors.runtime.structure.safeClassLoader
+import java.lang.reflect.*
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.metadata.*
 import kotlin.metadata.jvm.*
@@ -21,33 +18,40 @@ internal abstract class KotlinKProperty<out V>(
     override val signature: String,
     override val rawBoundReceiver: Any?,
     val kmProperty: KmProperty,
-) : KotlinKCallable<V>(), ReflectKProperty<V> {
+    overriddenStorage: KCallableOverriddenStorage,
+) : KotlinKCallable<V>(overriddenStorage), ReflectKProperty<V> {
     override val name: String get() = kmProperty.name
+
+    private val extensionReceiverType: KmType? by lazy(PUBLICATION) {
+        @OptIn(ExperimentalCompanionBlocksAndExtensions::class)
+        kmProperty.receiverParameterType.takeUnless { kmProperty.isStatic }
+    }
 
     override val allParameters: List<KParameter> by lazy(PUBLICATION) {
         computeParameters(
-            kmProperty.contextParameters, kmProperty.receiverParameterType, valueParameters = emptyList(), typeParameterTable.value,
+            kmProperty.contextParameters, extensionReceiverType, valueParameters = emptyList(), typeParameterTable.value,
             includeReceivers = true,
         )
     }
 
     override val parameters: List<KParameter> by lazy(PUBLICATION) {
         if (isBound) computeParameters(
-            kmProperty.contextParameters, kmProperty.receiverParameterType, valueParameters = emptyList(), typeParameterTable.value,
+            kmProperty.contextParameters, extensionReceiverType, valueParameters = emptyList(), typeParameterTable.value,
             includeReceivers = false,
         )
         else allParameters
     }
 
     override val returnType: KType by lazy(PUBLICATION) {
-        kmProperty.returnType.toKType(container.jClass.classLoader, typeParameterTable.value, if (isLocalDelegated) null else fun(): Type {
-            return caller.returnType
-        })
+        kmProperty.returnType.toKType(
+            container.jClass.safeClassLoader, typeParameterTable.value,
+            computeJavaType = if (isLocalDelegated) null else fun(): Type = caller.returnType,
+        )
     }
 
     val typeParameterTable: Lazy<TypeParameterTable> = lazy(PUBLICATION) {
         val parent = (container as? KClassImpl<*>)?.typeParameterTable
-        TypeParameterTable.create(kmProperty.typeParameters, parent, this, container.jClass.classLoader)
+        TypeParameterTable.create(kmProperty.typeParameters, parent, this, container.jClass.safeClassLoader)
     }
 
     override val typeParameters: List<KTypeParameter> get() = typeParameterTable.value.ownTypeParameters
@@ -63,7 +67,7 @@ internal abstract class KotlinKProperty<out V>(
     override val javaField: Field? by lazy(PUBLICATION) {
         if (isLocalDelegated) return@lazy null
         val fieldSignature = kmProperty.fieldSignature ?: return@lazy null
-        require(container is KPackageImpl) { "javaField is only supported for top-level properties for now: $this" }
+        require(container is KPackageImpl) { "javaField is only supported for top-level properties for now: $container/$name $signature" }
         val owner = container.jClass
         try {
             owner.getDeclaredField(fieldSignature.name)
@@ -83,18 +87,19 @@ internal abstract class KotlinKProperty<out V>(
 
     override val caller: Caller<*> get() = getter.caller
 
-    override val defaultCaller: Caller<*>? get() = getter.defaultCaller
+    override val callerWithDefaults: Caller<*>? get() = getter.callerWithDefaults
 
     override val annotations: List<Annotation>
         get() {
-            if (isLocalDelegated) {
-                // Annotations on local delegated properties are present only in the metadata.
-                @OptIn(ExperimentalAnnotationsInMetadata::class)
-                return kmProperty.annotations.map { it.toAnnotation(container.jClass.classLoader) }
+            if (isLocalDelegated || container.jClass.isAnnotation) {
+                // Annotations on local delegated properties and annotation constructor properties are present only in the metadata.
+                return kmProperty.annotations.map { it.toAnnotation(container.jClass.safeClassLoader) }
             }
 
             // For annotations in classes, we should also support $annotations methods in DefaultImpls, and properties in companion objects.
-            require(container is KPackageImpl) { "Annotations are only supported for top-level properties for now: $this" }
+            require(container is KPackageImpl) {
+                "Annotations are only supported for top-level properties for now: $container/$name $signature"
+            }
 
             val syntheticMethod = kmProperty.syntheticMethodForAnnotations ?: return emptyList()
             val annotations = container.findMethodBySignature(syntheticMethod.name, syntheticMethod.descriptor)?.annotations?.toList()
@@ -103,14 +108,14 @@ internal abstract class KotlinKProperty<out V>(
         }
 
     abstract class Accessor<out PropertyType, out ReturnType> :
-        KotlinKCallable<ReturnType>(), KProperty.Accessor<PropertyType>, KFunction<ReturnType> {
+        KotlinKCallable<ReturnType>(KCallableOverriddenStorage.EMPTY), KProperty.Accessor<PropertyType>, KFunction<ReturnType> {
         abstract override val property: KotlinKProperty<PropertyType>
 
         abstract val accessor: KmPropertyAccessorAttributes?
 
         override val container: KDeclarationContainerImpl get() = property.container
 
-        override val defaultCaller: Caller<*>? get() = null
+        override val callerWithDefaults: Caller<*>? get() = null
 
         override val rawBoundReceiver: Any? get() = property.rawBoundReceiver
 
@@ -123,6 +128,11 @@ internal abstract class KotlinKProperty<out V>(
         override val isOperator: Boolean get() = false
         override val isInfix: Boolean get() = false
         override val isSuspend: Boolean get() = false
+
+        final override fun shallowCopy(
+            container: KDeclarationContainerImpl, overriddenStorage: KCallableOverriddenStorage,
+        ): ReflectKCallable<ReturnType> =
+            error("Property accessors can only be copied by copying the corresponding property")
 
         override val annotations: List<Annotation>
             get() =
@@ -176,20 +186,6 @@ internal abstract class KotlinKProperty<out V>(
         override fun equals(other: Any?): Boolean = other is Setter<*> && property == other.property
         override fun hashCode(): Int = property.hashCode()
         override fun toString(): String = "setter of $property"
-
-        class DefaultSetterValueParameter(override val callable: KotlinKProperty<*>) : ReflectKParameter() {
-            override val index: Int get() = 0
-            override val name: String? get() = null
-            override val type: KType get() = callable.returnType
-            override val kind: KParameter.Kind get() = KParameter.Kind.VALUE
-            override val isOptional: Boolean get() = false
-            override val isVararg: Boolean get() = false
-            override val declaresDefaultValue: Boolean get() = false
-
-            override val annotations: List<Annotation>
-                // As long as there's at least one annotation, the setter would no longer be default.
-                get() = emptyList()
-        }
     }
 
     override fun equals(other: Any?): Boolean {
@@ -213,7 +209,7 @@ internal fun KotlinKProperty.Accessor<*, *>.computeCallerForAccessor(isGetter: B
 
     fun isJvmStaticProperty(): Boolean {
         // For class properties, we'll need to check if the synthetic `$annotations` method contains `@JvmStatic`.
-        require(container is KPackageImpl) { "Only top-level properties are supported for now: $this" }
+        require(container is KPackageImpl) { "Only top-level properties are supported for now: $container/$name" }
         return false
     }
 

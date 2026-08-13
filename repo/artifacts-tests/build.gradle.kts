@@ -1,3 +1,7 @@
+import org.jetbrains.kotlin.testFederation.SmokeTestConfig
+import org.jetbrains.kotlin.testFederation.TemporaryTestFederationApi
+import org.jetbrains.kotlin.testFederation.smokeTestConfig
+
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
@@ -22,6 +26,10 @@ findProperty("deployVersion")?.let {
 projectTests {
     testTask(jUnitMode = JUnitMode.JUnit5) {
         workingDir = rootDir
+
+        @OptIn(TemporaryTestFederationApi::class)
+        smokeTestConfig = SmokeTestConfig.RunAllTests
+
         val buildNumber by extra(findProperty("build.number")?.toString() ?: defaultSnapshotVersion)
         val kotlinVersion by extra(
             findProperty("deployVersion")?.toString()?.let { deploySnapshotStr ->

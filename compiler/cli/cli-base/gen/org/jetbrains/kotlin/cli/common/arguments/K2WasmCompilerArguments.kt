@@ -8,7 +8,8 @@ package org.jetbrains.kotlin.cli.common.arguments
 // Please declare arguments in compiler/arguments/src/org/jetbrains/kotlin/arguments/description/WasmCompilerArguments.kt
 // DO NOT MODIFY IT MANUALLY.
 
-abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
+@Deprecated("This class was deprecated and will be removed soon.", level = DeprecationLevel.WARNING)
+sealed class K2WasmCompilerArguments : CommonJsAndWasmCompilerArguments() {
     @Argument(
         value = "-Xir-dce-dump-reachability-info-to-file",
         valueDescription = "<path>",
@@ -31,6 +32,7 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
             field = if (value.isNullOrEmpty()) null else value
         }
 
+    @Deprecated("This flag is deprecated. Use kotlinc-wasm or the KotlinWasmCompiler class instead to compile to WebAssembly.")
     @Argument(
         value = "-Xwasm",
         description = "Use the WebAssembly compiler backend.",
@@ -66,6 +68,16 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
         description = "Generates devtools custom formatters (https://firefox-source-docs.mozilla.org/devtools-user/custom_formatters) for Kotlin/Wasm values",
     )
     var debuggerCustomFormatters: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Xwasm-disable-array-range-checks-safe-elimination",
+        description = "Disable bounds check elimination for provably-safe array accesses in for-loops. Only effective when -Xwasm-enable-array-range-checks is also enabled.",
+    )
+    var wasmDisableArrayRangeChecksSafeElimination: Boolean = false
         set(value) {
             checkFrozen()
             field = value
@@ -122,16 +134,6 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
         }
 
     @Argument(
-        value = "-Xwasm-ic-cache-readonly",
-        description = "Do not commit IC cache updates.",
-    )
-    var icCacheReadonly: Boolean = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
         value = "-Xwasm-included-module-only",
         description = "Compile only a module passed using `-include` option.",
     )
@@ -172,16 +174,6 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
         }
 
     @Argument(
-        value = "-Xwasm-preserve-ic-order",
-        description = "Preserve wasm file structure between IC runs.",
-    )
-    var preserveIcOrder: Boolean = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
         value = "-Xwasm-source-map-include-mappings-from-unavailable-sources",
         description = "Insert source mappings from libraries even if their sources are unavailable on the end-user machine.",
     )
@@ -193,6 +185,7 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
 
     @Argument(
         value = "-Xwasm-target",
+        valueDescription = "{wasm-js|wasm-wasi}",
         description = "Set up the Wasm target (wasm-js or wasm-wasi).",
     )
     var wasmTarget: String? = null
@@ -206,6 +199,16 @@ abstract class K2WasmCompilerArguments : CommonKlibBasedCompilerArguments() {
         description = "Use an updated version of the exception proposal with try_table.",
     )
     var wasmUseNewExceptionProposal: Boolean? = null
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Xwasm-use-stack-switching-proposal",
+        description = "Compile Kotlin Coroutines with WebAssembly Stack Switching Proposal",
+    )
+    var wasmUseStackSwitchingProposal: Boolean = false
         set(value) {
             checkFrozen()
             field = value

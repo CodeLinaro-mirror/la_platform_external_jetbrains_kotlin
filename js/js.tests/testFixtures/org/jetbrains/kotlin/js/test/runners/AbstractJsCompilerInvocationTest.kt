@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.klib.KlibCompilerInvocationTestUtils
 import org.jetbrains.kotlin.klib.KlibCompilerInvocationTestUtils.Dependencies
 import org.jetbrains.kotlin.klib.KlibCompilerInvocationTestUtils.Dependency
 import org.jetbrains.kotlin.klib.KlibCompilerInvocationTestUtils.MAIN_MODULE_NAME
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.utils.mapToSetOrEmpty
@@ -102,9 +103,9 @@ internal class JsCompilerInvocationTestArtifactBuilder(
         runCompilerViaCLI(
             compilerEdition,
             listOf(
-                K2JSCompilerArguments::irProduceKlibFile.cliArgument,
                 K2JSCompilerArguments::outputDir.cliArgument, module.klibFile.parentFile.absolutePath,
                 K2JSCompilerArguments::moduleName.cliArgument, module.moduleInfo.moduleName,
+                K2JSCompilerArguments::verifyIr.cliArgument("error"),
             ),
             preprocessedDependencies.toCompilerArgs(),
             compilerArguments,
@@ -152,6 +153,8 @@ internal class JsCompilerInvocationTestArtifactBuilder(
                 K2JSCompilerArguments::includes.cliArgument(mainModule.libraryFile.absolutePath),
                 K2JSCompilerArguments::outputDir.cliArgument, binariesDir.absolutePath,
                 K2JSCompilerArguments::moduleName.cliArgument, MAIN_MODULE_NAME,
+                K2JSCompilerArguments::verifyIr.cliArgument("error"),
+                K2JSCompilerArguments::disableIrCheckers.cliArgument("IrVisibilityChecker"),
             ),
             listOf(
                 K2JSCompilerArguments::cacheDirectory.cliArgument,
@@ -256,7 +259,7 @@ internal object JsCompilerInvocationTestBinaryRunner :
     override fun runBinary(binaryArtifact: JsCompilerInvocationTestBinaryArtifact) {
         val filePaths = binaryArtifact.jsFiles.map { it.canonicalPath }
         V8JsTestChecker.check(
-            filePaths, binaryArtifact.mainModuleName, null,
+            filePaths, binaryArtifact.mainModuleName, FqName.ROOT,
             binaryArtifact.boxFunctionFqName, "OK", withModuleSystem = false,
         )
     }

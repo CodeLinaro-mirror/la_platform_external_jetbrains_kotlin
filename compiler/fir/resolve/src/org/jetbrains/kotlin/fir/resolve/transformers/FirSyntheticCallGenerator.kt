@@ -8,9 +8,6 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.caches.FirCache
@@ -21,13 +18,12 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirNamedFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildTypeParameter
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
-import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.addDefaultBoundIfNecessary
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
 import org.jetbrains.kotlin.fir.expressions.builder.buildFunctionCall
-import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
@@ -64,11 +60,10 @@ class FirSyntheticCallGenerator(
     private val components: BodyResolveComponents
 ) {
     private val session = components.session
+    private val dataFlowAnalyzer get() = components.dataFlowAnalyzer
 
     private val whenSelectFunction: FirNamedFunction = generateSyntheticSelectFunction(SyntheticCallableId.WHEN)
     private val trySelectFunction: FirNamedFunction = generateSyntheticSelectFunction(SyntheticCallableId.TRY)
-    private val danglingCollectionLiteralFunction: FirNamedFunction =
-        generateSyntheticSelectFunction(SyntheticCallableId.DANGLING_COLLECTION_LITERAL)
     private val idFunction: FirNamedFunction = generateSyntheticSelectFunction(SyntheticCallableId.ID)
     private val checkNotNullFunction: FirNamedFunction = generateSyntheticCheckNotNullFunction()
     private val elvisFunction: FirNamedFunction = generateSyntheticElvisFunction()
@@ -133,29 +128,6 @@ class FirSyntheticCallGenerator(
         )
 
         return tryExpression.transformCalleeReference(UpdateReference, reference)
-    }
-
-    fun generateFakeCallForDanglingCollectionLiteral(
-        collectionLiteral: FirCollectionLiteral,
-        context: ResolutionContext,
-    ): FirFunctionCall {
-        val argumentList = collectionLiteral.argumentList
-
-        val reference = generateCalleeReferenceWithCandidate(
-            collectionLiteral,
-            danglingCollectionLiteralFunction,
-            argumentList,
-            SyntheticCallableId.DANGLING_COLLECTION_LITERAL.callableName,
-            context = context,
-            resolutionMode = ResolutionMode.ContextIndependent,
-        )
-
-        return buildFunctionCall {
-            calleeReference = reference
-            this.argumentList = argumentList
-            this.annotations += collectionLiteral.annotations
-            source = collectionLiteral.source
-        }
     }
 
     fun generateCalleeForCheckNotNullCall(
@@ -287,26 +259,27 @@ class FirSyntheticCallGenerator(
         expectedTypeData: ResolutionMode.WithExpectedType?,
         context: ResolutionContext,
     ): FirExpression {
-        val argumentList = buildUnaryArgumentList(collectionLiteral)
-        val reference = generateCalleeReferenceToFunctionWithExpectedTypeForArgument(
+        val argumentListForFakeCall = buildUnaryArgumentList(collectionLiteral)
+
+        dataFlowAnalyzer.enterFunctionCall(collectionLiteral)
+
+        val resolvedReference = generateCalleeReferenceToFunctionWithExpectedTypeForArgument(
             collectionLiteral,
-            argumentList,
+            argumentListForFakeCall,
             expectedTypeData?.expectedType,
             context,
         )
-
         val fakeCall = buildFunctionCall {
-            calleeReference = reference
-            this.argumentList = argumentList
+            calleeReference = resolvedReference
+            this.argumentList = argumentListForFakeCall
         }
-
-        components.dataFlowAnalyzer.enterCallArguments(fakeCall, argumentList.arguments)
-        components.dataFlowAnalyzer.exitCallArguments()
-
         val resultingFakeCall = components.callCompleter.completeCall(fakeCall, ResolutionMode.ContextIndependent)
-        components.dataFlowAnalyzer.exitFunctionCall(fakeCall, callCompleted = true)
+        val resolvedCollectionLiteral = resultingFakeCall.arguments.single() as? FirFunctionCall
+            ?: error("Expected collection literal to be resolved to ${FirFunctionCall::class.simpleName}.")
 
-        val resolvedCollectionLiteral = resultingFakeCall.arguments.single()
+        // Note that here we use an already resolved collection literal.
+        // It is necessary because at this point the completion results writer was already run for it.
+        dataFlowAnalyzer.exitFunctionCall(resolvedCollectionLiteral, callCompleted = true)
 
         return when (val calleeReference = resultingFakeCall.calleeReference) {
             is FirResolvedErrorReference -> resolvedCollectionLiteral.withAdaptedError(
@@ -429,10 +402,7 @@ class FirSyntheticCallGenerator(
             }
             is FirFunctionCall -> {
                 // completed collection literal
-                check(
-                    session.languageVersionSettings.supportsFeature(LanguageFeature.CollectionLiterals)
-                            && calleeReference.source?.kind == KtFakeSourceElementKind.CalleeReferenceForOperatorOfCall
-                ) {
+                check(calleeReference.source?.kind == KtFakeSourceElementKind.CalleeReferenceForOperatorOfCall) {
                     "Expected ${FirFunctionCall::class.simpleName} originating from ${FirCollectionLiteral::class.simpleName}"
                 }
             }
@@ -684,7 +654,7 @@ class FirSyntheticCallGenerator(
         //   fun <K> select(vararg values: K): K
         val functionSymbol = FirSyntheticFunctionSymbol(callableId)
 
-        val (typeParameter, returnType) = generateSyntheticSelectTypeParameter(functionSymbol)
+        val [typeParameter, returnType] = generateSyntheticSelectTypeParameter(functionSymbol)
 
         val typeArgument = buildTypeProjectionWithVariance {
             typeRef = returnType.toFirResolvedTypeRef()
@@ -701,7 +671,7 @@ class FirSyntheticCallGenerator(
         // Synthetic function signature:
         //   fun <K> checkNotNull(arg: K?): K & Any
         val functionSymbol = FirSyntheticFunctionSymbol(SyntheticCallableId.CHECK_NOT_NULL)
-        val (typeParameter, typeParameterType) = generateSyntheticSelectTypeParameter(functionSymbol)
+        val [typeParameter, typeParameterType] = generateSyntheticSelectTypeParameter(functionSymbol)
 
         return generateMemberFunction(
             functionSymbol,
@@ -727,7 +697,7 @@ class FirSyntheticCallGenerator(
         //   fun <X> test(a: X, b: X) = a ?: b
         // `X` is not a subtype of `Any` and hence cannot satisfy `K` if it had an upper bound of `Any`.
         val functionSymbol = FirSyntheticFunctionSymbol(SyntheticCallableId.ELVIS)
-        val (typeParameter, rightArgumentType) = generateSyntheticSelectTypeParameter(functionSymbol)
+        val [typeParameter, rightArgumentType] = generateSyntheticSelectTypeParameter(functionSymbol)
 
         val returnType = rightArgumentType
             .withAttributes(ConeAttributes.create(listOf(CompilerConeAttributes.Exact)))
@@ -776,7 +746,7 @@ class FirSyntheticCallGenerator(
             origin = FirDeclarationOrigin.Synthetic.FakeFunction
             this.symbol = symbol
             this.name = name
-            status = FirDeclarationStatusImpl(Visibilities.Public, Modality.FINAL)
+            status = FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS
             isLocal = false
             returnTypeRef = returnType
             resolvePhase = FirResolvePhase.BODY_RESOLVE

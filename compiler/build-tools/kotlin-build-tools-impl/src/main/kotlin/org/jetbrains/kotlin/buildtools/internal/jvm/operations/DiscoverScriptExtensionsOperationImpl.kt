@@ -5,16 +5,12 @@
 
 package org.jetbrains.kotlin.buildtools.internal.jvm.operations
 
+import org.jetbrains.kotlin.buildtools.api.CompilerMessageRenderer
 import org.jetbrains.kotlin.buildtools.api.ExecutionPolicy
 import org.jetbrains.kotlin.buildtools.api.KotlinLogger
 import org.jetbrains.kotlin.buildtools.api.ProjectId
 import org.jetbrains.kotlin.buildtools.api.jvm.operations.DiscoverScriptExtensionsOperation
-import org.jetbrains.kotlin.buildtools.internal.BuildOperationImpl
-import org.jetbrains.kotlin.buildtools.internal.DeepCopyable
-import org.jetbrains.kotlin.buildtools.internal.DefaultKotlinLogger
-import org.jetbrains.kotlin.buildtools.internal.KotlinLoggerMessageCollectorAdapter
-import org.jetbrains.kotlin.buildtools.internal.Options
-import org.jetbrains.kotlin.buildtools.internal.UseFromImplModuleRestricted
+import org.jetbrains.kotlin.buildtools.internal.*
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.reporter
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinitionsFromClasspathDiscoverySource
 import java.nio.file.Path
@@ -26,7 +22,9 @@ internal class DiscoverScriptExtensionsOperationImpl private constructor(
 ) : BuildOperationImpl<Collection<String>>(), DiscoverScriptExtensionsOperation, DiscoverScriptExtensionsOperation.Builder,
     DeepCopyable<DiscoverScriptExtensionsOperation> {
 
-    constructor(classpath: List<Path>) : this(Options(DiscoverScriptExtensionsOperation::class), classpath)
+    constructor(classpath: List<Path>) : this(Options(DiscoverScriptExtensionsOperation::class), classpath) {
+        initializeOptions(this::class, options)
+    }
 
     override fun executeImpl(
         projectId: ProjectId,
@@ -36,9 +34,9 @@ internal class DiscoverScriptExtensionsOperationImpl private constructor(
         // KT-84096 BTA: support daemon execution for script discovery operation
         check(executionPolicy is ExecutionPolicy.InProcess) { "Only in-process execution policy is supported for this operation." }
         val definitions = ScriptDefinitionsFromClasspathDiscoverySource(
-            classpath.map(Path::toFile),
-            defaultJvmScriptingHostConfiguration,
-            KotlinLoggerMessageCollectorAdapter(logger ?: DefaultKotlinLogger).reporter
+            classpath.map(Path::toFile), defaultJvmScriptingHostConfiguration, KotlinLoggerMessageCollectorAdapter(
+                logger ?: DefaultKotlinLogger, this[COMPILER_MESSAGE_RENDERER], warningsAsErrors = false
+            ).reporter
         ).definitions
 
         return definitions.mapTo(arrayListOf()) { it.fileExtension }
@@ -51,11 +49,25 @@ internal class DiscoverScriptExtensionsOperationImpl private constructor(
 
     @UseFromImplModuleRestricted
     override fun <V> set(key: DiscoverScriptExtensionsOperation.Option<V>, value: V) {
+        checkOptionIsAvailableForVersion(key)
         options[key] = value
     }
 
     override fun build(): DiscoverScriptExtensionsOperation = deepCopy()
 
     override fun deepCopy(): DiscoverScriptExtensionsOperationImpl = DiscoverScriptExtensionsOperationImpl(options.deepCopy(), classpath)
+
+    private operator fun <V> get(key: Option<V>): V = options[key]
+
+    private operator fun <V> set(key: Option<V>, value: V) {
+        options[key] = value
+    }
+
+    class Option<V>(id: String, default: V) : BaseOptionWithDefault<V>(id, defaultValue = default)
+
+    companion object {
+        val COMPILER_MESSAGE_RENDERER: Option<CompilerMessageRenderer> =
+            Option("COMPILER_MESSAGE_RENDERER", default = DefaultCompilerMessageRenderer)
+    }
 
 }

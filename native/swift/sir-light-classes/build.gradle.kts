@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 plugins {
     kotlin("jvm")
     id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 description = "Implementation of SwiftIR backed by Analysis API"
@@ -32,8 +33,14 @@ dependencies {
 }
 
 projectTests {
-    nativeTestTask("test") {
+    nativeTestTask(
+        "test",
+        allowUnsafe = true, // KT-85212
+    ) {
         dependsOn(":kotlin-native:distInvalidateStaleCaches")
+        extensions.configure<TestInputsCheckExtension>("testInputsCheck") {
+            allowFlightRecorder.set(true)
+        }
     }
 }
 
@@ -41,8 +48,6 @@ sourceSets {
     "main" { projectDefault() }
     "test" { projectDefault() }
 }
-
-testsJar()
 
 publish()
 

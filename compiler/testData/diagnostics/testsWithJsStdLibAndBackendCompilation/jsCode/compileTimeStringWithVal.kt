@@ -1,8 +1,5 @@
 // RUN_PIPELINE_TILL: BACKEND
-// FIR_DIFFERENCE
-// The difference is okay: K1 and K2 report a bit differently
 // IGNORE_FIR_DIAGNOSTICS
-// IGNORE_BACKEND_K1: JS_IR
 
 fun testValFromThisFunction() {
     val valFromThisFunction = "valFromThisFunction"

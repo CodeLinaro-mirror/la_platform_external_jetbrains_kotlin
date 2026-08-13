@@ -71,7 +71,7 @@ internal fun KaSession.enumClassModality(symbol: KaClassSymbol): String? {
 }
 
 private fun KaSession.requiresSubClass(symbol: KaEnumEntrySymbol): Boolean {
-    val initializer = symbol.enumEntryInitializer ?: return false
+    val initializer = symbol.initializer ?: return false
     return initializer.combinedDeclaredMemberScope.declarations.any { it !is KaConstructorSymbol }
 }
 
@@ -217,9 +217,8 @@ internal fun AnnotationValue.toAnnotationMemberValue(parent: PsiElement): PsiAnn
 internal fun AnnotationValue.Annotation.normalizedArguments(): List<AnnotationArgument> {
     val args = arguments
     val ctorSymbolPointer = constructorSymbolPointer ?: return args
-    val element = sourcePsi ?: return args // May work incorrectly. See KT-63568
 
-    return analyzeForLightClasses(element) {
+    return analyzeForLightClasses(useSiteModule) {
         val constructorSymbol = restoreSymbolOrThrowIfDisposed(ctorSymbolPointer)
         val params = constructorSymbol.valueParameters
         val missingVarargParameterName =

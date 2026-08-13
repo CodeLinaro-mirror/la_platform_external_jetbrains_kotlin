@@ -1,8 +1,5 @@
 // ISSUE: KT-66359
 
-// IGNORE_BACKEND_K1: ANY
-// REASON: "Could not load module <Error module>"
-
 fun box(): String {
     pcla {
         // GenericType<Xy, OTv> <: GenericType<*, OTv>

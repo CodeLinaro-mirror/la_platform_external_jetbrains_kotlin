@@ -9,7 +9,9 @@ import com.intellij.lang.LighterASTNode
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.descriptors.BasicValueClassRepresentation
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.FullValueClassRepresentation
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
@@ -18,6 +20,8 @@ import org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategy
 import org.jetbrains.kotlin.diagnostics.isExpression
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.checkers.RecursionType.Plain
+import org.jetbrains.kotlin.fir.analysis.checkers.RecursionType.ViaTypeParameters
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.getChild
@@ -49,9 +53,11 @@ import org.jetbrains.kotlin.resolve.AnnotationTargetList
 import org.jetbrains.kotlin.resolve.AnnotationTargetListForDeprecation
 import org.jetbrains.kotlin.resolve.AnnotationTargetLists
 import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeCheckerProviderContext
+import org.jetbrains.kotlin.types.model.isNullableType
 import org.jetbrains.kotlin.util.ImplementationStatus
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.getChildren
@@ -127,24 +133,39 @@ fun ConeKotlinType.isValueClass(session: FirSession): Boolean {
     return toRegularClassSymbol(session)?.isInlineOrValue == true
 }
 
-fun ConeKotlinType.isSingleFieldValueClass(session: FirSession): Boolean = with(session.typeContext) {
-    isRecursiveSingleFieldValueClassType(session) || typeConstructor().isInlineClass()
-}
+fun ConeKotlinType.isBasicSingleFieldValueClass(session: FirSession): Boolean =
+    with(session.typeContext) { typeConstructor().isInlineClass() }
 
-private fun ConeKotlinType.isRecursiveSingleFieldValueClassType(session: FirSession) =
-    isRecursiveValueClassType(hashSetOf(), session, onlyInline = true)
+fun ConeKotlinType.getValueClassTypeRecursionType(session: FirSession): RecursionType? =
+    getValueClassTypeRecursionType(hashSetOf(), session)
 
-fun ConeKotlinType.isRecursiveValueClassType(session: FirSession): Boolean =
-    isRecursiveValueClassType(hashSetOf(), session, onlyInline = false)
+enum class RecursionType { Plain, ViaTypeParameters }
 
-private fun ConeKotlinType.isRecursiveValueClassType(visited: HashSet<ConeKotlinType>, session: FirSession, onlyInline: Boolean): Boolean {
-    val asRegularClass = this.toRegularClassSymbol(session)?.takeIf { it.isInlineOrValueClass() } ?: return false
-    val primaryConstructor = asRegularClass.primaryConstructorIfAny(session) ?: return false
+private fun ConeKotlinType.getValueClassTypeRecursionType(
+    visited: HashSet<ConeKotlinType>, session: FirSession
+): RecursionType? = context(session.typeContext) {
+    val plainRegularClass = toRegularClassSymbol(session)
+    val expectedRecursionType = if (plainRegularClass != null) Plain else ViaTypeParameters
 
-    if (primaryConstructor.valueParameterSymbols.size > 1 && onlyInline) return false
-    return !visited.add(this) || primaryConstructor.valueParameterSymbols.any {
-        it.resolvedReturnType.isRecursiveValueClassType(visited, session, onlyInline)
-    }.also { visited.remove(this) }
+    val asRegularClass = plainRegularClass ?: leastUpperBound(session).toRegularClassSymbol(session) ?: return null
+    val primaryConstructor = asRegularClass.primaryConstructorIfAny(session) ?: return null
+    // Recursion in Value Classes with nullable types (e.g. `value class VC(val x: VC?, ...)`) is supported only for Multi-Field Full Value Classes
+    // Generally, there is no need to disallow it for Single-field value classes as well, so there is KT-86498 for that.
+    // Below we forbid recursion for all other cases
+    // Reminder: Single-field value class is basic if it has @JvmInline annotation or if the FullValueClasses feature is disabled
+    val isSubjectForCheck = when (asRegularClass.valueClassRepresentation) {
+        null -> false
+        is BasicValueClassRepresentation -> true
+        is FullValueClassRepresentation if isNullableType() -> primaryConstructor.valueParameterSymbols.size == 1
+        is FullValueClassRepresentation -> true
+    }
+    if (!isSubjectForCheck) return null
+
+    if (!visited.add(this)) return expectedRecursionType
+    val hasRecursionInParameters = primaryConstructor.valueParameterSymbols.any {
+        it.resolvedReturnType.getValueClassTypeRecursionType(visited, session) != null
+    }
+    return (if (hasRecursionInParameters) expectedRecursionType else null).also { visited.remove(this) }
 }
 
 context(context: CheckerContext)
@@ -581,6 +602,14 @@ internal fun checkCondition(condition: FirExpression) {
     }
 }
 
+fun extractArgumentsTypeRefAndSource(qualifier: FirResolvedQualifier): List<FirTypeRefSource> {
+    return buildList {
+        for (typeArgument in qualifier.typeArguments) {
+            add(FirTypeRefSource((typeArgument as? FirTypeProjectionWithVariance)?.typeRef, typeArgument.source))
+        }
+    }
+}
+
 fun extractArgumentsTypeRefAndSource(typeRef: FirTypeRef?): List<FirTypeRefSource>? {
     if (typeRef !is FirResolvedTypeRef) return null
     val result = mutableListOf<FirTypeRefSource>()
@@ -597,6 +626,9 @@ fun extractArgumentsTypeRefAndSource(typeRef: FirTypeRef?): List<FirTypeRefSourc
         is FirFunctionTypeRef -> {
             val parameters = delegatedTypeRef.parameters
 
+            for (contextParameter in delegatedTypeRef.contextParameterTypeRefs) {
+                result.add(FirTypeRefSource(contextParameter, contextParameter.source))
+            }
             delegatedTypeRef.receiverTypeRef?.let { result.add(FirTypeRefSource(it, it.source)) }
             for (valueParameter in parameters) {
                 val valueParamTypeRef = valueParameter.returnTypeRef
@@ -704,10 +736,15 @@ fun getActualTargetList(container: FirAnnotationContainer, session: FirSession):
                     if (annotated.source?.kind == KtFakeSourceElementKind.PropertyFromParameter) {
                         TargetLists.T_VALUE_PARAMETER_WITH_VAL
                     } else {
-                        TargetLists.T_MEMBER_PROPERTY(annotated.hasBackingField, annotated.delegate != null)
+                        TargetLists.T_MEMBER_PROPERTY(annotated.hasBackingField, annotated.delegate != null, isCompanionMember = false)
                     }
+                annotated.isCompanionBlockMember -> TargetLists.T_MEMBER_PROPERTY(
+                    backingField = annotated.hasBackingField,
+                    delegate = annotated.delegate != null,
+                    isCompanionMember = true
+                )
                 else ->
-                    TargetLists.T_TOP_LEVEL_PROPERTY(annotated.hasBackingField, annotated.delegate != null)
+                    TargetLists.T_TOP_LEVEL_PROPERTY(annotated.hasBackingField, annotated.delegate != null, isCompanionExtension = annotated.isCompanionExtension)
             }
         }
         is FirValueParameter -> {
@@ -723,7 +760,9 @@ fun getActualTargetList(container: FirAnnotationContainer, session: FirSession):
         is FirNamedFunction -> {
             when {
                 annotated.status.visibility == Visibilities.Local -> TargetLists.T_LOCAL_FUNCTION
+                annotated.isCompanionBlockMember -> TargetLists.T_COMPANION_MEMBER_FUNCTION
                 annotated.isMember -> TargetLists.T_MEMBER_FUNCTION
+                annotated.isCompanionExtension -> TargetLists.T_COMPANION_EXTENSION_FUNCTION
                 else -> TargetLists.T_TOP_LEVEL_FUNCTION
             }
         }
@@ -919,6 +958,21 @@ fun ConeKotlinType.fullyExpandedClassId(session: FirSession): ClassId? {
     return fullyExpandedType(session).classId
 }
 
+context(_: SessionHolder)
+fun ConeKotlinType.forEachClassId(f: (ClassId) -> Unit) {
+    when (this) {
+        is ConeFlexibleType -> lowerBound.forEachClassId(f)
+        is ConeDefinitelyNotNullType -> original.forEachClassId(f)
+        is ConeCapturedType -> constructor.supertypes?.forEach { it.forEachClassId(f) }
+        is ConeIntersectionType -> intersectedTypes.forEach { it.forEachClassId(f) }
+        is ConeTypeParameterType -> lookupTag.symbol.resolvedBounds.forEach { it.coneType.forEachClassId(f) }
+        is ConeLookupTagBasedType -> fullyExpandedType().classId?.let(f)
+        is ConeStubTypeForTypeVariableInSubtyping,
+        is ConeTypeVariableType,
+        is ConeIntegerLiteralType -> {}
+    }
+}
+
 @OptIn(ExperimentalContracts::class)
 fun ConeKotlinType.hasDiagnosticKind(kind: DiagnosticKind): Boolean {
     contract { returns(true) implies (this@hasDiagnosticKind is ConeErrorType) }
@@ -938,7 +992,7 @@ fun FirResolvedQualifier.isStandalone(
 ): Boolean {
     val lastQualifiedAccess = context.callsOrAssignments.lastOrNull() as? FirQualifiedAccessExpression
     // Note: qualifier isn't standalone when it's in receiver (SomeClass.foo) or getClass (SomeClass::class) position
-    if (lastQualifiedAccess?.explicitReceiver === this || lastQualifiedAccess?.dispatchReceiver === this) return false
+    if (lastQualifiedAccess?.explicitReceiver === this || lastQualifiedAccess?.dispatchReceiver === this || lastQualifiedAccess?.extensionReceiver == this) return false
     val lastGetClass = context.getClassCalls.lastOrNull()
     if (lastGetClass?.argument === this) return false
     if (isExplicitParentOfResolvedQualifier()) return false
@@ -946,10 +1000,12 @@ fun FirResolvedQualifier.isStandalone(
     return true
 }
 
+/**
+ * @return `true` for qualifiers that are explicit parents (receivers) for other qualifiers, e.g., for `Outer` in `Outer.Nested`
+ */
 context(context: CheckerContext)
 fun FirResolvedQualifier.isExplicitParentOfResolvedQualifier(): Boolean {
-    val secondToLastElement = context.containingElements.elementAtOrNull(context.containingElements.size - 2)
-    return secondToLastElement.let { it is FirResolvedQualifier && it.explicitParent == this }
+    return context.secondToLastContainer.let { it is FirResolvedQualifier && it.explicitParent == this }
 }
 
 fun isExplicitTypeArgumentSource(source: KtSourceElement?): Boolean =
@@ -1001,7 +1057,7 @@ fun KtSourceElement?.requireFeatureSupport(
     feature: LanguageFeature,
     positioningStrategy: SourceElementPositioningStrategy? = null,
 ) {
-    if (!feature.isEnabled()) {
+    if (feature.isDisabled()) {
         reporter.reportOn(this, FirErrors.UNSUPPORTED_FEATURE, feature to context.languageVersionSettings, positioningStrategy)
     }
 }
@@ -1069,4 +1125,62 @@ context(context: CheckerContext)
 fun FirExpression.isDispatchReceiver(): Boolean {
     val parentElement = context.containingElements.elementAtOrNull(context.containingElements.size - 2)
     return parentElement is FirQualifiedAccessExpression && parentElement.dispatchReceiver == this
+}
+
+/**
+ * Determines if there is a potential ambiguity in interpreting the given expression as an integer literal or an integer literal operator call.
+ *
+ * The problem is the integer literal (or operator call) might have an ambiguous type like
+ * ([Long] | [Int] | [Short] | [Byte]) or ([ULong] | [UInt] | [UShort] | [UByte]).
+ * The only resolution disambiguates it to a particular type that sometimes depends on the context (but in most cases it's [Int] and [UInt]).
+ * The `as Int`, `toInt`, `as Short`, `toShort` and other similar expressions
+ * *always* narrow down the ambiguous type to a particular type (specified on RHS) that prevents the integer type ascription by resolution.
+ *
+ * Since checkers don't have full-fledged info about the resolution, the redundancy diagnostics on integer literals should not be reported.
+ * The ambiguity check is only applicable to literals like `1` or `1U` but not to `1L` or `1UL`,
+ * because the latter ones already have unambiguous types ([Long] and [ULong] respectively).
+ * The literals for strict [Int], [UInt] types don't exist in Kotlin.
+ * The [Short], [Byte], [UShort], [UByte] types aren't expressible via literals at all.
+ *
+ * @param this the left-hand side expression to be checked (`lhs.toInt()`, `lhs as Int`, `lhs as Short`, etc.)
+ * @return `true` if it could cause ambiguity and neither [FirErrors.USELESS_CAST] nor [FirErrors.REDUNDANT_CALL_OF_CONVERSION_METHOD] should be reported.
+ */
+fun FirExpression.hasIntegerLiteralTypeAmbiguity(): Boolean {
+    // The leftmost argument defines the type of the entire integer operation.
+    // Moreover, the mixing of different integer types within a single integer operator call (for example, `2U * 4`) is prohibited.
+    fun unwrapLeftmostLiteralExpression(expression: FirExpression?): FirLiteralExpression? {
+        return when (expression) {
+            is FirLiteralExpression -> expression
+            is FirIntegerLiteralOperatorCall -> unwrapLeftmostLiteralExpression(expression.dispatchReceiver)
+            else -> null
+        }
+    }
+
+    val maybeIntegerLiteralExpression = unwrapLeftmostLiteralExpression(this)
+
+    return maybeIntegerLiteralExpression?.kind?.let { it == ConstantValueKind.Int || it == ConstantValueKind.UnsignedInt } == true
+}
+
+context(context: CheckerContext)
+fun canBeEvaluated(expression: FirExpression, allowErrors: Boolean = true): Boolean {
+    @OptIn(PrivateConstantEvaluatorAPI::class)
+    val evaluationResult = FirExpressionEvaluator.evaluateExpression(expression, context.session)
+    return when (evaluationResult) {
+        is FirEvaluatorResult.Evaluated -> true
+        is FirEvaluatorResult.ResolutionError -> allowErrors
+        else -> false
+    }
+}
+
+/**
+ * @return true if the symbol is the constructor of one of 9 array classes (`Array<T>`,
+ * `IntArray`, `FloatArray`, ...) which takes the size and an initializer lambda as parameters.
+ * Such constructors are marked as `inline` but they are not loaded as such because the `inline`
+ * flag is not stored for constructors in the binary metadata. Therefore, we pretend that they
+ * are inline.
+ */
+fun FirFunctionSymbol<*>.isArrayLambdaConstructor(): Boolean {
+    return this is FirConstructorSymbol &&
+            valueParameterSymbols.size == 2 &&
+            resolvedReturnType.isArrayOrPrimitiveArray
 }

@@ -5,6 +5,7 @@ plugins {
     kotlin("jvm")
     id("kotlin-git.gradle-build-conventions.foreign-class-usage-checker")
     id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 kotlin {
@@ -14,13 +15,14 @@ kotlin {
 dependencies {
     compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
+    compileOnly(project(":core:language.model"))
+    compileOnly(project(":core:language.targets"))
+    compileOnly(project(":core:language.version-settings"))
     compileOnly(project(":compiler:psi:psi-api"))
-    implementation(project(":compiler:backend"))
     compileOnly(project(":core:compiler.common"))
     compileOnly(project(":core:compiler.common.jvm"))
     compileOnly(project(":core:compiler.common.js"))
-    implementation(project(":analysis:analysis-internal-utils"))
-    implementation(project(":analysis:kt-references"))
+    implementation(kotlinxCollectionsImmutable())
 
     api(intellijCore())
     api(libs.intellij.asm)
@@ -33,12 +35,16 @@ dependencies {
 
     testImplementation(testFixtures(project(":compiler:psi:psi-api")))
     testImplementation(testFixtures(project(":compiler:tests-common")))
+    testImplementation(project(":analysis:analysis-internal-utils"))
 }
 
-private val stableNonPublicMarkers = listOf(
+private val unstableNonPublicMarkers = listOf(
     "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
     "org.jetbrains.kotlin.analysis.api.KaNonPublicApi",
     "org.jetbrains.kotlin.analysis.api.KaIdeApi",
+)
+
+private val stableNonPublicMarkers = unstableNonPublicMarkers + listOf(
     "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
     "org.jetbrains.kotlin.analysis.api.KaPlatformInterface", // Platform interface is not stable yet
     "org.jetbrains.kotlin.analysis.api.KaContextParameterApi",
@@ -49,31 +55,27 @@ kotlin {
 
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
-        enabled.set(true)
-
         filters {
             exclude.annotatedWith.addAll(stableNonPublicMarkers)
         }
     }
 }
 
-
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" { none() }
 }
 
-testsJar()
-
 projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5) {
-        workingDir = rootDir
-    }
-
-    withJvmStdlibAndReflect()
+    testCodebaseTask()
 }
 
 val checkForeignClassUsage by tasks.registering(CheckForeignClassUsageTask::class) {
     outputFile = file("api/analysis-api.foreign")
     nonPublicMarkers.addAll(stableNonPublicMarkers)
+}
+
+val checkForeignClassUsageUnstable by tasks.registering(CheckForeignClassUsageTask::class) {
+    outputFile = file("api-unstable/analysis-api.foreign")
+    nonPublicMarkers.addAll(unstableNonPublicMarkers)
 }

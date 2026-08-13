@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.analysis.api.types.KaUsualClassType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.sir.*
+import org.jetbrains.kotlin.sir.providers.impl.BridgeProvider.BidirectionalBridge
 import org.jetbrains.kotlin.sir.providers.impl.BridgeProvider.Bridge
 import org.jetbrains.kotlin.sir.providers.impl.BridgeProvider.BridgeFunctionProxy
 import org.jetbrains.kotlin.sir.providers.impl.SirTypeProviderImpl.TypeTranslationCtx
@@ -130,7 +131,9 @@ public interface SirSession :
         explicitParameters: List<SirParameter>,
         returnType: SirType,
         kotlinFqName: FqName,
+        kotlinOptIns: List<ClassId>,
         selfParameter: SirParameter?,
+        contextParameters: List<SirParameter>,
         extensionReceiverParameter: SirParameter?,
         errorParameter: SirParameter?,
         isAsync: Boolean,
@@ -140,7 +143,9 @@ public interface SirSession :
             explicitParameters,
             returnType,
             kotlinFqName,
+            kotlinOptIns,
             selfParameter,
+            contextParameters,
             extensionReceiverParameter,
             errorParameter,
             isAsync,
@@ -149,10 +154,11 @@ public interface SirSession :
 
     override fun generateTypeBridge(
         kotlinFqName: FqName?,
+        kotlinOptIns: List<ClassId>,
         swiftFqName: String,
         swiftSymbolName: String,
     ): SirTypeBindingBridge? = with(bridgeProvider) {
-        generateTypeBridge(kotlinFqName, swiftFqName, swiftSymbolName)
+        generateTypeBridge(kotlinFqName, kotlinOptIns, swiftFqName, swiftSymbolName)
     }
 }
 
@@ -246,6 +252,7 @@ public sealed interface SirTranslationResult {
         public val declaration: SirProtocol,
         public val bridgedImplementation: SirExtension?,
         public val markerDeclaration: SirProtocol,
+        public val penBoxMarkerConformance: SirExtension,
         public val existentialExtension: SirExtension,
         public val auxExtension: SirExtension,
         public val samConverter: SirDeclaration?,
@@ -256,6 +263,7 @@ public sealed interface SirTranslationResult {
                 declaration,
                 bridgedImplementation,
                 markerDeclaration,
+                penBoxMarkerConformance,
                 existentialExtension,
                 auxExtension,
                 samConverter,
@@ -409,7 +417,7 @@ public interface SirCustomTypeTranslator {
 
     public fun SirNominalType.toBridge(): BridgeWrapper?
 
-    public class BridgeWrapper internal constructor(internal val bridge: Bridge)
+    public class BridgeWrapper internal constructor(internal val bridge: BidirectionalBridge)
 }
 
 /**
@@ -421,7 +429,9 @@ public interface SirBridgeProvider {
         explicitParameters: List<SirParameter>,
         returnType: SirType,
         kotlinFqName: FqName,
+        kotlinOptIns: List<ClassId>,
         selfParameter: SirParameter?,
+        contextParameters: List<SirParameter>,
         extensionReceiverParameter: SirParameter?,
         errorParameter: SirParameter?,
         isAsync: Boolean,
@@ -429,6 +439,7 @@ public interface SirBridgeProvider {
 
     public fun generateTypeBridge(
         kotlinFqName: FqName?,
+        kotlinOptIns: List<ClassId>,
         swiftFqName: String,
         swiftSymbolName: String,
     ): SirTypeBindingBridge?
@@ -440,7 +451,9 @@ public fun generateFunctionBridge(
     explicitParameters: List<SirParameter>,
     returnType: SirType,
     kotlinFqName: FqName,
+    kotlinOptIns: List<ClassId>,
     selfParameter: SirParameter?,
+    contextParameters: List<SirParameter>,
     extensionReceiverParameter: SirParameter?,
     errorParameter: SirParameter?,
     isAsync: Boolean,
@@ -450,7 +463,9 @@ public fun generateFunctionBridge(
         explicitParameters,
         returnType,
         kotlinFqName,
+        kotlinOptIns,
         selfParameter,
+        contextParameters,
         extensionReceiverParameter,
         errorParameter,
         isAsync,

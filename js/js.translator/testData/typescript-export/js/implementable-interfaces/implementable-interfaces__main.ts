@@ -21,6 +21,22 @@ import callingDelegatingToSuperDefaultImplementation = JS_TESTS.foo.callingDeleg
 import FunIFace = JS_TESTS.foo.FunIFace;
 import makeFunInterfaceWithSam = JS_TESTS.foo.makeFunInterfaceWithSam;
 import callFunInterface = JS_TESTS.foo.callFunInterface;
+import NoRuntimeIface = JS_TESTS.foo.NoRuntimeIface;
+import ChildOfNoRuntime = JS_TESTS.foo.ChildOfNoRuntime;
+import KotlinNoRuntimeImpl = JS_TESTS.foo.KotlinNoRuntimeImpl;
+import KotlinChildNoRuntimeImpl = JS_TESTS.foo.KotlinChildNoRuntimeImpl;
+import NoRuntimeFunIface = JS_TESTS.foo.NoRuntimeFunIface;
+import callNoRuntimeFunInterface = JS_TESTS.foo.callNoRuntimeFunInterface;
+import makeNoRuntimeFunInterfaceWithSam = JS_TESTS.foo.makeNoRuntimeFunInterfaceWithSam;
+import TypeScriptDefaultSuspend = JS_TESTS.foo.TypeScriptDefaultSuspend;
+import callTypeScriptDefaultSuspend = JS_TESTS.foo.callTypeScriptDefaultSuspend;
+import TsSuspendDispatch = JS_TESTS.foo.TsSuspendDispatch;
+import callTsAbstractSuspend = JS_TESTS.foo.callTsAbstractSuspend;
+import Listener = JS_TESTS.foo.Listener;
+import beginWork = JS_TESTS.foo.beginWork;
+import ShouldBeNotImplementableWithIgnoredProperty = JS_TESTS.foo.ShouldBeNotImplementableWithIgnoredProperty;
+import ShouldBeNotImplementableWithIgnoredFun = JS_TESTS.foo.ShouldBeNotImplementableWithIgnoredFun;
+import ShouldBeNotImplementableWithIgnoredSuspend = JS_TESTS.foo.ShouldBeNotImplementableWithIgnoredSuspend;
 
 class TsFooImpl implements IFoo<string> {
     readonly [IFoo.Symbol] = true
@@ -97,6 +113,18 @@ class TsFooImpl implements IFoo<string> {
     delegatingToSuperDefaultImplementation(): string {
         return IFoo.DefaultImpls.delegatingToSuperDefaultImplementation(this)
     }
+
+    getT(): string {
+        return "TYPESCRIPT IMPLEMENTATION"
+    }
+
+    getTWithDefaultImpl(): string {
+        return IFoo.DefaultImpls.getTWithDefaultImpl(this)
+    }
+
+    setTWithDefaultImpl(value: string) {
+        IFoo.DefaultImpls.setTWithDefaultImpl(this, value)
+    }
 }
 
 class TsFunImpl implements FunIFace {
@@ -105,6 +133,47 @@ class TsFunImpl implements FunIFace {
     apply(x: string): string {
         return `TS ${x}`
     }
+}
+
+class TsNoRuntimeFunImpl implements NoRuntimeFunIface {
+    run(): Array<string> {
+        return ["SAM from TypeScript"];
+    }
+}
+
+// TypeScript-side implementations for @JsNoRuntime interfaces
+class TsNoRuntimeImpl implements NoRuntimeIface {
+    constructor(public readonly a: string) {}
+}
+
+class TsChildNoRuntimeImpl implements ChildOfNoRuntime {
+    constructor(public readonly a: string) {}
+    child(): string { return `child-${this.a}` }
+}
+
+class TypeScriptDefaultSuspendImpl implements TypeScriptDefaultSuspend {
+    readonly [TypeScriptDefaultSuspend.Symbol] = true
+
+    marker(): string {
+        return "TYPESCRIPT"
+    }
+
+    suspendDefault(): Promise<string> {
+        return TypeScriptDefaultSuspend.DefaultImpls.suspendDefault(this)
+    }
+}
+
+class TypeScriptSuspendDispatchImpl implements TsSuspendDispatch {
+    readonly [TsSuspendDispatch.Symbol] = true
+
+    async abstractSuspend(): Promise<string> {
+        return "ABSTRACT TYPESCRIPT"
+    }
+}
+
+class TsListener implements Listener {
+    constructor(public readonly id: string) {}
+    onStart(): string { return "started" }
 }
 
 async function testFoo(foo: IFoo<string>, languageImplemented: string): Promise<string> {
@@ -239,6 +308,9 @@ async function testFoo(foo: IFoo<string>, languageImplemented: string): Promise<
     result = foo.getDefaultGetterAndSetterWithJsName()
     if (result !== "KOTLIN IMPLEMENTATION OK") return "Fail: just calling getGetterAndSetterWithJsName returns unexpected result: " + result
 
+    result = foo.getTWithDefaultImpl()
+    if (result !== `${languageImplemented} IMPLEMENTATION`) return "Fail: just calling getTWithDefaultImpl returns unexpected result: " + result
+
     return "OK"
 }
 
@@ -250,6 +322,18 @@ function testFunInterface(f: FunIFace, expectedPrefix: string): string {
 
     result = callFunInterface(f, "OK")
     if (result !== `${expectedPrefix} OK`) return "Fail: calling callFunInterface with f returns unexpected result: " + result
+
+    return "OK"
+}
+
+function testNoRuntimeFunInterface(f: NoRuntimeFunIface, expectedSuffix: string): string {
+    let result: any
+
+    result = f.run()[0]
+    if (result !== `SAM from ${expectedSuffix}`) return "Fail: calling f.run returns unexpected result: " + result
+
+    result = callNoRuntimeFunInterface(f)[0]
+    if (result !== `SAM from ${expectedSuffix}`) return "Fail: calling callFunInterface with f returns unexpected result: " + result
 
     return "OK"
 }
@@ -266,6 +350,56 @@ async function box(): Promise<string> {
 
     funResult = testFunInterface(new TsFunImpl(), "TS")
     if (funResult !== "OK") return funResult
+
+    let noRuntimeFunResult = testNoRuntimeFunInterface(makeNoRuntimeFunInterfaceWithSam(), "Kotlin")
+    if (noRuntimeFunResult !== "OK") return noRuntimeFunResult
+
+    noRuntimeFunResult = testNoRuntimeFunInterface(new TsNoRuntimeFunImpl(), "TypeScript")
+    if (noRuntimeFunResult !== "OK") return noRuntimeFunResult
+
+    const tsNR: NoRuntimeIface = new TsNoRuntimeImpl("X")
+    if (tsNR.a !== "X") return "Fail: TsNoRuntimeImpl.a is wrong: " + tsNR.a
+
+    const tsChildNR: ChildOfNoRuntime = new TsChildNoRuntimeImpl("Y")
+    if (tsChildNR.child() !== "child-Y") return "Fail: TsChildNoRuntimeImpl.child() is wrong: " + tsChildNR.child()
+
+    const ktNR: NoRuntimeIface = new KotlinNoRuntimeImpl("K")
+    if (ktNR.a !== "K") return "Fail: KotlinNoRuntimeImpl.a is wrong: "+ ktNR.a
+
+    const ktChildNR: ChildOfNoRuntime = new KotlinChildNoRuntimeImpl("Z")
+    if (ktChildNR.child() !== "child-Z") return "Fail: KotlinChildNoRuntimeImpl.child() is wrong: " + ktChildNR.child()
+
+    const typeScriptDefaultSuspend: TypeScriptDefaultSuspend = new TypeScriptDefaultSuspendImpl()
+    if (await typeScriptDefaultSuspend.suspendDefault() !== "DEFAULT TYPESCRIPT") {
+        return "Fail: TypeScriptDefaultSuspend.suspendDefault returns unexpected result"
+    }
+    if (await callTypeScriptDefaultSuspend(typeScriptDefaultSuspend) !== "DEFAULT TYPESCRIPT") {
+        return "Fail: callTypeScriptDefaultSuspend returns unexpected result"
+    }
+
+    const typeScriptSuspendDispatch: TsSuspendDispatch = new TypeScriptSuspendDispatchImpl()
+    if (await typeScriptSuspendDispatch.abstractSuspend() !== "ABSTRACT TYPESCRIPT") {
+        return "Fail: TsSuspendDispatch.abstractSuspend returns unexpected result"
+    }
+    if (await callTsAbstractSuspend(typeScriptSuspendDispatch) !== "ABSTRACT TYPESCRIPT") {
+        return "Fail: callTsAbstractSuspend returns unexpected result"
+    }
+
+    const tsListener: Listener = new TsListener("ts")
+    const beginWorkResult = beginWork(tsListener)
+    if (beginWorkResult !== "ts:started") return "Fail: beginWork with TypeScript Listener returns unexpected result: " + beginWorkResult
+
+    // @ts-expect-error "@JsExport.Ignore property should keep the interface not implementable from TypeScript"
+    const notImplementableWithIgnoredProperty: ShouldBeNotImplementableWithIgnoredProperty = { leaf: () => "leaf" }
+    void notImplementableWithIgnoredProperty
+
+    // @ts-expect-error "@JsExport.Ignore function should keep the interface not implementable from TypeScript"
+    const notImplementableWithIgnoredFun: ShouldBeNotImplementableWithIgnoredFun = { leaf: () => "leaf" }
+    void notImplementableWithIgnoredFun
+
+    // @ts-expect-error "@JsExport.Ignore suspend function should keep the interface not implementable from TypeScript"
+    const notImplementableWithIgnoredSuspend: ShouldBeNotImplementableWithIgnoredSuspend = { leaf: () => "leaf" }
+    void notImplementableWithIgnoredSuspend
 
     return "OK"
 }

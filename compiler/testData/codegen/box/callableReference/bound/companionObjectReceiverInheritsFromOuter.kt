@@ -1,5 +1,4 @@
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 // SKIP_NODE_JS
 // NO_CHECK_LAMBDA_INLINING
 // FILE: lib.kt

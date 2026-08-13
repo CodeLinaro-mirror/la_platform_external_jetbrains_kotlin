@@ -1,2 +1,7 @@
 KtNameReferenceExpression(116,118): 'TA'
-  null
+  isImplicitReferenceToCompanion: true
+  contextSensitiveResolutionStatus: NotAvailable
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /TA
+    ]

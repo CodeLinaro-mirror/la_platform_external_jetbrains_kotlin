@@ -43,7 +43,7 @@ abstract class KotlinNativeTarget @Inject constructor(
      * Indicates whether cross-compilation is supported on the current host for the associated Kotlin Native Target.
      */
     internal val crossCompilationOnCurrentHostSupported: Future<Boolean> = project.future {
-        if (HostManager.hostOrNull == null) return@future false
+        if (!HostManager.hostIsSupported) return@future false
         val crossCompilationEnabled = project.kotlinPropertiesProvider.enableKlibsCrossCompilation
         val isSupportedHost = hostManager.isEnabled(konanTarget)
 
@@ -115,7 +115,7 @@ abstract class KotlinNativeTarget @Inject constructor(
         .newInstance<KotlinNativeCompilerOptionsDefault>()
         .apply {
             moduleName.convention(
-                project.klibModuleName(
+                project.moduleName(
                     project.baseModuleName()
                 )
             )
@@ -133,14 +133,6 @@ abstract class KotlinNativeTarget @Inject constructor(
     companion object {
         val konanTargetAttribute = Attribute.of(
             "org.jetbrains.kotlin.native.target",
-            String::class.java
-        )
-        val kotlinNativeBuildTypeAttribute = Attribute.of(
-            "org.jetbrains.kotlin.native.build.type",
-            String::class.java
-        )
-        val kotlinNativeFrameworkNameAttribute = Attribute.of(
-            "org.jetbrains.kotlin.native.framework.name",
             String::class.java
         )
     }
